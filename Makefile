@@ -1,4 +1,4 @@
-.PHONY: help install test api web demo build up seed-docker down logs
+.PHONY: help install test api web dev demo build up up-demo seed-docker down logs
 
 VENV ?= .venv
 PY   := $(VENV)/bin/python
@@ -14,6 +14,9 @@ install: ## create venv, install api + sdk (editable) and web deps
 test: ## run backend + SDK test suites
 	$(PY) -m pytest apps/api/tests packages/sdk-python/tests -q
 
+dev: ## one command: collector + seed-if-empty + dashboard (:5173)
+	bash scripts/dev.sh
+
 api: ## run the collector on :8000 (SQLite, hot reload)
 	cd apps/api && ../../$(VENV)/bin/python -m uvicorn app.main:app --reload --port 8000
 
@@ -28,6 +31,11 @@ build: ## production build of the dashboard
 
 up: ## full stack via docker compose (postgres + api + web on :3000)
 	docker compose up --build -d
+
+up-demo: ## one command: docker stack + demo seed, dashboard on :3000
+	docker compose up --build -d
+	docker compose --profile demo run --rm seed
+	@echo "AgentLab is up → http://localhost:3000"
 
 seed-docker: ## seed demo runs inside docker
 	docker compose --profile demo run --rm seed

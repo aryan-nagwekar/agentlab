@@ -1,0 +1,12 @@
+# Root build context is used by the seed image (examples/basic_multi_agent/Dockerfile).
+.git
+.venv
+**/node_modules
+**/__pycache__
+**/*.egg-info
+apps/web/dist
+*.db
+.env
+docs
+.github
+.claude

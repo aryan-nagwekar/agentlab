@@ -11,6 +11,8 @@ analysis on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
+<img src="docs/screenshots/topology-retry.png" alt="Live agent topology with the security reviewer selected: trust/risk meters, per-node stats, recent activity" width="100%" />
+
 </div>
 
 ---
@@ -66,24 +68,24 @@ design is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Quickstart
 
-### Option A — Docker Compose (PostgreSQL + API + dashboard)
+### Option A — Docker, one command (PostgreSQL + API + dashboard)
 
 ```bash
-git clone <this-repo> && cd agentlab
-docker compose up --build -d          # api :8000, dashboard :3000
-docker compose --profile demo run --rm seed   # seed 3 demo runs
+make up-demo     # builds + starts the stack, seeds 3 demo runs
 open http://localhost:3000
 ```
 
-### Option B — bare metal (SQLite, no services)
+(Equivalent to `docker compose up --build -d && docker compose --profile demo run --rm seed`.)
+
+### Option B — bare metal, one command (SQLite, no services)
 
 ```bash
-make install     # venv + editable installs + npm install
-make api         # terminal 1 — collector on :8000
-make web         # terminal 2 — dashboard on :5173
-make demo        # terminal 3 — seed the demo pipeline
+make install     # once: venv + editable installs + npm install
+make dev         # collector :8000 + demo seed (first boot) + dashboard :5173
 open http://localhost:5173
 ```
+
+Prefer separate terminals? `make api`, `make web`, and `make demo` still exist.
 
 ### Option C — just the tests
 
@@ -146,8 +148,17 @@ buffers through collector outages, and becomes a no-op with
 3. **failure** — the security reviewer crashes: run fails, the node turns red,
    its trust score drops to 0.42 — visible in the graph and the agent page.
 
-Screenshots to add after you run it locally (`docs/screenshots/`):
-`dashboard.png` · `topology-retry.png` · `inspector-message.png` · `metrics.png`
+| Fleet dashboard | Message inspector |
+| --- | --- |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Message inspector with payload tree and parent event link](docs/screenshots/inspector-message.png) |
+
+| Run metrics | |
+| --- | --- |
+| ![Metrics: stat cards, highlights, per-agent charts](docs/screenshots/metrics.png) | |
+
+Screenshots are generated, not hand-made: `cd apps/web && npm run screenshots`
+(Playwright, against the running stack — it also asserts the WebSocket stream
+connects).
 
 ## Repository layout
 
@@ -165,6 +176,31 @@ agentlab/
 ├── PRODUCT_SPEC.md · ARCHITECTURE.md · ROADMAP.md
 └── Makefile                  # install / test / api / web / demo / up
 ```
+
+## Known limitations (v0.1)
+
+Stated plainly so nobody discovers them the hard way:
+
+- **Observability, not orchestration.** AgentLab records and explains agent
+  behavior; it does not run, modify, or control your agents.
+- **Single-node collector.** WebSocket fan-out is in-process; run one API
+  replica. A Redis pub/sub layer is the planned path to horizontal scale.
+- **Auth covers the write path only.** `AGENTLAB_API_KEYS` gates `POST
+  /api/events`; the read API and dashboard are open, intended for local/
+  trusted-network use until team auth lands (v0.5).
+- **Trust/risk fallback semantics.** A run's topology shows trust/risk as of
+  that run when the run contains `trust.updated`/`risk.updated` events;
+  otherwise it falls back to the agent's *current* project-wide score.
+- **Timestamps trust the SDK clock.** Events from multiple hosts with skewed
+  clocks can interleave imperfectly; per-client `metadata._seq` is a
+  tiebreaker, but there is no global logical clock.
+- **Schema management is `create_all`.** Fine pre-1.0 with no migrations to
+  preserve; Alembic arrives with the first schema change (v0.4). No retention
+  policies yet — the event log grows until you prune it.
+- **Demo telemetry is simulated.** The example pipeline's model calls, token
+  counts, and costs are illustrative metadata, not real LLM usage.
+- **Bundle size.** The dashboard ships ~800 KB minified (React Flow +
+  Recharts); route-level code-splitting is deferred.
 
 ## Roadmap (abridged — see [ROADMAP.md](ROADMAP.md))
 
