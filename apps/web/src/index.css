@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Surface scale (dark-first infra look) */
+  --color-surface-0: #09090b;
+  --color-surface-1: #0e0e11;
+  --color-surface-2: #131318;
+  --color-surface-3: #1a1a21;
+  --color-edge: #232329;
+  --color-edge-strong: #2e2e38;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-0 text-zinc-300 antialiased;
+  font-feature-settings: "tnum", "cv03";
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+/* Thin dark scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e38 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2e2e38;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- React Flow dark theme overrides ---- */
+.react-flow {
+  background: transparent;
+}
+.react-flow__attribution {
+  background: transparent;
+  color: #3f3f46;
+}
+.react-flow__attribution a {
+  color: #52525b;
+}
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--color-edge);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-edge);
+  color: #a1a1aa;
+  width: 28px;
+  height: 28px;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-surface-3);
+  color: #e4e4e7;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+.react-flow__edge.animated path.react-flow__edge-path {
+  stroke-dasharray: 6;
+  animation: dashdraw 0.6s linear infinite;
+}
+.react-flow__minimap {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-edge);
+  border-radius: 10px;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 12;
+  }
+}
+
+/* Pulsing live dot */
+@keyframes livepulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0);
+  }
+}
+.live-dot {
+  animation: livepulse 1.6s ease-in-out infinite;
+}

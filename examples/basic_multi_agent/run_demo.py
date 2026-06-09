@@ -192,7 +192,7 @@ class Pipeline:
     # ---------------------------------------------------------- scenario
 
     def execute(self, scenario: str) -> str:
-        run_name = f"{scenario}: {GOAL[:48].rstrip('.')}"
+        run_name = f"{scenario} · REST endpoint + security review"
         with self.client.run(name=run_name, metadata={"scenario": scenario}) as run:
             try:
                 self.planner(GOAL, scenario)
