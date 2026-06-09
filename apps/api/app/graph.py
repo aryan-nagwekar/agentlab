@@ -28,12 +28,39 @@ def build_run_graph(session: Session, run: models.Run) -> RunGraphOut:
     agent_latencies: dict[str, list[float]] = defaultdict(list)
     tokens: dict[str, int] = defaultdict(int)
     costs: dict[str, float] = defaultdict(float)
+    # Run-scoped state: a node on this run's topology reflects what happened
+    # *in this run* (last lifecycle/trust event wins; rows are time-ordered),
+    # falling back to the agent's current project-wide state.
+    status_in_run: dict[str, str] = {}
+    trust_in_run: dict[str, float] = {}
+    risk_in_run: dict[str, float] = {}
 
     for etype, src, tgt, payload in rows:
         payload = payload or {}
         for agent_id in (src, tgt):
             if agent_id:
                 participants.add(agent_id)
+        if src:
+            if etype == "agent.started":
+                status_in_run[src] = "running"
+            elif etype == "agent.completed":
+                status_in_run[src] = "idle"
+            elif etype == "agent.failed":
+                status_in_run[src] = "failed"
+            elif etype == "agent.quarantined":
+                status_in_run[src] = "quarantined"
+            elif etype == "agent.heartbeat" and payload.get("status"):
+                status_in_run[src] = str(payload["status"])
+            elif etype == "trust.updated" and payload.get("trust_score") is not None:
+                try:
+                    trust_in_run[src] = float(payload["trust_score"])
+                except (TypeError, ValueError):
+                    pass
+            elif etype == "risk.updated" and payload.get("risk_score") is not None:
+                try:
+                    risk_in_run[src] = float(payload["risk_score"])
+                except (TypeError, ValueError):
+                    pass
         if etype in FAILURE_EVENT_TYPES and src:
             errors[src] += 1
         if (
@@ -110,9 +137,9 @@ def build_run_graph(session: Session, run: models.Run) -> RunGraphOut:
                 id=agent_id,
                 name=agent.name if agent else agent_id,
                 role=agent.role if agent else None,
-                status=agent.status if agent else "unknown",
-                trust_score=agent.trust_score if agent else 1.0,
-                risk_score=agent.risk_score if agent else 0.0,
+                status=status_in_run.get(agent_id, agent.status if agent else "unknown"),
+                trust_score=trust_in_run.get(agent_id, agent.trust_score if agent else 1.0),
+                risk_score=risk_in_run.get(agent_id, agent.risk_score if agent else 0.0),
                 messages_in=messages_in.get(agent_id, 0),
                 messages_out=messages_out.get(agent_id, 0),
                 tool_calls=tool_counts.get(agent_id, 0),
