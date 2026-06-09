@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage*
+
+# Node
+node_modules/
+apps/web/dist/
+*.tsbuildinfo
+
+# Local databases / runtime artifacts
+*.db
+*.sqlite3
+agentlab.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
