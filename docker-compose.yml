@@ -1,0 +1,54 @@
+name: agentlab
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentlab
+      POSTGRES_PASSWORD: agentlab
+      POSTGRES_DB: agentlab
+    volumes:
+      - agentlab-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentlab -d agentlab"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./apps/api
+    environment:
+      AGENTLAB_DATABASE_URL: postgresql+psycopg://agentlab:agentlab@db:5432/agentlab
+      AGENTLAB_API_KEYS: ${AGENTLAB_API_KEYS:-}
+      AGENTLAB_CORS_ORIGINS: ${AGENTLAB_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./apps/web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  # Seeds three demo runs (success / retry / failure). Opt-in:
+  #   docker compose --profile demo run --rm seed
+  seed:
+    build:
+      context: .
+      dockerfile: examples/basic_multi_agent/Dockerfile
+    environment:
+      AGENTLAB_ENDPOINT: http://api:8000
+      AGENTLAB_API_KEY: ${AGENTLAB_API_KEY:-dev-key}
+      AGENTLAB_PROJECT: ${AGENTLAB_PROJECT:-demo-project}
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles:
+      - demo
+
+volumes:
+  agentlab-db:
