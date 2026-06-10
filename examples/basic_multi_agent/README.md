@@ -19,6 +19,7 @@ are simulated, but every event flowing to AgentLab is real.
 | `retry`   | A `web.search` tool call times out and is retried; security review finds an issue and bounces a fix back to the coder (back-edge in the topology) |
 | `failure` | The security reviewer crashes → `agent.failed` → `run.failed`, trust drops    |
 | `fault`   | **Fault Injection Demo — Research Agent Timeout**: Lab Mode injects a simulated model timeout (`fault.injected` → `model.failed` → `agent.failed` → `run.failed`); jump to it with the Fault marker in Replay |
+| `malicious` | **Malicious Agent Demo — Prompt Injection Attempt**: a simulated malicious agent joins, fakes capabilities, sends a prompt injection, attempts mock exfiltration, then is flagged and quarantined (`attack.injected` → `message.flagged` → `agent.quarantined`); jump to it with the Attack marker in Replay. All mock data. |
 
 ## Run it
 

@@ -7,8 +7,8 @@
 A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
 run metrics, a replay debugger that steps through any run like a packet
-capture, and a fault-injection lab for chaos-testing agent systems — with
-malicious-agent simulation and trust-aware routing analysis on the roadmap.
+capture, a fault-injection lab for chaos-testing, and a safe cyber range for
+simulating malicious agents — with trust-aware routing analysis on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -33,7 +33,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.3)
+## What works today (v0.4)
 
 | Capability | Status |
 | --- | --- |
@@ -47,7 +47,8 @@ inspect, and (soon) replay.
 | Demo workflow — 5-agent pipeline (success / retry / failure scenarios), no LLM keys needed | ✅ |
 | Replay debugger — play/pause/step/scrub any run; jump to next error, tool call, routing decision, or fault; topology and inspector reconstruct at every cursor position | ✅ |
 | Fault injection lab — kill / overload / tool failure / model timeout / message delay / message drop, injected from the UI; graph reacts live, every fault is replayable, all simulated | ✅ |
-| Malicious-agent simulation + trust scoring engine + quarantine | 🔜 v0.4 |
+| Security Lab — 8 simulated malicious-agent attacks (prompt injection, mock exfiltration, fake capabilities, spam, trust poisoning, routing manipulation, unsafe tool request, rogue join); suspicious/quarantine markers, flagged edges, attack replay markers — all mock data, nothing real touched | ✅ |
+| Trust/risk scoring engine + automatic quarantine + routing analysis | 🔜 v0.5 |
 
 ## Architecture
 
@@ -158,10 +159,21 @@ buffers through collector outages, and becomes a no-op with
    a tool failure, drop messages on a channel — the status strip and topology
    react live, and the **Fault** marker in Replay takes you straight to the
    moment of injection.
+6. **attack it (safely)** — the seeded **Malicious Agent Demo — Prompt
+   Injection Attempt** run shows a fake agent joining, lying about its
+   capabilities, sending a prompt-injection message, attempting mock secret
+   exfiltration, and getting flagged and quarantined. Open its **Replay** tab
+   and hit the **Attack** marker to inspect the raw (mock) attack payload. Or
+   open **Lab → Security Lab** and launch your own attacks — every payload is a
+   `MOCK_*` placeholder; nothing real is read, sent, or executed.
 
 ![Replay debugger: scrubber with markers, reconstructed topology at the failure, inspector following the playhead](docs/screenshots/replay-debugger.png)
 
 ![Fault Injection Lab: six simulated fault types with live agent status strip](docs/screenshots/lab-mode.png)
+
+![Security Lab: eight simulated malicious-agent attacks with mock payloads](docs/screenshots/security-lab.png)
+
+![Replay paused on a simulated attack with the malicious agent suspicious and the raw payload inspected](docs/screenshots/malicious-replay.png)
 
 | Fleet dashboard | Message inspector |
 | --- | --- |
@@ -192,7 +204,36 @@ agentlab/
 └── Makefile                  # install / test / api / web / demo / up
 ```
 
-## Known limitations (v0.1)
+## Security Lab safety
+
+The Security Lab is a **safe cyber range**. Every "attack" is a telemetry
+simulation that emits an `attack.injected` event plus mock follow-up events
+through the normal pipeline. There is **no real attack behavior anywhere**:
+
+- ✅ Mock secrets only — hardcoded `MOCK_SECRET_TOKEN`, `MOCK_API_KEY_12345`, etc.
+- ✅ Every attack payload is tagged `safe_simulation: true`, and event metadata
+  asserts `real_secrets_accessed: false` and `real_network_access: false`.
+- ❌ No real files or environment variables are read.
+- ❌ No network requests are made to external hosts.
+- ❌ No shell commands, no file deletion, no real system modification.
+- ❌ No malware, exploit, or credential-theft code exists in this repo.
+
+The malicious agent is a *simulated participant* (it shows up as a node); the
+`lab-controller` that triggers an attack is excluded from the topology.
+
+### Demo script
+
+```text
+make dev
+open the dashboard → Malicious Agent Demo — Prompt Injection Attempt
+go to the Replay tab → click the Attack marker
+inspect the prompt-injection payload (all MOCK_ values)
+open Lab → Security Lab
+inject a Mock secret exfiltration attempt
+watch the graph: malicious-agent turns suspicious → quarantined
+```
+
+## Known limitations (v0.1–v0.4)
 
 Stated plainly so nobody discovers them the hard way:
 
@@ -202,7 +243,7 @@ Stated plainly so nobody discovers them the hard way:
   replica. A Redis pub/sub layer is the planned path to horizontal scale.
 - **Auth covers the write path only.** `AGENTLAB_API_KEYS` gates `POST
   /api/events`; the read API and dashboard are open, intended for local/
-  trusted-network use until team auth lands (v0.6).
+  trusted-network use until team auth lands (v0.7).
 - **Trust/risk fallback semantics.** A run's topology shows trust/risk as of
   that run when the run contains `trust.updated`/`risk.updated` events;
   otherwise it falls back to the agent's *current* project-wide score.
@@ -214,12 +255,19 @@ Stated plainly so nobody discovers them the hard way:
   policies yet — the event log grows until you prune it.
 - **Demo telemetry is simulated.** The example pipeline's model calls, token
   counts, and costs are illustrative metadata, not real LLM usage.
-- **Faults are telemetry simulations.** Lab Mode emits events *as if* the
-  failure happened — it does not intercept or control live agent traffic. A
-  "killed" agent's real process keeps running; delay/drop faults synthesize a
-  demonstration message on the channel rather than touching in-flight
-  messages. An SDK control-plane hook (real chaos against the demo workflow)
-  is future work.
+- **Faults and attacks are telemetry simulations.** The Lab emits events *as if*
+  the failure or attack happened — it does not intercept or control live agent
+  traffic. A "killed" agent's real process keeps running; delay/drop faults and
+  attack messages synthesize demonstration events rather than touching in-flight
+  traffic. An SDK control-plane hook (real chaos against the demo workflow) is
+  future work.
+- **Quarantine is a visualization marker, not enforcement.** `agent.quarantined`
+  paints the node and is recorded in the timeline/replay; it does not actually
+  stop or isolate a running agent (real lifecycle control is out of scope until
+  a later milestone).
+- **Risk scores are simple and event-derived.** v0.4 sets risk from attack
+  severity; there is no trust/risk *engine* yet (automatic thresholds,
+  decay, routing impact) — that is v0.5.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
@@ -233,9 +281,10 @@ Stated plainly so nobody discovers them the hard way:
 - **v0.1 — local observability** ✅ instrument → collect → visualize → inspect
 - **v0.2 — replay debugger** ✅ step through any run like a packet capture; jump to error/tool/routing
 - **v0.3 — fault injection lab** ✅ six simulated fault types, injectable from the UI, replayable
-- **v0.4 — malicious-agent simulation**: sandboxed attack scenarios, trust engine, quarantine flows
-- **v0.5 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
-- **v0.6 — teams**: project auth, retention, multi-user
+- **v0.4 — malicious-agent simulation** ✅ eight sandboxed attack scenarios, suspicious/quarantine markers, attack replay
+- **v0.5 — trust/risk engine**: event-driven scoring, automatic quarantine thresholds, routing analysis
+- **v0.6 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
+- **v0.7 — teams**: project auth, retention, multi-user
 - **v1.0 — hosted platform**
 
 ## License

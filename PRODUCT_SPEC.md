@@ -84,13 +84,18 @@ a team already uses.
     `fault.injected` + realistic follow-up telemetry; the graph reacts live,
     every fault is replayable, all simulation-only.
 
+### Shipped in v0.4
+11. **Security Lab — malicious-agent simulation** — eight sandboxed,
+    mock-data-only attack types (rogue join, fake capability advertising,
+    prompt injection, mock exfiltration, spam, trust poisoning, routing
+    manipulation, unsafe tool request) injected from the UI as
+    `attack.injected` + mock follow-ups; suspicious/quarantine node states,
+    flagged edges, and attack replay markers. No real secrets, files, systems,
+    or networks are touched.
+
 ### Next (gated, in order)
-11. **Malicious-agent simulation (v0.4)** — sandboxed, mock-data-only
-    scenarios: prompt-injection messages, fake capability advertising,
-    simulated exfiltration attempts, trust poisoning, spam. Trust drops,
-    quarantine triggers, routing avoids the agent.
-12. **Trust & routing layer (v0.4)** — event-driven trust scoring with
-    explainable routing decision records.
+12. **Trust & routing engine (v0.5)** — event-driven trust/risk scoring with
+    automatic quarantine thresholds and explainable routing decision records.
 
 ## Non-goals (v1)
 
@@ -112,7 +117,7 @@ Core loop stays: **instrument → collect → visualize → inspect → replay �
 | LangSmith / Langfuse | ✅ deep | ⚠️ trace tree, not network | ⚠️ per-trace | ❌ | ❌ | ❌ |
 | Datadog LLM Obs | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | AgentOps | ✅ | ⚠️ | ⚠️ | ⚠️ session video | ❌ | ❌ |
-| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ shipped (v0.2) | ✅ shipped (v0.3) | ✅ planned core |
+| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ shipped (v0.2) | ✅ shipped (v0.3) | ⚠️ quarantine markers (v0.4); trust engine v0.5 |
 
 AgentLab competes on the **system view**, not on prompt analytics. It can sit
 beside a prompt-tracing tool rather than replacing it.

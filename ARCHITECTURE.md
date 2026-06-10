@@ -67,10 +67,12 @@ agent.{started,completed,failed,heartbeat,quarantined}
 message.{sent,received,failed}
 tool.{called,completed,failed}
 model.{called,completed,failed}
+agent.joined · agent.suspicious         (Security Lab, v0.4)
+message.flagged                         (Security Lab, v0.4)
 routing.decision
 trust.updated · risk.updated
 fault.injected                          (Lab Mode, v0.3)
-attack.injected                         (reserved for v0.4 malicious-agent simulation)
+attack.injected                         (Security Lab, v0.4)
 ```
 
 Unknown types are rejected (422). The registry lives in
@@ -273,12 +275,53 @@ or touches secrets — a "fault" is the *telemetry* of a failure, generated
 deterministically. Intercepting real agent traffic via an SDK control-plane
 hook is explicitly future work.
 
-## Malicious-agent simulation (v0.4 design sketch)
+## Security Lab — malicious-agent simulation (v0.4 — shipped)
 
-Pre-scripted `attack.injected` event sequences over mock data only (prompt
-injection messages, fake capability advertising, mock exfiltration attempts),
-driving the trust engine and `agent.quarantined` flows. No real attacks, no
-real secrets (see Safety in [PRODUCT_SPEC.md](PRODUCT_SPEC.md)).
+Same pattern as fault injection: an attack emits `attack.injected` plus
+mock-only follow-up events. The malicious agent is a real simulated
+participant; the `lab-controller` operator is excluded from the topology.
+
+**Endpoints**
+
+```
+GET  /api/lab/attack-templates    → 8 templates (label, severity, target kind, params, mock_payload)
+POST /api/runs/{id}/attacks       → validate + emit attack & follow-ups (auth-gated, WS broadcast)
+GET  /api/runs/{id}/attacks       → attack history for a run
+```
+
+**Attack → follow-up matrix** (`app/attacks.py`)
+
+| attack_type | follow-up events | visible effect |
+| --- | --- | --- |
+| `malicious_agent_joined` | `agent.joined` + `risk.updated` | new suspicious node appears |
+| `fake_capability_advertising` | `agent.suspicious` + `message.sent`/`flagged` + `risk.updated` | flagged edge, claimed (unverified) capabilities |
+| `prompt_injection_message` | `agent.suspicious` + `message.sent`/`flagged` + `risk.updated` | flagged message with mock injection text |
+| `mock_data_exfiltration_attempt` | `agent.suspicious` + `message.sent`/`flagged` + `risk.updated` + `agent.quarantined` | flagged edge to `attacker-endpoint`, then quarantine |
+| `high_frequency_spam` | `agent.suspicious` + N×`message.sent` + `message.flagged` + `risk.updated` | edge message count spikes |
+| `trust_poisoning` | `agent.suspicious` + `message.sent`/`flagged` + `risk.updated` | flagged fabricated-feedback message |
+| `routing_manipulation` | `agent.suspicious` + `message.sent`/`flagged` + `risk.updated` (`manipulation_attempt: true`) | flagged routing-manipulation message |
+| `unsafe_tool_request` | `agent.suspicious` + `tool.called` + `tool.failed` + `risk.updated` | blocked mock tool request |
+
+**New projections.** `agent.joined` registers a node with a payload status
+(`suspicious` for malicious joins); `agent.suspicious` sets status `suspicious`
+(but never downgrades `quarantined`); `message.flagged` sets the message — and
+therefore the topology edge — to `flagged` (rendered amber). Graph, replay
+fold, and the client reducer all share these semantics (pinned by pytest +
+vitest). Metrics gain `attacks`, `flagged_messages`, and `suspicious_agents`
+counts. Replay marks attack indices in `markers.attacks` (fuchsia dots + an
+Attack jump button).
+
+**Safety (enforced by construction).** Builders only assemble Python dicts of
+`MOCK_*` literals — they never read files/env, open sockets, or run commands.
+Every payload carries `safe_simulation: true`; event metadata carries
+`real_secrets_accessed: false` and `real_network_access: false`.
+
+## Trust/risk engine (v0.5 design sketch)
+
+v0.4 sets risk from attack severity only. v0.5 adds an event-driven engine:
+trust/risk scores that accumulate and decay from outcomes, automatic
+`agent.quarantined` above a threshold, and explainable routing decisions that
+avoid low-trust agents.
 
 ## Testing
 

@@ -44,22 +44,40 @@ Chaos engineering for agent systems — all simulated, telemetry only.
 - Deferred: `corrupt_message` / `increase_latency` variants; an SDK
   control-plane hook so faults can intercept *live* demo traffic
 
-## v0.4 — Malicious-agent simulation + trust engine (pending approval)
+## v0.4 — Malicious-agent simulation ✅
 
-- Sandboxed `attack.injected` scenarios over mock data: prompt-injection
-  message, fake capability advertising, mock data-exfiltration attempt,
-  trust poisoning, spam flood
-- Trust scoring engine: event-driven score updates with reasons
-- Quarantine flow: trust threshold → `agent.quarantined` → topology + routing react
+A safe cyber range — all attacks are mock-only telemetry simulations.
 
-## v0.5 — Framework integrations
+- 8 attack types via `POST /runs/{id}/attacks`: malicious_agent_joined,
+  fake_capability_advertising, prompt_injection_message,
+  mock_data_exfiltration_attempt, high_frequency_spam, trust_poisoning,
+  routing_manipulation, unsafe_tool_request
+- Each attack = `attack.injected` + mock follow-ups (agent.joined/suspicious,
+  flagged messages, risk.updated, quarantine) through the normal pipeline
+- Security Lab UI (Lab → Security Lab): attack cards with mock-payload
+  previews; suspicious/quarantine node states, flagged edges
+- Replay integration: `markers.attacks`, fuchsia scrubber dots, Attack jump
+- Metrics: attacks / flagged-messages / suspicious-agents counts
+- Seeded scenario: "Malicious Agent Demo — Prompt Injection Attempt"
+- Safety: mock secrets only; `safe_simulation: true`,
+  `real_secrets_accessed: false`, `real_network_access: false` end to end
+- Deferred to v0.5: an actual trust/risk *engine* (automatic thresholds,
+  decay, routing impact); quarantine remains a visualization marker
+
+## v0.5 — Trust/risk engine (pending approval)
+
+- Event-driven trust/risk scoring with accumulation, decay, and reasons
+- Automatic quarantine above a configurable threshold
+- Explainable routing analysis that avoids low-trust agents
+
+## v0.6 — Framework integrations
 
 - Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
 - Auto-instrumentation where the framework exposes callbacks/middleware
 - OpenTelemetry span export (interop with existing tracing stacks)
 - Alembic migrations (lands with the first relational schema change)
 
-## v0.6 — Teams & projects
+## v0.7 — Teams & projects
 
 - Real API-key management per project, scoped tokens
 - Multi-user access, basic roles
@@ -79,7 +97,7 @@ Chaos engineering for agent systems — all simulated, telemetry only.
 
 - Alembic migrations deferred until the first relational schema change
   (v0.3 added no tables — faults are events)
-- Read API is unauthenticated in local mode (auth lands v0.6)
+- Read API is unauthenticated in local mode (auth lands v0.7)
 - Replay folds from scratch per cursor move (snapshot memoization when tapes
   get large); replay tape doesn't grow live for still-running runs
 - Dashboard bundle could code-split React Flow / Recharts routes
