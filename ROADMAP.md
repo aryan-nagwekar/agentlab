@@ -27,27 +27,39 @@ Open any run like a packet capture.
 - Deferred to a later cut: snapshot memoization for very large tapes; live
   tape growth while a run is still streaming
 
-## v0.3 — Lab mode (fault injection + security simulation)
+## v0.3 — Fault Injection Lab ✅
 
-Chaos engineering for agent systems — all simulated, mock data only.
+Chaos engineering for agent systems — all simulated, telemetry only.
 
-- Fault API emitting `fault.injected` events: kill_agent, delay_messages,
-  drop_messages, corrupt_message, increase_latency, force_tool_failure,
-  simulate_model_timeout, overload_agent
-- Malicious-agent scenarios: prompt-injection message, fake capability
-  advertising, mock data-exfiltration attempt, trust poisoning, spam flood
+- 6 fault types via `POST /runs/{id}/faults`: kill_agent, overload_agent,
+  force_tool_failure, simulate_model_timeout, delay_messages, drop_messages
+- Each fault = `fault.injected` + realistic follow-up events through the
+  normal pipeline (graph, metrics, WS, replay all react for free)
+- Functional Lab UI: project/run pickers, live agent-status strip, template
+  cards with targets + params, fault log with raw payloads
+- Replay integration: `markers.faults`, rose scrubber dots, Fault jump button
+- Seeded scenario: "Fault Injection Demo — Research Agent Timeout"
+- Safety: simulation-only (`safe_simulation: true` end to end); no real
+  process/network/secret interaction
+- Deferred: `corrupt_message` / `increase_latency` variants; an SDK
+  control-plane hook so faults can intercept *live* demo traffic
+
+## v0.4 — Malicious-agent simulation + trust engine (pending approval)
+
+- Sandboxed `attack.injected` scenarios over mock data: prompt-injection
+  message, fake capability advertising, mock data-exfiltration attempt,
+  trust poisoning, spam flood
 - Trust scoring engine: event-driven score updates with reasons
 - Quarantine flow: trust threshold → `agent.quarantined` → topology + routing react
-- Lab UI activates (controls are stubbed in v0.1)
 
-## v0.4 — Framework integrations
+## v0.5 — Framework integrations
 
 - Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
 - Auto-instrumentation where the framework exposes callbacks/middleware
 - OpenTelemetry span export (interop with existing tracing stacks)
-- Alembic migrations (first post-v0.1 schema change lands with this)
+- Alembic migrations (lands with the first relational schema change)
 
-## v0.5 — Teams & projects
+## v0.6 — Teams & projects
 
 - Real API-key management per project, scoped tokens
 - Multi-user access, basic roles
@@ -65,8 +77,9 @@ Chaos engineering for agent systems — all simulated, mock data only.
 
 ### Engineering debt ledger (tracked honestly)
 
-- Alembic migrations deferred until the first schema change (v0.4)
-- Read API is unauthenticated in local mode (auth lands v0.5)
+- Alembic migrations deferred until the first relational schema change
+  (v0.3 added no tables — faults are events)
+- Read API is unauthenticated in local mode (auth lands v0.6)
 - Replay folds from scratch per cursor move (snapshot memoization when tapes
   get large); replay tape doesn't grow live for still-running runs
 - Dashboard bundle could code-split React Flow / Recharts routes

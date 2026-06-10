@@ -6,8 +6,9 @@
 
 A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
-run metrics, and a replay debugger that steps through any run like a packet
-capture — with fault injection and trust-aware routing analysis on the roadmap.
+run metrics, a replay debugger that steps through any run like a packet
+capture, and a fault-injection lab for chaos-testing agent systems — with
+malicious-agent simulation and trust-aware routing analysis on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -32,7 +33,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.2)
+## What works today (v0.3)
 
 | Capability | Status |
 | --- | --- |
@@ -44,9 +45,9 @@ inspect, and (soon) replay.
 | Wireshark-style inspector — payload/metadata trees, parent↔child event links, raw JSON | ✅ |
 | Run metrics — tokens, cost, avg/p95 latency, error rate, per-agent table, superlatives | ✅ |
 | Demo workflow — 5-agent pipeline (success / retry / failure scenarios), no LLM keys needed | ✅ |
-| Replay debugger — play/pause/step/scrub any run; jump to next error, tool call, or routing decision; topology and inspector reconstruct at every cursor position | ✅ |
-| Fault injection lab + malicious-agent simulation | 🔜 v0.3 |
-| Trust scoring engine + routing analysis | 🔜 v0.3–0.4 |
+| Replay debugger — play/pause/step/scrub any run; jump to next error, tool call, routing decision, or fault; topology and inspector reconstruct at every cursor position | ✅ |
+| Fault injection lab — kill / overload / tool failure / model timeout / message delay / message drop, injected from the UI; graph reacts live, every fault is replayable, all simulated | ✅ |
+| Malicious-agent simulation + trust scoring engine + quarantine | 🔜 v0.4 |
 
 ## Architecture
 
@@ -150,8 +151,17 @@ buffers through collector outages, and becomes a no-op with
 4. **replay it** — open the failed run → **Replay** tab → press ▶ (or scrub /
    arrow keys). The topology rebuilds event by event; hit **Error** to jump
    straight to the crash with the inspector following the playhead.
+5. **break it yourself** — the seeded **Fault Injection Demo — Research Agent
+   Timeout** run shows a Lab-injected model timeout killing the researcher
+   mid-run (`fault.injected → model.failed → agent.failed → run.failed`).
+   Then open **Lab**, pick any run, and inject your own: kill an agent, force
+   a tool failure, drop messages on a channel — the status strip and topology
+   react live, and the **Fault** marker in Replay takes you straight to the
+   moment of injection.
 
 ![Replay debugger: scrubber with markers, reconstructed topology at the failure, inspector following the playhead](docs/screenshots/replay-debugger.png)
+
+![Fault Injection Lab: six simulated fault types with live agent status strip](docs/screenshots/lab-mode.png)
 
 | Fleet dashboard | Message inspector |
 | --- | --- |
@@ -192,7 +202,7 @@ Stated plainly so nobody discovers them the hard way:
   replica. A Redis pub/sub layer is the planned path to horizontal scale.
 - **Auth covers the write path only.** `AGENTLAB_API_KEYS` gates `POST
   /api/events`; the read API and dashboard are open, intended for local/
-  trusted-network use until team auth lands (v0.5).
+  trusted-network use until team auth lands (v0.6).
 - **Trust/risk fallback semantics.** A run's topology shows trust/risk as of
   that run when the run contains `trust.updated`/`risk.updated` events;
   otherwise it falls back to the agent's *current* project-wide score.
@@ -204,6 +214,12 @@ Stated plainly so nobody discovers them the hard way:
   policies yet — the event log grows until you prune it.
 - **Demo telemetry is simulated.** The example pipeline's model calls, token
   counts, and costs are illustrative metadata, not real LLM usage.
+- **Faults are telemetry simulations.** Lab Mode emits events *as if* the
+  failure happened — it does not intercept or control live agent traffic. A
+  "killed" agent's real process keeps running; delay/drop faults synthesize a
+  demonstration message on the channel rather than touching in-flight
+  messages. An SDK control-plane hook (real chaos against the demo workflow)
+  is future work.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
@@ -216,9 +232,10 @@ Stated plainly so nobody discovers them the hard way:
 
 - **v0.1 — local observability** ✅ instrument → collect → visualize → inspect
 - **v0.2 — replay debugger** ✅ step through any run like a packet capture; jump to error/tool/routing
-- **v0.3 — lab mode**: fault injection (kill/delay/drop/overload) + sandboxed malicious-agent simulations, quarantine flows
-- **v0.4 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
-- **v0.5 — teams**: project auth, retention, multi-user
+- **v0.3 — fault injection lab** ✅ six simulated fault types, injectable from the UI, replayable
+- **v0.4 — malicious-agent simulation**: sandboxed attack scenarios, trust engine, quarantine flows
+- **v0.5 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
+- **v0.6 — teams**: project auth, retention, multi-user
 - **v1.0 — hosted platform**
 
 ## License

@@ -77,15 +77,19 @@ a team already uses.
    topology and inspector reconstruct as of any cursor;
    jump-to-error/tool/routing with marker navigation.
 
+### Shipped in v0.3
+10. **Fault Injection Lab** — six simulated fault types (`kill_agent`,
+    `overload_agent`, `force_tool_failure`, `simulate_model_timeout`,
+    `delay_messages`, `drop_messages`) injected from the UI as
+    `fault.injected` + realistic follow-up telemetry; the graph reacts live,
+    every fault is replayable, all simulation-only.
+
 ### Next (gated, in order)
-10. **Lab mode (v0.3)** — fault injection (`kill_agent`, `delay_messages`,
-    `drop_messages`, `force_tool_failure`, `overload_agent`, …) emitting
-    `fault.injected` events; graph reacts visually.
-11. **Malicious-agent simulation (v0.3)** — sandboxed, mock-data-only
+11. **Malicious-agent simulation (v0.4)** — sandboxed, mock-data-only
     scenarios: prompt-injection messages, fake capability advertising,
     simulated exfiltration attempts, trust poisoning, spam. Trust drops,
     quarantine triggers, routing avoids the agent.
-12. **Trust & routing layer (v0.3–0.4)** — event-driven trust scoring with
+12. **Trust & routing layer (v0.4)** — event-driven trust scoring with
     explainable routing decision records.
 
 ## Non-goals (v1)
@@ -108,7 +112,7 @@ Core loop stays: **instrument → collect → visualize → inspect → replay �
 | LangSmith / Langfuse | ✅ deep | ⚠️ trace tree, not network | ⚠️ per-trace | ❌ | ❌ | ❌ |
 | Datadog LLM Obs | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | AgentOps | ✅ | ⚠️ | ⚠️ | ⚠️ session video | ❌ | ❌ |
-| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ planned core | ✅ planned core | ✅ planned core |
+| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ shipped (v0.2) | ✅ shipped (v0.3) | ✅ planned core |
 
 AgentLab competes on the **system view**, not on prompt analytics. It can sit
 beside a prompt-tracing tool rather than replacing it.

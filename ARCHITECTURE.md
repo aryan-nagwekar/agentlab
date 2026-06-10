@@ -69,7 +69,8 @@ tool.{called,completed,failed}
 model.{called,completed,failed}
 routing.decision
 trust.updated · risk.updated
-fault.injected · attack.injected        (accepted now, emitted by Lab Mode in v0.3)
+fault.injected                          (Lab Mode, v0.3)
+attack.injected                         (reserved for v0.4 malicious-agent simulation)
 ```
 
 Unknown types are rejected (422). The registry lives in
@@ -228,15 +229,56 @@ tracking. The topology component is reused unchanged — nodes appear and change
 state as the cursor advances, and the timeline shows exactly the applied
 prefix of the tape.
 
-## Lab mode (v0.3 design sketch)
+## Lab mode (v0.3 — shipped)
 
-- API gains `POST /api/lab/faults` which *emits events* (`fault.injected`,
-  `agent.quarantined`, `trust.updated`) into a run rather than mutating state
-  directly — the same pipeline renders them.
-- Faults against the demo workflow run in-process (the seeder polls a control
-  endpoint); real instrumented apps opt in via an SDK hook.
-- Malicious-agent scenarios are pre-scripted event sequences over mock data —
-  no real attacks, no real secrets (see Safety in [PRODUCT_SPEC.md](PRODUCT_SPEC.md)).
+Fault injection is *telemetry simulation through the normal pipeline*: a fault
+emits a `fault.injected` event plus realistic follow-up events, so storage,
+projections, WebSocket fan-out, the topology, metrics, and replay all react
+without any special-casing.
+
+**Endpoints**
+
+```
+GET  /api/lab/fault-templates      → 6 templates (label, target kind, params, emitted events)
+POST /api/runs/{id}/faults         → validate + emit fault & follow-ups (auth-gated, WS broadcast)
+GET  /api/runs/{id}/faults         → fault history for a run
+```
+
+**Fault → follow-up matrix** (`app/lab.py`)
+
+| fault_type | target | follow-up events | visible effect |
+| --- | --- | --- | --- |
+| `kill_agent` | agent | `agent.failed` | node turns failed, error count up |
+| `overload_agent` | agent | `agent.heartbeat{status: overloaded}` | node turns overloaded |
+| `force_tool_failure` | agent | `tool.called` + `tool.failed` | tool failure in timeline/metrics |
+| `simulate_model_timeout` | agent | `model.called` + `model.failed` | model failure, latency = timeout |
+| `delay_messages` | channel | `message.sent` + delayed `message.received` | edge latency spikes; "sent" state visible mid-replay |
+| `drop_messages` | channel | `message.sent` + `message.failed` | edge turns failed |
+
+Validation: the fault type must be known, the victim (and channel source)
+must be participants of the target run; injection is allowed into completed
+runs (chaos-testing recorded workflows is the point — events append to the
+tape). Every lab event carries `metadata.safe_simulation: true`,
+`metadata.created_by: "lab"`, and follow-ups link back via
+`metadata.fault_event_id`.
+
+**The operator is not a participant.** Fault events use
+`source_agent_id: "lab-controller"`, but graph/metrics/replay folds skip
+lab events when collecting participants, so the controller never appears as a
+workflow node. Replay marks fault indices in `markers.faults` (rose dots +
+a dedicated jump button).
+
+**Safety:** nothing in Lab Mode kills processes, drops real network traffic,
+or touches secrets — a "fault" is the *telemetry* of a failure, generated
+deterministically. Intercepting real agent traffic via an SDK control-plane
+hook is explicitly future work.
+
+## Malicious-agent simulation (v0.4 design sketch)
+
+Pre-scripted `attack.injected` event sequences over mock data only (prompt
+injection messages, fake capability advertising, mock exfiltration attempts),
+driving the trust engine and `agent.quarantined` flows. No real attacks, no
+real secrets (see Safety in [PRODUCT_SPEC.md](PRODUCT_SPEC.md)).
 
 ## Testing
 
