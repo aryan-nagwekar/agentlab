@@ -12,15 +12,20 @@ The working vertical slice: **instrument → collect → visualize → inspect**
 - 5-agent demo pipeline with success / retry / failure scenarios (no LLM keys)
 - Docker Compose stack, Makefile DX, CI, 44 tests
 
-## v0.2 — Replay debugger 🔜 (next, pending approval)
+## v0.2 — Replay debugger ✅
 
 Open any run like a packet capture.
 
-- Client-side event-fold reducer reusing the topology component
-- Controls: play / pause / step forward / step back / speed / scrub
-- Jump to: next error, next tool call, next routing decision
-- Inspector works at any replay cursor position
-- Snapshot memoization for long runs
+- `GET /runs/{id}/replay` (tape + jump markers) and
+  `GET /runs/{id}/replay/graph?index=k` (server-side reconstruction)
+- Client-side event-fold reducer with semantics identical to the server fold
+  (pinned by both pytest and vitest suites); topology component reused
+- Controls: play / pause / step / scrub (marker-dotted slider) / 0.5–8× speed,
+  keyboard transport (space, arrows), clamped real-gap pacing
+- Jump to next error / tool call / routing decision
+- Inspector follows the playhead; pin any node/edge/event to detach
+- Deferred to a later cut: snapshot memoization for very large tapes; live
+  tape growth while a run is still streaming
 
 ## v0.3 — Lab mode (fault injection + security simulation)
 
@@ -62,5 +67,7 @@ Chaos engineering for agent systems — all simulated, mock data only.
 
 - Alembic migrations deferred until the first schema change (v0.4)
 - Read API is unauthenticated in local mode (auth lands v0.5)
+- Replay folds from scratch per cursor move (snapshot memoization when tapes
+  get large); replay tape doesn't grow live for still-running runs
 - Dashboard bundle could code-split React Flow / Recharts routes
 - `examples/langgraph_integration/` arrives with v0.4 adapters

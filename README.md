@@ -6,8 +6,8 @@
 
 A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
-run metrics — with replay debugging, fault injection, and trust-aware routing
-analysis on the roadmap.
+run metrics, and a replay debugger that steps through any run like a packet
+capture — with fault injection and trust-aware routing analysis on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -32,7 +32,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.1)
+## What works today (v0.2)
 
 | Capability | Status |
 | --- | --- |
@@ -44,7 +44,7 @@ inspect, and (soon) replay.
 | Wireshark-style inspector — payload/metadata trees, parent↔child event links, raw JSON | ✅ |
 | Run metrics — tokens, cost, avg/p95 latency, error rate, per-agent table, superlatives | ✅ |
 | Demo workflow — 5-agent pipeline (success / retry / failure scenarios), no LLM keys needed | ✅ |
-| Replay debugger | 🔜 v0.2 |
+| Replay debugger — play/pause/step/scrub any run; jump to next error, tool call, or routing decision; topology and inspector reconstruct at every cursor position | ✅ |
 | Fault injection lab + malicious-agent simulation | 🔜 v0.3 |
 | Trust scoring engine + routing analysis | 🔜 v0.3–0.4 |
 
@@ -147,6 +147,11 @@ buffers through collector outages, and becomes a no-op with
    parent events.
 3. **failure** — the security reviewer crashes: run fails, the node turns red,
    its trust score drops to 0.42 — visible in the graph and the agent page.
+4. **replay it** — open the failed run → **Replay** tab → press ▶ (or scrub /
+   arrow keys). The topology rebuilds event by event; hit **Error** to jump
+   straight to the crash with the inspector following the playhead.
+
+![Replay debugger: scrubber with markers, reconstructed topology at the failure, inspector following the playhead](docs/screenshots/replay-debugger.png)
 
 | Fleet dashboard | Message inspector |
 | --- | --- |
@@ -199,13 +204,18 @@ Stated plainly so nobody discovers them the hard way:
   policies yet — the event log grows until you prune it.
 - **Demo telemetry is simulated.** The example pipeline's model calls, token
   counts, and costs are illustrative metadata, not real LLM usage.
+- **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
+  once (up to 5,000); a still-running run keeps streaming, but the tape does
+  not grow until the tab is reopened.
+- **Replay folds from scratch per cursor move.** Fine into the low thousands
+  of events; snapshot memoization is the planned fix for very large runs.
 - **Bundle size.** The dashboard ships ~800 KB minified (React Flow +
   Recharts); route-level code-splitting is deferred.
 
 ## Roadmap (abridged — see [ROADMAP.md](ROADMAP.md))
 
 - **v0.1 — local observability** ✅ instrument → collect → visualize → inspect
-- **v0.2 — replay debugger**: step through any run like a packet capture; jump to error/tool/routing
+- **v0.2 — replay debugger** ✅ step through any run like a packet capture; jump to error/tool/routing
 - **v0.3 — lab mode**: fault injection (kill/delay/drop/overload) + sandboxed malicious-agent simulations, quarantine flows
 - **v0.4 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
 - **v0.5 — teams**: project auth, retention, multi-user

@@ -188,20 +188,45 @@ is same-origin behind the vite proxy (dev) or nginx (Docker), so `/api` and
   (topology/timeline/metrics tabs + inspector), Agent detail, Lab (v0.3
   preview), Settings.
 
-## Replay system (v0.2 design)
+## Replay system (v0.2 — shipped)
 
-Already enabled by the event-sourced model:
+Replay is a pure read-path feature on top of the event-sourced model.
 
-1. `GET /api/runs/{id}/events` is the ordered tape (`timestamp, id`).
-2. A client-side reducer folds events into `{nodes, edges, agentState}` —
-   the same shape the server's graph builder produces, so the topology
-   component is reused unchanged.
-3. Replay controls (play/pause/step/speed/scrub) move a cursor; the reducer
-   recomputes state ≤ cursor (with snapshot memoization every N events).
-4. "Jump to" = cursor moves to the next `*.failed` / `tool.called` /
-   `routing.decision` event.
+**Endpoints**
 
-No new backend endpoints are strictly required — replay is a read-path feature.
+```
+GET /api/runs/{id}/replay                 → the tape: ordered events + markers + meta
+GET /api/runs/{id}/replay/graph?index=k   → server-side topology at cursor k (clamped)
+```
+
+`markers` are tape indices for jump navigation: `errors` (every `*.failed`,
+including `run.failed`), `tool_calls` (`tool.called`), `routing`
+(`routing.decision`), and `messages` (`message.sent`).
+
+**Two folds, one semantics.** `app/replay.py::fold_events` (server) and
+`apps/web/src/components/replay/replayReducer.ts::foldReplayGraph` (client)
+implement identical event-fold semantics; the backend suite pins them with an
+18-event reference tape and the vitest suite pins the mirror. Replay state is
+event-derived only — no projection-table fallback — so the result is the world
+*as of that cursor*: an agent referenced before its `agent.started` renders as
+`unknown`, trust starts at 1.0 until a `trust.updated` lands, and a message
+shows `sent` until its `message.received` is applied.
+
+**The hot path is client-side.** The dashboard folds `events[0..cursor]` in a
+`useMemo` per cursor move — scrubbing never hits the network. The server-side
+reconstruction endpoint exists for tests, scripts, and non-JS clients. Folding
+is from-scratch per move (fine into the low thousands of events); snapshot
+memoization is the planned upgrade for very large tapes.
+
+**Transport UX.** Play/pause (space), step (arrow keys), scrub with
+marker-dotted slider, 0.5–8× speed. Pacing uses real inter-event gaps divided
+by speed, clamped to 80–1200 ms per step so both `--fast`-seeded and slow live
+runs stay watchable. Jump buttons move the cursor to the next marker. The
+inspector **follows the playhead** (shows the event at the cursor) until the
+user pins a node/edge/event; a "follow playhead" affordance returns to
+tracking. The topology component is reused unchanged — nodes appear and change
+state as the cursor advances, and the timeline shows exactly the applied
+prefix of the tape.
 
 ## Lab mode (v0.3 design sketch)
 

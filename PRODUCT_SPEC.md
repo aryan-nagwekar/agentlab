@@ -72,9 +72,12 @@ a team already uses.
 8. **Demo workflow** — 5-agent simulated pipeline with success / retry /
    failure scenarios; generates realistic telemetry with no LLM keys.
 
+### Shipped in v0.2
+9. **Replay debugger** — play/pause/step/scrub over the ordered event tape;
+   topology and inspector reconstruct as of any cursor;
+   jump-to-error/tool/routing with marker navigation.
+
 ### Next (gated, in order)
-9. **Replay debugger (v0.2)** — play/pause/step/speed over the ordered event
-   log; topology reconstructs as of any instant; jump-to-error/tool/routing.
 10. **Lab mode (v0.3)** — fault injection (`kill_agent`, `delay_messages`,
     `drop_messages`, `force_tool_failure`, `overload_agent`, …) emitting
     `fault.injected` events; graph reacts visually.
