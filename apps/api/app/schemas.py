@@ -173,6 +173,29 @@ class RunGraphOut(BaseModel):
     edges: list[GraphEdgeOut]
 
 
+# --------------------------------------------------------------------- replay
+
+
+class ReplayMarkersOut(BaseModel):
+    """Indices into the ordered event tape, used for jump-to navigation."""
+
+    errors: list[int] = Field(default_factory=list)
+    tool_calls: list[int] = Field(default_factory=list)
+    routing: list[int] = Field(default_factory=list)
+    messages: list[int] = Field(default_factory=list)
+
+
+class RunReplayOut(BaseModel):
+    run_id: str
+    project_id: str
+    status: str
+    name: str | None = None
+    event_count: int
+    duration_ms: float | None = None
+    markers: ReplayMarkersOut
+    events: list[EventOut]
+
+
 # -------------------------------------------------------------------- metrics
 
 

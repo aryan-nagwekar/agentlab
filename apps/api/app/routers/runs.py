@@ -9,7 +9,8 @@ from .. import models
 from ..deps import get_session
 from ..graph import build_run_graph
 from ..metrics import build_run_metrics
-from ..schemas import EventOut, RunGraphOut, RunMetricsOut, RunOut
+from ..replay import compute_markers, fold_events
+from ..schemas import EventOut, RunGraphOut, RunMetricsOut, RunOut, RunReplayOut
 
 router = APIRouter()
 
@@ -75,6 +76,61 @@ def list_run_events(
 def get_run_graph(run_id: str, session: Session = Depends(get_session)) -> RunGraphOut:
     run = _get_run(session, run_id)
     return build_run_graph(session, run)
+
+
+def _ordered_events(session: Session, run_id: str, limit: int) -> list[models.Event]:
+    return list(
+        session.execute(
+            select(models.Event)
+            .where(models.Event.run_id == run_id)
+            .order_by(models.Event.timestamp, models.Event.id)
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@router.get("/runs/{run_id}/replay", response_model=RunReplayOut)
+def get_run_replay(
+    run_id: str,
+    limit: int = Query(default=5000, le=20000),
+    session: Session = Depends(get_session),
+) -> RunReplayOut:
+    """The replay tape: ordered events plus jump markers and metadata."""
+    run = _get_run(session, run_id)
+    events = _ordered_events(session, run_id, limit)
+    if run.total_latency_ms is not None:
+        duration: float | None = run.total_latency_ms
+    elif run.started_at and run.completed_at:
+        duration = (run.completed_at - run.started_at).total_seconds() * 1000
+    else:
+        duration = None
+    return RunReplayOut(
+        run_id=run.id,
+        project_id=run.project_id,
+        status=run.status,
+        name=run.name,
+        event_count=len(events),
+        duration_ms=duration,
+        markers=compute_markers(events),
+        events=[EventOut.model_validate(event) for event in events],
+    )
+
+
+@router.get("/runs/{run_id}/replay/graph", response_model=RunGraphOut)
+def get_replay_graph(
+    run_id: str,
+    index: int = Query(ge=0, description="0-based index of the last applied event"),
+    limit: int = Query(default=5000, le=20000),
+    session: Session = Depends(get_session),
+) -> RunGraphOut:
+    """Server-side topology reconstruction at a replay cursor (index clamps
+    to the last event). The dashboard folds client-side with identical
+    semantics; this endpoint serves tests, scripts, and non-JS clients."""
+    run = _get_run(session, run_id)
+    events = _ordered_events(session, run_id, limit)
+    return fold_events(run, events[: index + 1])
 
 
 @router.get("/runs/{run_id}/metrics", response_model=RunMetricsOut)
