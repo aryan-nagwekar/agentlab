@@ -91,6 +91,25 @@ async function main() {
   await shot("lab-mode.png");
   console.log("✓ lab-mode.png");
 
+  // 7. Security Lab (malicious-agent attacks)
+  await page.getByRole("button", { name: "Security Lab" }).click();
+  await page.getByText("Safe cyber range").waitFor();
+  await page.waitForTimeout(500);
+  await shot("security-lab.png");
+  console.log("✓ security-lab.png");
+
+  // 8. Malicious Agent Demo replay, paused on the attack
+  const maliciousRun = runs.find((r) => r.name?.startsWith("Malicious Agent Demo"));
+  if (maliciousRun) {
+    await page.goto(`${BASE_URL}/runs/${maliciousRun.id}`);
+    await page.getByRole("button", { name: "replay" }).click();
+    await page.getByText("following playhead").waitFor();
+    await page.getByRole("button", { name: "Attack" }).click(); // jump to first attack
+    await page.waitForTimeout(900); // fold + fitView
+    await shot("malicious-replay.png");
+    console.log("✓ malicious-replay.png");
+  }
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

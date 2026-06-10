@@ -11,8 +11,9 @@ export type AgentFlowNode = Node<{ node: GraphNode }, "agent">;
 const STATUS_RING: Record<string, string> = {
   running: "border-sky-400/50 shadow-[0_0_28px_-8px_rgba(56,189,248,0.55)]",
   failed: "border-red-400/50 shadow-[0_0_28px_-8px_rgba(248,113,113,0.6)]",
-  quarantined: "border-purple-400/50 shadow-[0_0_28px_-8px_rgba(192,132,252,0.6)]",
+  quarantined: "border-purple-400/60 border-dashed shadow-[0_0_30px_-6px_rgba(192,132,252,0.7)]",
   overloaded: "border-orange-400/50 shadow-[0_0_28px_-8px_rgba(251,146,60,0.5)]",
+  suspicious: "border-amber-400/60 shadow-[0_0_30px_-6px_rgba(251,191,36,0.65)]",
 };
 
 export function AgentNode({ data, selected }: NodeProps<AgentFlowNode>) {
@@ -37,7 +38,13 @@ export function AgentNode({ data, selected }: NodeProps<AgentFlowNode>) {
           <div className="truncate text-[13px] font-semibold text-zinc-100">{node.name}</div>
           <div className="font-mono text-[10px] text-zinc-500">{node.id}</div>
         </div>
-        {node.role ? <Badge>{node.role}</Badge> : null}
+        {node.status === "quarantined" ? (
+          <span title="quarantined">🛑</span>
+        ) : node.status === "suspicious" ? (
+          <span title="suspicious">⚠️</span>
+        ) : node.role ? (
+          <Badge>{node.role}</Badge>
+        ) : null}
       </div>
       <div className="mt-2.5 grid grid-cols-4 gap-1 text-center">
         <NodeStat label="in" value={node.messages_in} />
@@ -49,6 +56,18 @@ export function AgentNode({ data, selected }: NodeProps<AgentFlowNode>) {
         <span className="text-[10px] uppercase tracking-wider text-zinc-600">trust</span>
         <TrustBar value={node.trust_score} />
       </div>
+      {node.risk_score > 0 ? (
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-zinc-600">risk</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+            <div
+              className="h-full rounded-full bg-rose-400"
+              style={{ width: `${Math.round(node.risk_score * 100)}%` }}
+            />
+          </div>
+          <span className="font-mono text-[11px] text-rose-300">{node.risk_score.toFixed(2)}</span>
+        </div>
+      ) : null}
       {node.avg_latency_ms != null ? (
         <div className="mt-1.5 text-[10px] text-zinc-500">
           avg task {fmtMs(node.avg_latency_ms)}

@@ -50,6 +50,11 @@ export const AGENT_STATUS: Record<string, StatusStyle> = {
     dot: "bg-orange-400",
     badge: "bg-orange-400/10 text-orange-300 border-orange-400/30",
   },
+  suspicious: {
+    label: "Suspicious",
+    dot: "bg-amber-400",
+    badge: "bg-amber-400/10 text-amber-300 border-amber-400/30",
+  },
   quarantined: {
     label: "Quarantined",
     dot: "bg-purple-400",
@@ -132,6 +137,10 @@ export function eventSummary(event: AgentLabEvent): string {
       return `${p.name ?? event.source_agent_id} failed — ${p.error ?? "unknown error"}`;
     case "agent.heartbeat":
       return `heartbeat (${p.status ?? "ok"})`;
+    case "agent.joined":
+      return `${p.name ?? event.source_agent_id} joined the network${p.status === "suspicious" ? " (unverified)" : ""}`;
+    case "agent.suspicious":
+      return `${p.name ?? event.source_agent_id} flagged suspicious${p.reason ? ` — ${p.reason}` : ""}`;
     case "message.sent": {
       const content = p.content as Record<string, unknown> | string | undefined;
       const task =
@@ -144,6 +153,8 @@ export function eventSummary(event: AgentLabEvent): string {
       return "message delivered";
     case "message.failed":
       return `message failed — ${p.error ?? ""}`;
+    case "message.flagged":
+      return `⚠ message flagged — ${p.reason ?? "suspicious"}`;
     case "tool.called":
       return `${p.tool_name ?? "tool"} called`;
     case "tool.completed":
@@ -165,7 +176,7 @@ export function eventSummary(event: AgentLabEvent): string {
     case "fault.injected":
       return `fault injected — ${p.fault_type ?? ""}`;
     case "attack.injected":
-      return `attack simulated — ${p.attack_type ?? ""}`;
+      return `🛑 attack simulated — ${p.attack_type ?? ""}${p.severity ? ` (${p.severity})` : ""}`;
     case "agent.quarantined":
       return `agent quarantined${p.reason ? ` — ${p.reason}` : ""}`;
     default:

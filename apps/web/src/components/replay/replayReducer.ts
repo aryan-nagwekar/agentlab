@@ -69,6 +69,14 @@ export function foldReplayGraph(
         status.set(src, "failed");
       } else if (etype === "agent.quarantined") {
         status.set(src, "quarantined");
+      } else if (etype === "agent.joined") {
+        status.set(src, typeof payload.status === "string" && payload.status ? payload.status : "running");
+        if (typeof payload.name === "string" && payload.name) names.set(src, payload.name);
+        if (typeof payload.role === "string" && payload.role) roles.set(src, payload.role);
+      } else if (etype === "agent.suspicious") {
+        if (status.get(src) !== "quarantined") status.set(src, "suspicious");
+        if (typeof payload.name === "string" && payload.name) names.set(src, payload.name);
+        if (typeof payload.role === "string" && payload.role) roles.set(src, payload.role);
       } else if (etype === "agent.heartbeat" && typeof payload.status === "string" && payload.status) {
         status.set(src, payload.status);
       } else if (etype === "trust.updated") {
@@ -103,35 +111,45 @@ export function foldReplayGraph(
       }
     }
 
-    if (etype === "message.sent" || etype === "message.received" || etype === "message.failed") {
+    if (
+      etype === "message.sent" ||
+      etype === "message.received" ||
+      etype === "message.failed" ||
+      etype === "message.flagged"
+    ) {
       const source = src ?? "external";
       const target = tgt ?? "external";
       participants.add(source);
       participants.add(target);
       const key = `${source}->${target}`;
+      const ensure = () =>
+        edges.get(key) ??
+        ({ source, target, count: 0, latencies: [], lastStatus: null, lastAt: null } as EdgeAccumulator & {
+          source: string;
+          target: string;
+        });
       if (etype === "message.sent") {
         bump(messagesOut, source);
         bump(messagesIn, target);
-        const entry =
-          edges.get(key) ??
-          ({ source, target, count: 0, latencies: [], lastStatus: null, lastAt: null } as EdgeAccumulator & {
-            source: string;
-            target: string;
-          });
+        const entry = ensure();
         entry.count += 1;
         entry.lastStatus = "sent";
         entry.lastAt = event.timestamp;
         edges.set(key, entry);
       } else {
-        const entry = edges.get(key);
-        if (entry) {
-          entry.lastStatus = etype === "message.received" ? "delivered" : "failed";
-          entry.lastAt = event.timestamp;
-          if (etype === "message.received") {
-            const latency = asNumber(payload.latency_ms);
-            if (latency !== null) entry.latencies.push(latency);
-          }
+        const entry = ensure();
+        entry.lastStatus =
+          etype === "message.received"
+            ? "delivered"
+            : etype === "message.flagged"
+              ? "flagged"
+              : "failed";
+        entry.lastAt = event.timestamp;
+        if (etype === "message.received") {
+          const latency = asNumber(payload.latency_ms);
+          if (latency !== null) entry.latencies.push(latency);
         }
+        edges.set(key, entry);
       }
     }
   }

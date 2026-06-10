@@ -75,6 +75,21 @@ export function RunMetricsView({
           tone={totals.error_count > 0 ? "danger" : undefined}
           hint={totals.error_count > 0 ? `${fmtPercent(totals.error_rate)} of events` : undefined}
         />
+        {totals.attacks > 0 || totals.flagged_messages > 0 || totals.suspicious_agents > 0 ? (
+          <>
+            <Stat label="Attacks" value={totals.attacks} tone={totals.attacks > 0 ? "danger" : undefined} />
+            <Stat
+              label="Flagged msgs"
+              value={totals.flagged_messages}
+              tone={totals.flagged_messages > 0 ? "danger" : undefined}
+            />
+            <Stat
+              label="Suspicious agents"
+              value={totals.suspicious_agents}
+              tone={totals.suspicious_agents > 0 ? "danger" : undefined}
+            />
+          </>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -1,6 +1,9 @@
 import type {
   Agent,
   AgentLabEvent,
+  AttackInjectRequest,
+  AttackInjectResult,
+  AttackTemplate,
   FaultInjectRequest,
   FaultInjectResult,
   FaultTemplate,
@@ -86,6 +89,13 @@ export const api = {
   runFaults: (runId: string) => request<AgentLabEvent[]>(`/api/runs/${runId}/faults`),
   injectFault: (runId: string, body: FaultInjectRequest) =>
     request<FaultInjectResult>(`/api/runs/${runId}/faults`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  attackTemplates: () => request<AttackTemplate[]>("/api/lab/attack-templates"),
+  runAttacks: (runId: string) => request<AgentLabEvent[]>(`/api/runs/${runId}/attacks`),
+  injectAttack: (runId: string, body: AttackInjectRequest) =>
+    request<AttackInjectResult>(`/api/runs/${runId}/attacks`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

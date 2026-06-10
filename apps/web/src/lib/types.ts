@@ -104,6 +104,9 @@ export interface MetricsTotals {
   error_count: number;
   error_rate: number;
   duration_ms: number | null;
+  attacks: number;
+  flagged_messages: number;
+  suspicious_agents: number;
 }
 
 export interface AgentMetrics {
@@ -140,6 +143,7 @@ export interface ReplayMarkers {
   routing: number[];
   messages: number[];
   faults: number[];
+  attacks: number[];
 }
 
 export interface FaultTemplate {
@@ -162,6 +166,31 @@ export interface FaultInjectRequest {
 export interface FaultInjectResult {
   fault_event_id: string;
   fault_type: string;
+  events: AgentLabEvent[];
+}
+
+export interface AttackTemplate {
+  attack_type: string;
+  label: string;
+  description: string;
+  severity: "low" | "medium" | "high" | "critical" | string;
+  target_kind: "agent" | "network" | string;
+  params: Array<{ name: string; type: string; default?: unknown }>;
+  emits: string[];
+  mock_payload: string;
+}
+
+export interface AttackInjectRequest {
+  attack_type: string;
+  attacker_agent_id?: string;
+  target_agent_id?: string;
+  params?: Record<string, unknown>;
+  description?: string;
+}
+
+export interface AttackInjectResult {
+  attack_event_id: string;
+  attack_type: string;
   events: AgentLabEvent[];
 }
 

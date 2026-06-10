@@ -7,7 +7,7 @@ import { nextMarker } from "./replayReducer";
 
 const SPEEDS = [0.5, 1, 2, 4, 8];
 
-export type JumpKind = "error" | "tool" | "routing" | "fault";
+export type JumpKind = "error" | "tool" | "routing" | "fault" | "attack";
 
 interface ReplayControlsProps {
   cursor: number;
@@ -44,6 +44,7 @@ export function ReplayControls({
     tool: nextMarker(markers.tool_calls, cursor),
     routing: nextMarker(markers.routing, cursor),
     fault: nextMarker(markers.faults, cursor),
+    attack: nextMarker(markers.attacks, cursor),
   };
 
   return (
@@ -100,6 +101,9 @@ export function ReplayControls({
             {markers.faults.map((index) => (
               <MarkerDot key={`f${index}`} left={percent(index)} className="bg-rose-400" />
             ))}
+            {markers.attacks.map((index) => (
+              <MarkerDot key={`a${index}`} left={percent(index)} className="bg-fuchsia-400" />
+            ))}
           </div>
           <input
             type="range"
@@ -155,6 +159,12 @@ export function ReplayControls({
             dot="bg-rose-400"
             disabled={jumpTargets.fault === null}
             onClick={() => onJump("fault")}
+          />
+          <JumpButton
+            label="Attack"
+            dot="bg-fuchsia-400"
+            disabled={jumpTargets.attack === null}
+            onClick={() => onJump("attack")}
           />
         </div>
       </div>
