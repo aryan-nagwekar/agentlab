@@ -31,3 +31,8 @@ EVENT_TYPES: frozenset[str] = frozenset(
 FAILURE_EVENT_TYPES: frozenset[str] = frozenset(
     {"agent.failed", "message.failed", "tool.failed", "model.failed"}
 )
+
+# Control-plane events emitted by Lab Mode. Their source ("lab-controller")
+# is an operator action, not a workflow participant — graph/metrics/replay
+# folds skip them when collecting topology participants.
+LAB_EVENT_TYPES: frozenset[str] = frozenset({"fault.injected", "attack.injected"})

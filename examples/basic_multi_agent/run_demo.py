@@ -3,10 +3,12 @@
 
     Planner -> Researcher -> Coder -> Security Reviewer -> Reporter
 
-Three scenarios, no LLM keys required (model calls are simulated):
+Four scenarios, no LLM keys required (model calls are simulated):
   success  clean linear run
   retry    a tool fails and is retried; security bounces a fix back to the coder
   failure  the security reviewer crashes, failing the whole run
+  fault    Fault Injection Demo — Research Agent Timeout: Lab Mode injects a
+           simulated model timeout mid-run; the researcher dies, the run fails
 
 Usage:
     python run_demo.py                     # one run of each scenario
@@ -106,6 +108,8 @@ class Pipeline:
         return {"plan": ["research", "implement", "security-review", "report"], "scenario": scenario}
 
     def _researcher(self, scenario: str) -> dict:
+        if scenario == "fault":
+            return self._researcher_with_injected_timeout()
         queries = ["REST endpoint validation best practices", "OWASP API security top 10"]
         for index, query in enumerate(queries):
             flaky = scenario == "retry" and index == 0
@@ -134,6 +138,41 @@ class Pipeline:
             latency_ms=self._latency(40),
         )
         return {"sources": 2}
+
+    def _researcher_with_injected_timeout(self) -> dict:
+        """Fault Injection Demo: one healthy tool call, then Lab Mode injects a
+        simulated model timeout and the researcher crashes. All simulated —
+        the events tell the story; no real process or network is touched."""
+        with self.client.trace_tool(
+            "web.search", input={"query": "REST endpoint validation best practices"}
+        ) as span:
+            self._work()
+            span.output = {"results": 6, "top_source": "swagger.io"}
+
+        timeout_ms = 30000
+        self.client.emit(
+            "fault.injected",
+            source_agent_id="lab-controller",
+            target_agent_id="researcher",
+            payload={
+                "fault_type": "simulate_model_timeout",
+                "model": "sim-fable-5",
+                "timeout_ms": timeout_ms,
+                "reason": "Fault Injection Demo — Research Agent Timeout",
+            },
+            metadata={"safe_simulation": True, "created_by": "lab"},
+        )
+        self.client.log_model_call(
+            "sim-fable-5",
+            status="failed",
+            error=f"SimulatedTimeout: no tokens after {timeout_ms}ms",
+            latency_ms=timeout_ms,
+            metadata={"safe_simulation": True, "created_by": "lab"},
+        )
+        self._work(0.3, 0.6)
+        raise RuntimeError(
+            "research model call timed out (simulated by Lab Mode fault injection)"
+        )
 
     def _coder(self, revision: int = 0) -> dict:
         purpose = "generate endpoint implementation" if revision == 0 else "apply security fix"
@@ -192,7 +231,10 @@ class Pipeline:
     # ---------------------------------------------------------- scenario
 
     def execute(self, scenario: str) -> str:
-        run_name = f"{scenario} · REST endpoint + security review"
+        if scenario == "fault":
+            run_name = "Fault Injection Demo — Research Agent Timeout"
+        else:
+            run_name = f"{scenario} · REST endpoint + security review"
         with self.client.run(name=run_name, metadata={"scenario": scenario}) as run:
             try:
                 self.planner(GOAL, scenario)
@@ -206,8 +248,16 @@ class Pipeline:
                 self._update_trust(scenario)
             except RuntimeError:
                 # Make the incident visible on the control plane before run.failed lands.
-                self.client.update_trust("security", 0.42, reason="crashed mid-review")
-                self.client.update_risk("security", 0.58, reason="repeated crash pattern")
+                if scenario == "fault":
+                    self.client.update_trust(
+                        "researcher", 0.55, reason="model timeout injected by Lab Mode"
+                    )
+                    self.client.update_risk(
+                        "researcher", 0.4, reason="timed out under fault injection"
+                    )
+                else:
+                    self.client.update_trust("security", 0.42, reason="crashed mid-review")
+                    self.client.update_risk("security", 0.58, reason="repeated crash pattern")
                 raise
             return run.id
 
@@ -235,7 +285,7 @@ def main() -> int:
     parser.add_argument("--project", default=os.getenv("AGENTLAB_PROJECT", "demo-project"))
     parser.add_argument(
         "--scenario",
-        choices=["success", "retry", "failure", "all"],
+        choices=["success", "retry", "failure", "fault", "all"],
         default="all",
     )
     parser.add_argument("--runs", type=int, default=1, help="repetitions of the scenario set")
@@ -248,7 +298,9 @@ def main() -> int:
         project_id=args.project, api_key=args.api_key, endpoint=args.endpoint
     )
     pipeline = Pipeline(client, rng, fast=args.fast)
-    scenarios = ["success", "retry", "failure"] if args.scenario == "all" else [args.scenario]
+    scenarios = (
+        ["success", "retry", "failure", "fault"] if args.scenario == "all" else [args.scenario]
+    )
 
     print(f"AgentLab demo -> {args.endpoint} (project: {args.project})")
     completed: list[tuple[str, str]] = []

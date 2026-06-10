@@ -173,6 +173,34 @@ class RunGraphOut(BaseModel):
     edges: list[GraphEdgeOut]
 
 
+# ------------------------------------------------------------------------ lab
+
+
+class FaultTemplateOut(BaseModel):
+    fault_type: str
+    label: str
+    description: str
+    target_kind: str  # "agent" | "channel"
+    params: list[dict[str, Any]] = Field(default_factory=list)
+    emits: list[str] = Field(default_factory=list)
+
+
+class FaultInjectIn(BaseModel):
+    fault_type: str
+    # Agent faults: target_agent_id is the victim.
+    # Channel faults: source_agent_id -> target_agent_id is the channel.
+    target_agent_id: str | None = None
+    source_agent_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class FaultInjectOut(BaseModel):
+    fault_event_id: str
+    fault_type: str
+    events: list[EventOut]
+
+
 # --------------------------------------------------------------------- replay
 
 
@@ -183,6 +211,7 @@ class ReplayMarkersOut(BaseModel):
     tool_calls: list[int] = Field(default_factory=list)
     routing: list[int] = Field(default_factory=list)
     messages: list[int] = Field(default_factory=list)
+    faults: list[int] = Field(default_factory=list)
 
 
 class RunReplayOut(BaseModel):

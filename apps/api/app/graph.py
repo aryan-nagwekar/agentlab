@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import models
-from .events import FAILURE_EVENT_TYPES
+from .events import FAILURE_EVENT_TYPES, LAB_EVENT_TYPES
 from .schemas import GraphEdgeOut, GraphNodeOut, RunGraphOut
 
 
@@ -37,9 +37,11 @@ def build_run_graph(session: Session, run: models.Run) -> RunGraphOut:
 
     for etype, src, tgt, payload in rows:
         payload = payload or {}
-        for agent_id in (src, tgt):
-            if agent_id:
-                participants.add(agent_id)
+        if etype not in LAB_EVENT_TYPES:
+            # lab-controller is an operator, not a workflow participant
+            for agent_id in (src, tgt):
+                if agent_id:
+                    participants.add(agent_id)
         if src:
             if etype == "agent.started":
                 status_in_run[src] = "running"

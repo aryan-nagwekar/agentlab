@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import models
-from .events import FAILURE_EVENT_TYPES
+from .events import FAILURE_EVENT_TYPES, LAB_EVENT_TYPES
 from .schemas import AgentMetricsOut, HighlightOut, MetricsTotalsOut, RunMetricsOut
 from .timeutil import utcnow
 
@@ -66,7 +66,7 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
 
     for etype, src, payload in rows:
         payload = payload or {}
-        if src:
+        if src and etype not in LAB_EVENT_TYPES:
             participants.add(src)
             per_activity[src] += 1
         latency = payload.get("latency_ms")

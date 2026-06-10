@@ -16,6 +16,7 @@ from collections import defaultdict
 from typing import Any, Sequence
 
 from . import models
+from .events import LAB_EVENT_TYPES
 from .schemas import GraphEdgeOut, GraphNodeOut, ReplayMarkersOut, RunGraphOut
 
 
@@ -24,6 +25,7 @@ def compute_markers(events: Sequence[models.Event]) -> ReplayMarkersOut:
     tool_calls: list[int] = []
     routing: list[int] = []
     messages: list[int] = []
+    faults: list[int] = []
     for index, event in enumerate(events):
         etype = event.event_type
         if etype.endswith(".failed"):  # includes run.failed — a jump target
@@ -34,8 +36,14 @@ def compute_markers(events: Sequence[models.Event]) -> ReplayMarkersOut:
             routing.append(index)
         if etype == "message.sent":
             messages.append(index)
+        if etype in LAB_EVENT_TYPES:
+            faults.append(index)
     return ReplayMarkersOut(
-        errors=errors, tool_calls=tool_calls, routing=routing, messages=messages
+        errors=errors,
+        tool_calls=tool_calls,
+        routing=routing,
+        messages=messages,
+        faults=faults,
     )
 
 
@@ -60,9 +68,11 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
         payload = event.payload or {}
         src = event.source_agent_id
         tgt = event.target_agent_id
-        for agent_id in (src, tgt):
-            if agent_id:
-                participants.add(agent_id)
+        if etype not in LAB_EVENT_TYPES:
+            # lab-controller is an operator, not a workflow participant
+            for agent_id in (src, tgt):
+                if agent_id:
+                    participants.add(agent_id)
 
         if src:
             if etype == "agent.started":
