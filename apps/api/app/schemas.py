@@ -201,6 +201,33 @@ class FaultInjectOut(BaseModel):
     events: list[EventOut]
 
 
+class AttackTemplateOut(BaseModel):
+    attack_type: str
+    label: str
+    description: str
+    severity: str  # low | medium | high | critical
+    target_kind: str  # "agent" (needs a victim participant) | "network"
+    params: list[dict[str, Any]] = Field(default_factory=list)
+    emits: list[str] = Field(default_factory=list)
+    mock_payload: str = ""
+
+
+class AttackInjectIn(BaseModel):
+    attack_type: str
+    # The malicious agent (introduced if not already present).
+    attacker_agent_id: str = Field(default="malicious-agent", max_length=255)
+    # The victim, for agent-targeted attacks; must be a run participant.
+    target_agent_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class AttackInjectOut(BaseModel):
+    attack_event_id: str
+    attack_type: str
+    events: list[EventOut]
+
+
 # --------------------------------------------------------------------- replay
 
 
@@ -212,6 +239,7 @@ class ReplayMarkersOut(BaseModel):
     routing: list[int] = Field(default_factory=list)
     messages: list[int] = Field(default_factory=list)
     faults: list[int] = Field(default_factory=list)
+    attacks: list[int] = Field(default_factory=list)
 
 
 class RunReplayOut(BaseModel):
@@ -241,6 +269,9 @@ class MetricsTotalsOut(BaseModel):
     error_count: int = 0
     error_rate: float = 0.0
     duration_ms: float | None = None
+    attacks: int = 0
+    flagged_messages: int = 0
+    suspicious_agents: int = 0
 
 
 class AgentMetricsOut(BaseModel):

@@ -63,12 +63,21 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
     per_activity: dict[str, int] = defaultdict(int)
     model_calls = 0
     error_count = 0
+    attack_count = 0
+    flagged_messages = 0
+    suspicious_agents: set[str] = set()
 
     for etype, src, payload in rows:
         payload = payload or {}
         if src and etype not in LAB_EVENT_TYPES:
             participants.add(src)
             per_activity[src] += 1
+        if etype == "attack.injected":
+            attack_count += 1
+        if etype == "message.flagged":
+            flagged_messages += 1
+        if etype in ("agent.suspicious", "agent.quarantined") and src:
+            suspicious_agents.add(src)
         latency = payload.get("latency_ms")
         if etype in _LATENCY_EVENT_TYPES and latency is not None:
             try:
@@ -193,6 +202,9 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
         error_count=error_count,
         error_rate=round(error_count / total_events, 4) if total_events else 0.0,
         duration_ms=round(duration_ms, 2) if duration_ms is not None else None,
+        attacks=attack_count,
+        flagged_messages=flagged_messages,
+        suspicious_agents=len(suspicious_agents & participants),
     )
 
     return RunMetricsOut(

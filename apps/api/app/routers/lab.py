@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from .. import models
+from ..attacks import ATTACK_TYPES, build_attack_events, needs_victim
+from ..attacks import ATTACK_TEMPLATES
 from ..collector import process_events
 from ..deps import get_session, require_api_key
 from ..lab import (
@@ -20,7 +22,15 @@ from ..lab import (
     build_fault_events,
     is_channel_fault,
 )
-from ..schemas import EventOut, FaultInjectIn, FaultInjectOut, FaultTemplateOut
+from ..schemas import (
+    AttackInjectIn,
+    AttackInjectOut,
+    AttackTemplateOut,
+    EventOut,
+    FaultInjectIn,
+    FaultInjectOut,
+    FaultTemplateOut,
+)
 
 router = APIRouter()
 
@@ -111,7 +121,86 @@ def list_run_faults(run_id: str, session: Session = Depends(get_session)) -> lis
             select(models.Event)
             .where(
                 models.Event.run_id == run_id,
-                models.Event.event_type.in_(["fault.injected", "attack.injected"]),
+                models.Event.event_type == "fault.injected",
+            )
+            .order_by(models.Event.timestamp.desc(), models.Event.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return [EventOut.model_validate(event) for event in events]
+
+
+# ----------------------------------------------------------------- security lab
+
+
+@router.get("/lab/attack-templates", response_model=list[AttackTemplateOut])
+def list_attack_templates() -> list[AttackTemplateOut]:
+    return ATTACK_TEMPLATES
+
+
+@router.post(
+    "/runs/{run_id}/attacks",
+    status_code=201,
+    response_model=AttackInjectOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def inject_attack(run_id: str, body: AttackInjectIn, request: Request) -> AttackInjectOut:
+    session_factory = request.app.state.session_factory
+
+    def _validate_store():
+        session = session_factory()
+        try:
+            run = session.get(models.Run, run_id)
+            if run is None:
+                raise HTTPException(status_code=404, detail="run not found")
+            if body.attack_type not in ATTACK_TYPES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"unknown attack_type {body.attack_type!r}; known: {sorted(ATTACK_TYPES)}",
+                )
+            # Agent-targeted attacks need a victim that is already in the run.
+            # The attacker (malicious agent) is introduced, so it need not exist.
+            if needs_victim(body.attack_type):
+                if not body.target_agent_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"{body.attack_type} targets an agent: target_agent_id is required",
+                    )
+                if body.target_agent_id not in _run_participants(session, run_id):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"agent {body.target_agent_id!r} is not part of run {run_id}",
+                    )
+            events = build_attack_events(run.project_id, run_id, body)
+            stored, _ = process_events(session, events)
+            return run.project_id, events[0].event_id, stored
+        finally:
+            session.close()
+
+    project_id, attack_event_id, stored = await run_in_threadpool(_validate_store)
+
+    manager = request.app.state.ws_manager
+    out_events = [EventOut.model_validate(row) for row in stored]
+    for event in out_events:
+        await manager.broadcast(
+            project_id, {"type": "event", "data": event.model_dump(mode="json")}
+        )
+    return AttackInjectOut(
+        attack_event_id=attack_event_id, attack_type=body.attack_type, events=out_events
+    )
+
+
+@router.get("/runs/{run_id}/attacks", response_model=list[EventOut])
+def list_run_attacks(run_id: str, session: Session = Depends(get_session)) -> list[EventOut]:
+    if session.get(models.Run, run_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    events = (
+        session.execute(
+            select(models.Event)
+            .where(
+                models.Event.run_id == run_id,
+                models.Event.event_type == "attack.injected",
             )
             .order_by(models.Event.timestamp.desc(), models.Event.id.desc())
         )

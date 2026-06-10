@@ -17,7 +17,7 @@ from .ws import ConnectionManager
 
 logger = logging.getLogger("agentlab.api")
 
-API_VERSION = "0.3.0"
+API_VERSION = "0.4.0"
 
 
 def _init_db(engine, attempts: int = 12, delay: float = 1.5) -> None:

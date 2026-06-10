@@ -51,6 +51,7 @@ def test_replay_tape_and_markers(client, seeded_run):
     assert markers["routing"] == [2]
     assert markers["messages"] == [3, 11]
     assert markers["faults"] == []
+    assert markers["attacks"] == []
 
 
 def test_graph_before_message_delivery(client, seeded_run):
@@ -116,6 +117,7 @@ def test_replay_empty_run(client, event_factory):
         "routing": [],
         "messages": [],
         "faults": [],
+        "attacks": [],
     }
     graph = client.get("/api/runs/bare-run/replay/graph", params={"index": 0}).json()
     assert graph["nodes"] == []

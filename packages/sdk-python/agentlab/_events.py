@@ -23,11 +23,14 @@ AGENT_STARTED = "agent.started"
 AGENT_COMPLETED = "agent.completed"
 AGENT_FAILED = "agent.failed"
 AGENT_HEARTBEAT = "agent.heartbeat"
+AGENT_JOINED = "agent.joined"  # an agent (often simulated/malicious) joins the network
+AGENT_SUSPICIOUS = "agent.suspicious"  # marked suspicious by Security Lab simulation
 
 # Agent-to-agent messaging
 MESSAGE_SENT = "message.sent"
 MESSAGE_RECEIVED = "message.received"
 MESSAGE_FAILED = "message.failed"
+MESSAGE_FLAGGED = "message.flagged"  # message flagged as suspicious (simulated)
 
 # Tool usage
 TOOL_CALLED = "tool.called"
@@ -59,9 +62,12 @@ EVENT_TYPES: frozenset[str] = frozenset(
         AGENT_COMPLETED,
         AGENT_FAILED,
         AGENT_HEARTBEAT,
+        AGENT_JOINED,
+        AGENT_SUSPICIOUS,
         MESSAGE_SENT,
         MESSAGE_RECEIVED,
         MESSAGE_FAILED,
+        MESSAGE_FLAGGED,
         TOOL_CALLED,
         TOOL_COMPLETED,
         TOOL_FAILED,

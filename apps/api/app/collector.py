@@ -154,6 +154,24 @@ def _apply_projection(session: Session, event: EventIn, ts) -> None:
         if payload.get("status"):
             agent.status = str(payload["status"])
 
+    elif etype == "agent.joined":
+        agent = _ensure_agent(session, event.project_id, event.source_agent_id or "unknown", ts)
+        agent.status = str(payload.get("status") or "running")
+        if payload.get("name"):
+            agent.name = str(payload["name"])
+        if payload.get("role"):
+            agent.role = str(payload["role"])
+
+    elif etype == "agent.suspicious":
+        agent = _ensure_agent(session, event.project_id, event.source_agent_id or "unknown", ts)
+        # Don't override a stronger quarantined state.
+        if agent.status != "quarantined":
+            agent.status = "suspicious"
+        if payload.get("name"):
+            agent.name = str(payload["name"])
+        if payload.get("role"):
+            agent.role = str(payload["role"])
+
     elif etype == "agent.quarantined":
         agent = _ensure_agent(session, event.project_id, event.source_agent_id or "unknown", ts)
         agent.status = "quarantined"
@@ -198,6 +216,22 @@ def _apply_projection(session: Session, event: EventIn, ts) -> None:
         message = session.get(models.Message, mid)
         if message is not None:
             message.status = "failed"
+
+    elif etype == "message.flagged":
+        mid = _message_id(event)
+        message = session.get(models.Message, mid)
+        if message is None:
+            message = models.Message(
+                id=mid,
+                project_id=event.project_id,
+                run_id=event.run_id,
+                source_agent_id=event.source_agent_id,
+                target_agent_id=event.target_agent_id,
+                content=payload.get("content"),
+                created_at=ts,
+            )
+            session.add(message)
+        message.status = "flagged"
 
     elif etype == "tool.called":
         tid = _tool_call_id(event)

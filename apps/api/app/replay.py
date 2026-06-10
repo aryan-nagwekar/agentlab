@@ -26,6 +26,7 @@ def compute_markers(events: Sequence[models.Event]) -> ReplayMarkersOut:
     routing: list[int] = []
     messages: list[int] = []
     faults: list[int] = []
+    attacks: list[int] = []
     for index, event in enumerate(events):
         etype = event.event_type
         if etype.endswith(".failed"):  # includes run.failed — a jump target
@@ -36,14 +37,17 @@ def compute_markers(events: Sequence[models.Event]) -> ReplayMarkersOut:
             routing.append(index)
         if etype == "message.sent":
             messages.append(index)
-        if etype in LAB_EVENT_TYPES:
+        if etype == "fault.injected":
             faults.append(index)
+        if etype == "attack.injected":
+            attacks.append(index)
     return ReplayMarkersOut(
         errors=errors,
         tool_calls=tool_calls,
         routing=routing,
         messages=messages,
         faults=faults,
+        attacks=attacks,
     )
 
 
@@ -87,6 +91,19 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
                 status[src] = "failed"
             elif etype == "agent.quarantined":
                 status[src] = "quarantined"
+            elif etype == "agent.joined":
+                status[src] = str(payload.get("status") or "running")
+                if payload.get("name"):
+                    names[src] = str(payload["name"])
+                if payload.get("role"):
+                    roles[src] = str(payload["role"])
+            elif etype == "agent.suspicious":
+                if status.get(src) != "quarantined":
+                    status[src] = "suspicious"
+                if payload.get("name"):
+                    names[src] = str(payload["name"])
+                if payload.get("role"):
+                    roles[src] = str(payload["role"])
             elif etype == "agent.heartbeat" and payload.get("status"):
                 status[src] = str(payload["status"])
             elif etype == "trust.updated" and payload.get("trust_score") is not None:
@@ -119,7 +136,7 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
                 except (TypeError, ValueError):
                     pass
 
-        if etype in ("message.sent", "message.received", "message.failed"):
+        if etype in ("message.sent", "message.received", "message.failed", "message.flagged"):
             source = src or "external"
             target = tgt or "external"
             participants.add(source)
@@ -135,15 +152,20 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
                 entry["last_status"] = "sent"
                 entry["last_at"] = event.timestamp
             else:
-                entry = edges.get(key)
-                if entry is not None:
-                    entry["last_status"] = "delivered" if etype == "message.received" else "failed"
-                    entry["last_at"] = event.timestamp
-                    if etype == "message.received" and payload.get("latency_ms") is not None:
-                        try:
-                            entry["latencies"].append(float(payload["latency_ms"]))
-                        except (TypeError, ValueError):
-                            pass
+                entry = edges.setdefault(
+                    key, {"count": 0, "latencies": [], "last_status": None, "last_at": None}
+                )
+                entry["last_status"] = {
+                    "message.received": "delivered",
+                    "message.failed": "failed",
+                    "message.flagged": "flagged",
+                }[etype]
+                entry["last_at"] = event.timestamp
+                if etype == "message.received" and payload.get("latency_ms") is not None:
+                    try:
+                        entry["latencies"].append(float(payload["latency_ms"]))
+                    except (TypeError, ValueError):
+                        pass
 
     nodes = [
         GraphNodeOut(

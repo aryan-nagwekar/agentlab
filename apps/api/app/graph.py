@@ -51,6 +51,11 @@ def build_run_graph(session: Session, run: models.Run) -> RunGraphOut:
                 status_in_run[src] = "failed"
             elif etype == "agent.quarantined":
                 status_in_run[src] = "quarantined"
+            elif etype == "agent.joined":
+                status_in_run[src] = str(payload.get("status") or "running")
+            elif etype == "agent.suspicious":
+                if status_in_run.get(src) != "quarantined":
+                    status_in_run[src] = "suspicious"
             elif etype == "agent.heartbeat" and payload.get("status"):
                 status_in_run[src] = str(payload["status"])
             elif etype == "trust.updated" and payload.get("trust_score") is not None:
