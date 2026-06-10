@@ -87,7 +87,9 @@ export function ReplayView({ runId, projectId, runStatus }: ReplayViewProps) {
           ? tape.markers.errors
           : kind === "tool"
             ? tape.markers.tool_calls
-            : tape.markers.routing;
+            : kind === "fault"
+              ? tape.markers.faults
+              : tape.markers.routing;
       const target = nextMarker(pool, cursor);
       if (target !== null) {
         setPlaying(false);

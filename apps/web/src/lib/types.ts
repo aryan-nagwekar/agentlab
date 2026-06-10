@@ -139,6 +139,30 @@ export interface ReplayMarkers {
   tool_calls: number[];
   routing: number[];
   messages: number[];
+  faults: number[];
+}
+
+export interface FaultTemplate {
+  fault_type: string;
+  label: string;
+  description: string;
+  target_kind: "agent" | "channel" | string;
+  params: Array<{ name: string; type: string; default?: unknown }>;
+  emits: string[];
+}
+
+export interface FaultInjectRequest {
+  fault_type: string;
+  target_agent_id?: string;
+  source_agent_id?: string;
+  params?: Record<string, unknown>;
+  reason?: string;
+}
+
+export interface FaultInjectResult {
+  fault_event_id: string;
+  fault_type: string;
+  events: AgentLabEvent[];
 }
 
 export interface RunReplay {

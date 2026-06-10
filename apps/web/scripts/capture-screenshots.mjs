@@ -84,6 +84,13 @@ async function main() {
     console.log("✓ replay-debugger.png");
   }
 
+  // 6. Fault Injection Lab
+  await page.goto(`${BASE_URL}/lab`);
+  await page.getByText("All faults are simulations").waitFor();
+  await page.waitForTimeout(800); // selectors + agent strip populate
+  await shot("lab-mode.png");
+  console.log("✓ lab-mode.png");
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

@@ -117,6 +117,109 @@ describe("foldReplayGraph", () => {
   });
 });
 
+describe("fault injection folding (Lab Mode)", () => {
+  const base = () => [
+    makeEvent("run.started"),
+    makeEvent("agent.started", { source: "researcher", payload: { name: "ResearchAgent" } }),
+  ];
+  const fold = (events: AgentLabEvent[]) => foldReplayGraph(events, "run-1", "proj-1");
+  const ids = (events: AgentLabEvent[]) => fold(events).nodes.map((n) => n.id);
+
+  it("kill_agent: fault + agent.failed turns the node failed, no lab-controller node", () => {
+    const events = [
+      ...base(),
+      makeEvent("fault.injected", {
+        source: "lab-controller",
+        target: "researcher",
+        payload: { fault_type: "kill_agent" },
+        metadata: { safe_simulation: true, created_by: "lab" },
+      }),
+      makeEvent("agent.failed", {
+        source: "researcher",
+        payload: { error: "SimulatedCrash", latency_ms: 0 },
+      }),
+    ];
+    const graph = fold(events);
+    const researcher = graph.nodes.find((n) => n.id === "researcher")!;
+    expect(researcher.status).toBe("failed");
+    expect(researcher.errors).toBe(1);
+    expect(ids(events)).not.toContain("lab-controller");
+  });
+
+  it("fault.injected alone changes no workflow state", () => {
+    const events = [
+      ...base(),
+      makeEvent("fault.injected", {
+        source: "lab-controller",
+        target: "researcher",
+        payload: { fault_type: "kill_agent" },
+      }),
+    ];
+    const researcher = fold(events).nodes.find((n) => n.id === "researcher")!;
+    expect(researcher.status).toBe("running");
+    expect(researcher.errors).toBe(0);
+    expect(ids(events)).toEqual(["researcher"]);
+  });
+
+  it("overload_agent: heartbeat flips the node to overloaded", () => {
+    const events = [
+      ...base(),
+      makeEvent("fault.injected", {
+        source: "lab-controller",
+        target: "researcher",
+        payload: { fault_type: "overload_agent" },
+      }),
+      makeEvent("agent.heartbeat", {
+        source: "researcher",
+        payload: { status: "overloaded", stats: { queue_depth: 250 } },
+      }),
+    ];
+    expect(fold(events).nodes.find((n) => n.id === "researcher")!.status).toBe("overloaded");
+  });
+
+  it("drop_messages: sent + failed marks the edge failed", () => {
+    const events = [
+      ...base(),
+      makeEvent("message.sent", {
+        source: "researcher",
+        target: "coder",
+        metadata: { message_id: "mx" },
+      }),
+      makeEvent("message.failed", {
+        source: "researcher",
+        target: "coder",
+        payload: { error: "SimulatedDrop" },
+        metadata: { message_id: "mx" },
+      }),
+    ];
+    const edge = fold(events).edges.find((e) => e.id === "researcher->coder")!;
+    expect(edge.message_count).toBe(1);
+    expect(edge.last_status).toBe("failed");
+    const researcher = fold(events).nodes.find((n) => n.id === "researcher")!;
+    expect(researcher.errors).toBe(1); // message.failed attributed to sender
+  });
+
+  it("delay_messages: delivery latency lands on the edge", () => {
+    const events = [
+      ...base(),
+      makeEvent("message.sent", {
+        source: "researcher",
+        target: "coder",
+        metadata: { message_id: "md" },
+      }),
+      makeEvent("message.received", {
+        source: "researcher",
+        target: "coder",
+        payload: { latency_ms: 5000 },
+        metadata: { message_id: "md" },
+      }),
+    ];
+    const edge = fold(events).edges.find((e) => e.id === "researcher->coder")!;
+    expect(edge.avg_latency_ms).toBe(5000);
+    expect(edge.last_status).toBe("delivered");
+  });
+});
+
 describe("nextMarker", () => {
   it("finds the next strictly-after marker", () => {
     expect(nextMarker([15, 16, 17], 10)).toBe(15);

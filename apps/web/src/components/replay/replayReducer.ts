@@ -51,8 +51,12 @@ export function foldReplayGraph(
     const payload = event.payload ?? {};
     const src = event.source_agent_id;
     const tgt = event.target_agent_id;
-    if (src) participants.add(src);
-    if (tgt) participants.add(tgt);
+    // Lab control-plane events: lab-controller is an operator, not a
+    // workflow participant (mirrors the backend fold).
+    if (etype !== "fault.injected" && etype !== "attack.injected") {
+      if (src) participants.add(src);
+      if (tgt) participants.add(tgt);
+    }
 
     if (src) {
       if (etype === "agent.started") {

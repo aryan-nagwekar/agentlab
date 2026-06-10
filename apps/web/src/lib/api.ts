@@ -1,6 +1,9 @@
 import type {
   Agent,
   AgentLabEvent,
+  FaultInjectRequest,
+  FaultInjectResult,
+  FaultTemplate,
   HealthInfo,
   Project,
   ProjectDetail,
@@ -22,12 +25,27 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: "application/json" },
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
   });
   if (!response.ok) {
-    throw new ApiError(response.status, `${response.status} ${response.statusText} — ${path}`);
+    let detail = "";
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      if (body.detail) detail = ` — ${JSON.stringify(body.detail)}`;
+    } catch {
+      // non-JSON error body
+    }
+    throw new ApiError(
+      response.status,
+      `${response.status} ${response.statusText} — ${path}${detail}`,
+    );
   }
   return (await response.json()) as T;
 }
@@ -64,6 +82,13 @@ export const api = {
     request<AgentLabEvent[]>(
       `/api/agents/${agentId}/events${query({ project_id: projectId, limit })}`,
     ),
+  faultTemplates: () => request<FaultTemplate[]>("/api/lab/fault-templates"),
+  runFaults: (runId: string) => request<AgentLabEvent[]>(`/api/runs/${runId}/faults`),
+  injectFault: (runId: string, body: FaultInjectRequest) =>
+    request<FaultInjectResult>(`/api/runs/${runId}/faults`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export function wsUrl(path: string): string {
