@@ -134,6 +134,24 @@ export interface RunMetrics {
   highlights: Record<string, Highlight | null>;
 }
 
+export interface ReplayMarkers {
+  errors: number[];
+  tool_calls: number[];
+  routing: number[];
+  messages: number[];
+}
+
+export interface RunReplay {
+  run_id: string;
+  project_id: string;
+  status: string;
+  name: string | null;
+  event_count: number;
+  duration_ms: number | null;
+  markers: ReplayMarkers;
+  events: AgentLabEvent[];
+}
+
 export interface HealthInfo {
   status: string;
   service: string;

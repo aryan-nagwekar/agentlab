@@ -7,6 +7,7 @@ import type {
   Run,
   RunGraph,
   RunMetrics,
+  RunReplay,
 } from "./types";
 
 /** Same-origin by default (vite proxy in dev, nginx in Docker). */
@@ -52,6 +53,10 @@ export const api = {
     params: { event_type?: string; agent_id?: string; limit?: number; offset?: number } = {},
   ) => request<AgentLabEvent[]>(`/api/runs/${runId}/events${query(params)}`),
   runGraph: (runId: string) => request<RunGraph>(`/api/runs/${runId}/graph`),
+  runReplay: (runId: string, limit = 5000) =>
+    request<RunReplay>(`/api/runs/${runId}/replay${query({ limit })}`),
+  replayGraphAt: (runId: string, index: number) =>
+    request<RunGraph>(`/api/runs/${runId}/replay/graph${query({ index })}`),
   runMetrics: (runId: string) => request<RunMetrics>(`/api/runs/${runId}/metrics`),
   agent: (agentId: string, projectId?: string) =>
     request<Agent>(`/api/agents/${agentId}${query({ project_id: projectId })}`),

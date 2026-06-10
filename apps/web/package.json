@@ -1,12 +1,13 @@
 {
   "name": "agentlab-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "screenshots": "node scripts/capture-screenshots.mjs"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "playwright": "^1.60.0",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^4.1.8"
   }
 }

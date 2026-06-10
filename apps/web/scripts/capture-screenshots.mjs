@@ -70,6 +70,20 @@ async function main() {
   await shot("metrics.png");
   console.log("✓ metrics.png");
 
+  // 5. Replay debugger on the failed run, jumped to the error
+  const failureRun = runs.find((r) => r.name?.startsWith("failure"));
+  if (failureRun) {
+    await page.goto(`${BASE_URL}/runs/${failureRun.id}`);
+    await page.getByRole("button", { name: "replay" }).click();
+    await page.getByText("following playhead").waitFor();
+    await page.getByRole("button", { name: "Tool" }).click();
+    await page.waitForTimeout(400);
+    await page.getByRole("button", { name: "Error" }).click();
+    await page.waitForTimeout(900); // fold + fitView
+    await shot("replay-debugger.png");
+    console.log("✓ replay-debugger.png");
+  }
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

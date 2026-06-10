@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { InspectorPanel, type Selection } from "../components/inspector/InspectorPanel";
 import { RunMetricsView } from "../components/metrics/RunMetricsView";
+import { ReplayView } from "../components/replay/ReplayView";
 import { EventTimeline } from "../components/timeline/EventTimeline";
 import { TopologyView } from "../components/topology/TopologyView";
 import { Badge, Card, ErrorNote, PageHeader, Spinner, StatusDot } from "../components/ui";
@@ -15,7 +16,7 @@ import { runStatus } from "../lib/status";
 import type { AgentLabEvent } from "../lib/types";
 import { useAppStore } from "../store/app";
 
-type Tab = "topology" | "timeline" | "metrics";
+type Tab = "topology" | "timeline" | "metrics" | "replay";
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -137,7 +138,7 @@ export function RunDetailPage() {
       />
 
       <div className="mb-4 flex gap-1 border-b border-edge">
-        {(["topology", "timeline", "metrics"] as const).map((key) => (
+        {(["topology", "timeline", "metrics", "replay"] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -193,6 +194,10 @@ export function RunDetailPage() {
           </Card>
           <div className="h-[620px]">{inspector}</div>
         </div>
+      ) : null}
+
+      {tab === "replay" ? (
+        <ReplayView runId={runId!} projectId={run.project_id} runStatus={run.status} />
       ) : null}
 
       {tab === "metrics" ? (
