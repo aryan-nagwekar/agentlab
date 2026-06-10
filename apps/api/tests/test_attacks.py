@@ -43,7 +43,7 @@ def test_malicious_agent_joined_appears_suspicious(client, seeded_run):
     result = response.json()
     assert result["attack_type"] == "malicious_agent_joined"
     types = [e["event_type"] for e in result["events"]]
-    assert types == ["attack.injected", "agent.joined", "risk.updated"]
+    assert types == ["attack.injected", "agent.joined"]
 
     attack = result["events"][0]
     assert attack["source_agent_id"] == "lab-controller"
@@ -70,8 +70,15 @@ def test_prompt_injection_flags_message_and_raises_risk(client, seeded_run):
         "agent.suspicious",
         "message.sent",
         "message.flagged",
-        "risk.updated",
     ]
+    # risk is now derived by the scoring engine, not set by the attack
+    node = next(
+        n
+        for n in client.get("/api/runs/run-1/graph").json()["nodes"]
+        if n["id"] == "malicious-agent"
+    )
+    assert node["risk_score"] >= 0.6
+    assert node["trust_score"] <= 0.5
     # suspicious message is visible in the run's event stream
     events = client.get(
         "/api/runs/run-1/events", params={"event_type": "message.flagged"}
@@ -125,7 +132,7 @@ def test_unsafe_tool_request_blocked(client, seeded_run):
     response = _attack(client, "unsafe_tool_request", params={"tool_name": "mock_read_secret_file"})
     assert response.status_code == 201
     types = [e["event_type"] for e in response.json()["events"]]
-    assert types == ["attack.injected", "agent.suspicious", "tool.called", "tool.failed", "risk.updated"]
+    assert types == ["attack.injected", "agent.suspicious", "tool.called", "tool.failed"]
     tool_failed = next(e for e in response.json()["events"] if e["event_type"] == "tool.failed")
     assert "BlockedBySimulation" in tool_failed["payload"]["error"]
     assert tool_failed["payload"]["tool_name"] == "mock_read_secret_file"
@@ -134,8 +141,8 @@ def test_unsafe_tool_request_blocked(client, seeded_run):
 def test_routing_manipulation_records_attempt(client, seeded_run):
     response = _attack(client, "routing_manipulation", target_agent_id="planner")
     assert response.status_code == 201
-    risk = next(e for e in response.json()["events"] if e["event_type"] == "risk.updated")
-    assert risk["payload"]["manipulation_attempt"] is True
+    attack = next(e for e in response.json()["events"] if e["event_type"] == "attack.injected")
+    assert attack["payload"]["manipulation_attempt"] is True
 
 
 def test_attack_in_replay_tape_and_markers(client, seeded_run):

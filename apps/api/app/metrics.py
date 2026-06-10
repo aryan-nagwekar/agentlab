@@ -13,7 +13,7 @@ from collections import defaultdict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import models
+from . import models, scoring
 from .events import FAILURE_EVENT_TYPES, LAB_EVENT_TYPES
 from .schemas import AgentMetricsOut, HighlightOut, MetricsTotalsOut, RunMetricsOut
 from .timeutil import utcnow
@@ -42,13 +42,16 @@ def _avg(values: list[float]) -> float | None:
 
 
 def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
-    rows = session.execute(
-        select(
-            models.Event.event_type,
-            models.Event.source_agent_id,
-            models.Event.payload,
-        ).where(models.Event.run_id == run.id)
-    ).all()
+    event_rows = (
+        session.execute(
+            select(models.Event)
+            .where(models.Event.run_id == run.id)
+            .order_by(models.Event.timestamp, models.Event.id)
+        )
+        .scalars()
+        .all()
+    )
+    rows = [(e.event_type, e.source_agent_id, e.payload) for e in event_rows]
 
     total_events = len(rows)
     participants: set[str] = set()
@@ -140,9 +143,13 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
     tokens_total = sum(per_tokens.values())
     cost_total = round(sum(per_costs.values()), 6)
 
+    # Run-scoped trust/risk from the deterministic scoring engine.
+    scores = scoring.score_events(event_rows, seed=participants)
+
     per_agent: list[AgentMetricsOut] = []
     for agent_id in sorted(participants):
         agent = agents.get(agent_id)
+        score = scores.get(agent_id)
         per_agent.append(
             AgentMetricsOut(
                 agent_id=agent_id,
@@ -155,7 +162,8 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
                 cost_estimate=round(per_costs.get(agent_id, 0.0), 6),
                 avg_latency_ms=_avg(agent_task_latencies.get(agent_id, [])),
                 errors=per_errors.get(agent_id, 0),
-                trust_score=agent.trust_score if agent else 1.0,
+                trust_score=score.trust_score if score else 1.0,
+                risk_score=score.risk_score if score else 0.0,
             )
         )
 
@@ -189,6 +197,8 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
                 unit="ops",
             )
 
+    trust_values = [row.trust_score for row in per_agent]
+    risk_values = [row.risk_score for row in per_agent]
     totals = MetricsTotalsOut(
         agents=len(participants),
         messages=message_count,
@@ -205,7 +215,12 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
         attacks=attack_count,
         flagged_messages=flagged_messages,
         suspicious_agents=len(suspicious_agents & participants),
+        avg_trust=round(sum(trust_values) / len(trust_values), 4) if trust_values else None,
+        avg_risk=round(sum(risk_values) / len(risk_values), 4) if risk_values else None,
     )
+
+    highest_risk = max(per_agent, key=lambda r: r.risk_score, default=None)
+    lowest_trust = min(per_agent, key=lambda r: r.trust_score, default=None)
 
     return RunMetricsOut(
         run_id=run.id,
@@ -216,5 +231,15 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
             "most_expensive_agent": _highlight("cost_estimate", "USD"),
             "most_active_agent": most_active,
             "most_unreliable_agent": _highlight("errors", "errors"),
+            "highest_risk_agent": (
+                HighlightOut(agent_id=highest_risk.agent_id, name=highest_risk.name, value=highest_risk.risk_score, unit="risk")
+                if highest_risk and highest_risk.risk_score > 0
+                else None
+            ),
+            "lowest_trust_agent": (
+                HighlightOut(agent_id=lowest_trust.agent_id, name=lowest_trust.name, value=lowest_trust.trust_score, unit="trust")
+                if lowest_trust and lowest_trust.trust_score < 1.0
+                else None
+            ),
         },
     )

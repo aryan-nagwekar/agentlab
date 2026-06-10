@@ -25,6 +25,7 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "routing.decision",
         "trust.updated",
         "risk.updated",
+        "score.updated",
         "fault.injected",
         "attack.injected",
         "agent.quarantined",

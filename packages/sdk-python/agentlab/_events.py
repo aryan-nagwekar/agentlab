@@ -46,6 +46,9 @@ MODEL_FAILED = "model.failed"
 ROUTING_DECISION = "routing.decision"
 TRUST_UPDATED = "trust.updated"
 RISK_UPDATED = "risk.updated"
+# Reserved/formalized: v0.5 derives score changes from outcome events rather
+# than emitting these into the store (avoids scoring feedback loops).
+SCORE_UPDATED = "score.updated"
 
 # Lab / security simulation (emitted by Lab Mode in v0.3+, accepted from day one
 # so the schema does not churn)
@@ -77,6 +80,7 @@ EVENT_TYPES: frozenset[str] = frozenset(
         ROUTING_DECISION,
         TRUST_UPDATED,
         RISK_UPDATED,
+        SCORE_UPDATED,
         FAULT_INJECTED,
         ATTACK_INJECTED,
         AGENT_QUARANTINED,

@@ -6,22 +6,13 @@ the same event_id is a no-op, so SDK retries are always safe.
 """
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models
+from . import models, scoring
 from .events import FAILURE_EVENT_TYPES
 from .schemas import EventIn
 from .timeutil import to_utc_naive, utcnow
-
-
-def _clamp01(value: Any) -> float:
-    try:
-        return max(0.0, min(1.0, float(value)))
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _ensure_project(session: Session, project_id: str) -> models.Project:
@@ -291,18 +282,16 @@ def _apply_projection(session: Session, event: EventIn, ts) -> None:
                 )
             )
 
-    elif etype == "trust.updated":
-        agent = _ensure_agent(session, event.project_id, event.source_agent_id or "unknown", ts)
-        if "trust_score" in payload:
-            agent.trust_score = _clamp01(payload["trust_score"])
-
-    elif etype == "risk.updated":
-        agent = _ensure_agent(session, event.project_id, event.source_agent_id or "unknown", ts)
-        if "risk_score" in payload:
-            agent.risk_score = _clamp01(payload["risk_score"])
-
-    # model.* / fault.injected / attack.injected: raw events only; model usage
-    # is aggregated by the metrics layer, lab events are consumed in v0.3.
+    # Trust/risk are owned by the scoring engine (v0.5). Applying the same
+    # rule table here keeps the stored Agent row consistent with the run-scoped
+    # fold used by the graph/replay/score endpoints — and fixes the v0.4 bug
+    # where a quarantined agent could still read trust 1.0.
+    subject = scoring.subject_of(event)
+    if subject:
+        agent = _ensure_agent(session, event.project_id, subject, ts)
+        agent.trust_score, agent.risk_score = scoring.score_values(
+            agent.trust_score, agent.risk_score, event
+        )
 
     if etype in FAILURE_EVENT_TYPES:
         run.error_count = (run.error_count or 0) + 1

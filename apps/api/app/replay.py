@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any, Sequence
 
-from . import models
+from . import models, scoring
 from .events import LAB_EVENT_TYPES
 from .schemas import GraphEdgeOut, GraphNodeOut, ReplayMarkersOut, RunGraphOut
 
@@ -56,8 +56,6 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
     names: dict[str, str] = {}
     roles: dict[str, str | None] = {}
     status: dict[str, str] = {}
-    trust: dict[str, float] = {}
-    risk: dict[str, float] = {}
     messages_in: dict[str, int] = defaultdict(int)
     messages_out: dict[str, int] = defaultdict(int)
     tool_calls: dict[str, int] = defaultdict(int)
@@ -106,16 +104,6 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
                     roles[src] = str(payload["role"])
             elif etype == "agent.heartbeat" and payload.get("status"):
                 status[src] = str(payload["status"])
-            elif etype == "trust.updated" and payload.get("trust_score") is not None:
-                try:
-                    trust[src] = float(payload["trust_score"])
-                except (TypeError, ValueError):
-                    pass
-            elif etype == "risk.updated" and payload.get("risk_score") is not None:
-                try:
-                    risk[src] = float(payload["risk_score"])
-                except (TypeError, ValueError):
-                    pass
 
             if etype in ("agent.failed", "message.failed", "tool.failed", "model.failed"):
                 errors[src] += 1
@@ -167,14 +155,18 @@ def fold_events(run: models.Run, events: Sequence[models.Event]) -> RunGraphOut:
                     except (TypeError, ValueError):
                         pass
 
+    # Trust/risk at this cursor: the deterministic scoring engine folded over
+    # exactly the events applied so far (same rules as graph + endpoints).
+    scores = scoring.score_events(events, seed=participants)
+
     nodes = [
         GraphNodeOut(
             id=agent_id,
             name=names.get(agent_id, agent_id),
             role=roles.get(agent_id),
             status=status.get(agent_id, "unknown"),
-            trust_score=trust.get(agent_id, 1.0),
-            risk_score=risk.get(agent_id, 0.0),
+            trust_score=scores[agent_id].trust_score if agent_id in scores else 1.0,
+            risk_score=scores[agent_id].risk_score if agent_id in scores else 0.0,
             messages_in=messages_in.get(agent_id, 0),
             messages_out=messages_out.get(agent_id, 0),
             tool_calls=tool_calls.get(agent_id, 0),

@@ -228,6 +228,76 @@ class AttackInjectOut(BaseModel):
     events: list[EventOut]
 
 
+# -------------------------------------------------------------------- scoring
+
+
+class ScoreChangeOut(BaseModel):
+    agent_id: str
+    event_index: int
+    caused_by_event_id: str | None = None
+    caused_by_event_type: str
+    previous_trust: float
+    new_trust: float
+    previous_risk: float
+    new_risk: float
+    trust_delta: float
+    risk_delta: float
+    reason: str
+
+
+class ScoreFactorOut(BaseModel):
+    event_type: str
+    count: int
+    trust_delta: float
+    risk_delta: float
+
+
+class AgentScoreOut(BaseModel):
+    agent_id: str
+    name: str | None = None
+    status: str = "unknown"
+    trust_score: float
+    risk_score: float
+    tier: str
+    latest_reason: str | None = None
+    trust_factors: list[ScoreFactorOut] = Field(default_factory=list)
+    risk_factors: list[ScoreFactorOut] = Field(default_factory=list)
+    history: list[ScoreChangeOut] = Field(default_factory=list)
+
+
+class RunScoresOut(BaseModel):
+    run_id: str
+    scoring_version: str
+    agents: list[AgentScoreOut]
+
+
+class RunScoreHistoryOut(BaseModel):
+    run_id: str
+    scoring_version: str
+    changes: list[ScoreChangeOut]
+
+
+class RiskSummaryAgentOut(BaseModel):
+    agent_id: str
+    name: str | None = None
+    trust_score: float
+    risk_score: float
+    tier: str
+
+
+class RunRiskSummaryOut(BaseModel):
+    run_id: str
+    highest_risk_agent: RiskSummaryAgentOut | None = None
+    lowest_trust_agent: RiskSummaryAgentOut | None = None
+    avg_trust: float | None = None
+    avg_risk: float | None = None
+    suspicious_agents: int = 0
+    quarantined_agents: int = 0
+    flagged_messages: int = 0
+    attack_events: int = 0
+    fault_events: int = 0
+
+
 # --------------------------------------------------------------------- replay
 
 
@@ -272,6 +342,8 @@ class MetricsTotalsOut(BaseModel):
     attacks: int = 0
     flagged_messages: int = 0
     suspicious_agents: int = 0
+    avg_trust: float | None = None
+    avg_risk: float | None = None
 
 
 class AgentMetricsOut(BaseModel):
@@ -286,6 +358,7 @@ class AgentMetricsOut(BaseModel):
     avg_latency_ms: float | None = None
     errors: int = 0
     trust_score: float = 1.0
+    risk_score: float = 0.0
 
 
 class HighlightOut(BaseModel):
