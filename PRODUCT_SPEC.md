@@ -93,9 +93,14 @@ a team already uses.
     flagged edges, and attack replay markers. No real secrets, files, systems,
     or networks are touched.
 
+### Shipped in v0.5
+12. **Trust/risk engine** — deterministic, event-derived, explainable scoring:
+    per-agent trust + risk from a shared rule table, tier badges, "why it
+    changed" factors, score history, run risk summary, and scores that evolve
+    step-by-step in replay. Fixes the prior trust-1.0-while-quarantined bug.
+
 ### Next (gated, in order)
-12. **Trust & routing engine (v0.5)** — event-driven trust/risk scoring with
-    automatic quarantine thresholds and explainable routing decision records.
+13. **Framework adapters (v0.6)** — LangGraph, CrewAI, OpenAI Agents SDK, MCP.
 
 ## Non-goals (v1)
 
@@ -117,7 +122,7 @@ Core loop stays: **instrument → collect → visualize → inspect → replay �
 | LangSmith / Langfuse | ✅ deep | ⚠️ trace tree, not network | ⚠️ per-trace | ❌ | ❌ | ❌ |
 | Datadog LLM Obs | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | AgentOps | ✅ | ⚠️ | ⚠️ | ⚠️ session video | ❌ | ❌ |
-| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ shipped (v0.2) | ✅ shipped (v0.3) | ⚠️ quarantine markers (v0.4); trust engine v0.5 |
+| **AgentLab** | ⚠️ metadata-level | ✅ first-class | ✅ first-class | ✅ shipped (v0.2) | ✅ shipped (v0.3) | ✅ trust/risk engine + quarantine (v0.4–v0.5) |
 
 AgentLab competes on the **system view**, not on prompt analytics. It can sit
 beside a prompt-tracing tool rather than replacing it.

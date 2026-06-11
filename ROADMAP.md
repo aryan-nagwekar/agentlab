@@ -1,6 +1,6 @@
 # AgentLab — Roadmap
 
-## v0.1 — Local observability ✅ (current)
+## v0.1 — Local observability ✅
 
 The working vertical slice: **instrument → collect → visualize → inspect**.
 
@@ -61,16 +61,27 @@ A safe cyber range — all attacks are mock-only telemetry simulations.
 - Seeded scenario: "Malicious Agent Demo — Prompt Injection Attempt"
 - Safety: mock secrets only; `safe_simulation: true`,
   `real_secrets_accessed: false`, `real_network_access: false` end to end
-- Deferred to v0.5: an actual trust/risk *engine* (automatic thresholds,
-  decay, routing impact); quarantine remains a visualization marker
+- The trust/risk *engine* itself shipped in v0.5 (below)
 
-## v0.5 — Trust/risk engine (pending approval)
+## v0.5 — Trust/risk engine ✅
 
-- Event-driven trust/risk scoring with accumulation, decay, and reasons
-- Automatic quarantine above a configurable threshold
-- Explainable routing analysis that avoids low-trust agents
+Deterministic, event-derived, explainable scoring — no LLM, fully replayable.
 
-## v0.6 — Framework integrations
+- `app/scoring.py`: pure event-fold → per-agent trust/risk + explained history;
+  one rule table shared by collector, graph, replay, metrics, and the JS mirror
+- Endpoints: `/runs/{id}/scores`, `/runs/{id}/score-history`,
+  `/runs/{id}/risk-summary`, `/agents/{id}/scores` (with trust/risk factors)
+- Fixed the v0.4 bug: a quarantined malicious agent reads ~0.1 trust / 1.0 risk,
+  never 1.0; a faulted agent degrades to `caution` without being labelled malicious
+- UI: tier badges on nodes, score panel (reason + factors + history) in the
+  inspector and agent page, run risk summary on the Metrics tab, and scores that
+  evolve step-by-step in replay
+- Scores derived on read = no `score.updated` events emitted (no feedback loops)
+- 21 pytest + 11 vitest scoring tests
+- Deferred: enforcement (routing impact, quarantine thresholds), score decay —
+  the engine scores and explains, it is not a policy engine
+
+## v0.6 — Framework integrations (pending approval)
 
 - Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
 - Auto-instrumentation where the framework exposes callbacks/middleware
@@ -98,6 +109,8 @@ A safe cyber range — all attacks are mock-only telemetry simulations.
 - Alembic migrations deferred until the first relational schema change
   (v0.3 added no tables — faults are events)
 - Read API is unauthenticated in local mode (auth lands v0.7)
+- Trust/risk engine scores and explains but does not enforce (no routing
+  impact, no score decay, quarantine is a marker) — enforcement is future work
 - Replay folds from scratch per cursor move (snapshot memoization when tapes
   get large); replay tape doesn't grow live for still-running runs
 - Dashboard bundle could code-split React Flow / Recharts routes

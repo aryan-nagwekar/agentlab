@@ -70,7 +70,8 @@ model.{called,completed,failed}
 agent.joined · agent.suspicious         (Security Lab, v0.4)
 message.flagged                         (Security Lab, v0.4)
 routing.decision
-trust.updated · risk.updated
+trust.updated · risk.updated            (manual score overrides)
+score.updated                           (formalized; v0.5 derives, never emits)
 fault.injected                          (Lab Mode, v0.3)
 attack.injected                         (Security Lab, v0.4)
 ```
@@ -316,12 +317,61 @@ Attack jump button).
 Every payload carries `safe_simulation: true`; event metadata carries
 `real_secrets_accessed: false` and `real_network_access: false`.
 
-## Trust/risk engine (v0.5 design sketch)
+## Trust/risk engine (v0.5 — shipped)
 
-v0.4 sets risk from attack severity only. v0.5 adds an event-driven engine:
-trust/risk scores that accumulate and decay from outcomes, automatic
-`agent.quarantined` above a threshold, and explainable routing decisions that
-avoid low-trust agents.
+`app/scoring.py` is a pure fold over a run's ordered events → per-agent
+`{trust, risk, history}`. Deterministic (no LLM, no randomness), so a score is
+reproducible and the score at replay cursor *k* is exactly
+`score_events(events[:k+1])`.
+
+**One rule table, five call sites.** The `EFFECTS` table (deltas + floors/
+ceilings per event type) is the single source of truth used by the collector
+(stored `Agent` row), `graph.py`, `replay.py`, `metrics.py`, and the dashboard
+mirror `apps/web/src/lib/scoring.ts`. A change in one place is a change
+everywhere; pytest (`test_scoring.py`) and vitest (`scoring.test.ts`) pin both
+sides to the same 18-event-style fixtures.
+
+| Signal | Effect |
+| --- | --- |
+| `agent.completed` | trust +0.05, risk −0.02 |
+| `tool/model.completed`, `message.received` | trust +0.01 |
+| `agent.failed` | trust −0.15, risk +0.10 |
+| `tool/model.failed` | trust −0.10, risk +0.08 |
+| `message.failed` | trust −0.07, risk +0.05 |
+| `fault.injected` | trust −0.05, risk +0.10 (scores the **target**/victim) |
+| `message.flagged` | trust −0.20, risk +0.25 |
+| `attack.injected` | trust −0.25, risk +0.30 (scores the **target**/attacker) |
+| `agent.suspicious` | trust ≤ 0.5, risk ≥ 0.6 (ceiling/floor) |
+| `agent.quarantined` | trust ∈ [0.10, 0.20], risk ≥ 0.90 |
+| `trust.updated` / `risk.updated` | manual override (set) |
+
+**Attribution.** `attack.injected` and `fault.injected` carry
+`source=lab-controller`, so they score `target_agent_id`; everything else
+scores `source_agent_id`. The `lab-controller` operator never gets a score.
+
+**Why no `score.updated` events.** v0.5 derives score changes on read and
+returns them as `ScoreChange` history records. Nothing is written back into the
+event log, so a score change can never trigger another — the
+"no infinite score events" requirement holds by construction. `score.updated`
+is formalized in the registry but reserved.
+
+**Explainability.** Every change records `caused_by_event_id` +
+`caused_by_event_type`, previous/new trust+risk, the deltas, and a human
+reason. `factors()` aggregates a history into the biggest trust/risk movers.
+`tier()` bands a score into `trusted | caution | suspicious | high-risk` for
+node colouring.
+
+**Endpoints:** `GET /runs/{id}/scores`, `/runs/{id}/score-history`,
+`/runs/{id}/risk-summary`, `/agents/{id}/scores`. The dashboard shows a score
+panel (reason + factors + history) in the inspector and on the agent page, a
+run risk summary on the Metrics tab, tier badges on every node, and — because
+the reducer folds with the same rules — trust/risk that visibly evolve as the
+replay cursor advances.
+
+This fixed the v0.4 inconsistency where a quarantined malicious agent could
+read trust 1.0 / risk 0.95: it now reads ~0.10 / 1.0, derived from its own
+attack/quarantine events. The engine **scores and explains; it does not
+enforce** — no routing impact, no decay, quarantine stays a marker (future work).
 
 ## Testing
 

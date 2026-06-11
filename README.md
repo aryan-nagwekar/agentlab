@@ -7,8 +7,9 @@
 A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
 run metrics, a replay debugger that steps through any run like a packet
-capture, a fault-injection lab for chaos-testing, and a safe cyber range for
-simulating malicious agents — with trust-aware routing analysis on the roadmap.
+capture, a fault-injection lab for chaos-testing, a safe cyber range for
+simulating malicious agents, and a deterministic trust/risk engine that scores
+every agent — with framework adapters on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -33,7 +34,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.4)
+## What works today (v0.5)
 
 | Capability | Status |
 | --- | --- |
@@ -48,7 +49,8 @@ inspect, and (soon) replay.
 | Replay debugger — play/pause/step/scrub any run; jump to next error, tool call, routing decision, or fault; topology and inspector reconstruct at every cursor position | ✅ |
 | Fault injection lab — kill / overload / tool failure / model timeout / message delay / message drop, injected from the UI; graph reacts live, every fault is replayable, all simulated | ✅ |
 | Security Lab — 8 simulated malicious-agent attacks (prompt injection, mock exfiltration, fake capabilities, spam, trust poisoning, routing manipulation, unsafe tool request, rogue join); suspicious/quarantine markers, flagged edges, attack replay markers — all mock data, nothing real touched | ✅ |
-| Trust/risk scoring engine + automatic quarantine + routing analysis | 🔜 v0.5 |
+| Trust/risk engine — deterministic, event-derived, explainable scores: per-agent trust + risk, tier badges (trusted → high-risk), "why it changed" factors, score history, run risk summary, and scores that evolve step-by-step in replay | ✅ |
+| Framework adapters (LangGraph, CrewAI, OpenAI Agents SDK, MCP) | 🔜 v0.6 |
 
 ## Architecture
 
@@ -175,6 +177,12 @@ buffers through collector outages, and becomes a no-op with
 
 ![Replay paused on a simulated attack with the malicious agent suspicious and the raw payload inspected](docs/screenshots/malicious-replay.png)
 
+The trust/risk engine then explains *why* each agent ended up where it did — a
+quarantined malicious agent reads **trust 0.10 / risk 1.00** (never the old
+trust 1.00 bug), with a factor breakdown and a full score history:
+
+![Trust/risk score panel: the quarantined malicious agent at trust 0.10 / risk 1.00 with why-it-changed factors and score history](docs/screenshots/trust-risk-scores.png)
+
 | Fleet dashboard | Message inspector |
 | --- | --- |
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Message inspector with payload tree and parent event link](docs/screenshots/inspector-message.png) |
@@ -233,7 +241,37 @@ inject a Mock secret exfiltration attempt
 watch the graph: malicious-agent turns suspicious → quarantined
 ```
 
-## Known limitations (v0.1–v0.4)
+## How trust & risk scoring works (v0.5)
+
+Every agent carries a **trust score** (0–1) and **risk score** (0–1), derived
+deterministically from the run's events — no LLM, no randomness, fully
+reproducible and replayable. The same rule table runs in the collector, the
+graph, replay, and the dashboard (`apps/api/app/scoring.py` ↔ `apps/web/src/lib/scoring.ts`).
+
+- **Positive events** preserve/raise trust: `agent.completed` (+0.05 trust),
+  `tool.completed`, `model.completed`, `message.received`.
+- **Failures** degrade reliability: `agent.failed` (−0.15 trust / +0.10 risk),
+  `tool.failed` / `model.failed` (−0.10 / +0.08), `message.failed`, `fault.injected`.
+- **Adversarial signals** drop trust sharply and raise risk: `message.flagged`
+  (−0.20 / +0.25), `attack.injected` (−0.25 / +0.30), `agent.suspicious`
+  (forces trust ≤ 0.5, risk ≥ 0.6), `agent.quarantined` (pins trust to
+  0.10–0.20, risk ≥ 0.90). All scores clamp to [0, 1].
+- Attacks and faults score the **target** agent (not the `lab-controller`
+  operator). Every change is **explainable**: the API returns the causing
+  event, the previous/new scores, the delta, and a reason.
+- Tiers for the UI: `trusted` → `caution` → `suspicious` → `high-risk`.
+
+Endpoints: `GET /api/runs/{id}/scores`, `/runs/{id}/score-history`,
+`/runs/{id}/risk-summary`, `/agents/{id}/scores`. A faulted agent shows
+degraded reliability (e.g. `caution`) **without** being labelled malicious —
+only attack events push an agent into the suspicious/high-risk tiers.
+
+## Known limitations (v0.1–v0.5)
+
+- **The trust/risk engine is deterministic and event-derived — not a policy or
+  access-control system.** It scores and explains; it does not enforce. There's
+  no automatic routing impact, no score decay over time, and quarantine remains
+  a visualization marker (a later milestone may add enforcement).
 
 Stated plainly so nobody discovers them the hard way:
 
@@ -265,9 +303,6 @@ Stated plainly so nobody discovers them the hard way:
   paints the node and is recorded in the timeline/replay; it does not actually
   stop or isolate a running agent (real lifecycle control is out of scope until
   a later milestone).
-- **Risk scores are simple and event-derived.** v0.4 sets risk from attack
-  severity; there is no trust/risk *engine* yet (automatic thresholds,
-  decay, routing impact) — that is v0.5.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
@@ -282,7 +317,7 @@ Stated plainly so nobody discovers them the hard way:
 - **v0.2 — replay debugger** ✅ step through any run like a packet capture; jump to error/tool/routing
 - **v0.3 — fault injection lab** ✅ six simulated fault types, injectable from the UI, replayable
 - **v0.4 — malicious-agent simulation** ✅ eight sandboxed attack scenarios, suspicious/quarantine markers, attack replay
-- **v0.5 — trust/risk engine**: event-driven scoring, automatic quarantine thresholds, routing analysis
+- **v0.5 — trust/risk engine** ✅ deterministic event-derived scoring, explanations, history, tier badges, run risk summary, replay evolution
 - **v0.6 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
 - **v0.7 — teams**: project auth, retention, multi-user
 - **v1.0 — hosted platform**

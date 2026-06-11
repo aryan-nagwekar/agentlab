@@ -11,6 +11,11 @@ Planner ──▶ Researcher ──▶ Coder ──▶ Security Reviewer ──�
 No LLM API keys are needed — model calls, token counts, costs, and latencies
 are simulated, but every event flowing to AgentLab is real.
 
+Trust/risk scores are **not** set by this demo — they're derived by the
+deterministic scoring engine from the events below. The malicious agent ends
+quarantined at ~0.1 trust / 1.0 risk; a faulted agent degrades to `caution`
+without being labelled malicious.
+
 ## Scenarios
 
 | Scenario  | What happens                                                                  |
