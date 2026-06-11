@@ -1,3 +1,4 @@
+import { ModelGateway } from "../components/gateway/ModelGateway";
 import { Card, PageHeader, SectionLabel, StatusDot } from "../components/ui";
 import { useFetch } from "../hooks/useFetch";
 import { API_BASE, api } from "../lib/api";
@@ -84,12 +85,19 @@ export function SettingsPage() {
         ))}
       </Card>
 
-      <div className="mt-6">
+      <div className="mt-8">
+        <PageHeader title="Model Gateway" subtitle="Local-first BYOK — call providers through one interface (mock works without keys)" />
+        <ModelGateway />
+      </div>
+
+      <div className="mt-8">
         <SectionLabel>Configuration reference</SectionLabel>
         <Card className="px-4 py-3 font-mono text-[12px] leading-7 text-zinc-400">
           <div>AGENTLAB_DATABASE_URL &nbsp;<span className="text-zinc-600"># sqlite:///./agentlab.db | postgresql+psycopg://…</span></div>
           <div>AGENTLAB_API_KEYS &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># comma-separated; empty = open local mode</span></div>
-          <div>AGENTLAB_CORS_ORIGINS &nbsp;<span className="text-zinc-600"># dashboard origins for dev</span></div>
+          <div>OPENAI_API_KEY &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># model gateway BYOK (server-side only)</span></div>
+          <div>ANTHROPIC_API_KEY &nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># model gateway BYOK (server-side only)</span></div>
+          <div>OLLAMA_BASE_URL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># default http://localhost:11434</span></div>
           <div>AGENTLAB_DISABLED &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># =1 turns the SDK into a no-op</span></div>
         </Card>
       </div>

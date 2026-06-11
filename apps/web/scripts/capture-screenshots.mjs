@@ -127,6 +127,17 @@ async function main() {
     console.log("✓ trust-risk-scores.png");
   }
 
+  // 10. Model Gateway settings
+  await page.goto(`${BASE_URL}/settings`);
+  await page.getByText("Local-first BYOK").waitFor();
+  await page.waitForTimeout(600);
+  await page.locator("text=Run test call").scrollIntoViewIfNeeded();
+  await page.getByText("Run test call").click();
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.scrollTo(0, 320));
+  await shot("model-gateway.png");
+  console.log("✓ model-gateway.png");
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

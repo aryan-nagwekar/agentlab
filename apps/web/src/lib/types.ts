@@ -312,6 +312,39 @@ export interface RunCost {
   agent_breakdown: AgentCost[];
 }
 
+export interface Provider {
+  name: string;
+  configured: boolean;
+  status: string; // available | not_configured | unavailable | error
+  requires_key: boolean;
+  models: string[];
+  key_redacted: string | null;
+}
+
+export interface ModelTestCallRequest {
+  provider: string;
+  model_name: string;
+  prompt: string;
+  agent_id?: string;
+  project_id?: string;
+  run_id?: string;
+  simulate_failure?: boolean;
+}
+
+export interface ModelCallResult {
+  provider: string;
+  model_name: string;
+  output_text: string;
+  status: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  estimated_cost_usd: number | null;
+  latency_ms: number;
+  error_message: string | null;
+  event_id: string | null;
+}
+
 export interface HealthInfo {
   status: string;
   service: string;

@@ -11,6 +11,9 @@ import type {
   HealthInfo,
   Project,
   ProjectDetail,
+  ModelCallResult,
+  ModelTestCallRequest,
+  Provider,
   Run,
   RunCost,
   RunGraph,
@@ -105,6 +108,12 @@ export const api = {
   runRiskSummary: (runId: string) =>
     request<RunRiskSummary>(`/api/runs/${runId}/risk-summary`),
   runCosts: (runId: string) => request<RunCost>(`/api/runs/${runId}/costs`),
+  providers: () => request<{ providers: Provider[] }>("/api/model-gateway/providers"),
+  testCall: (body: ModelTestCallRequest) =>
+    request<ModelCallResult>("/api/model-gateway/test-call", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   agentScores: (agentId: string, projectId?: string, runId?: string) =>
     request<AgentScore>(
       `/api/agents/${agentId}/scores${query({ project_id: projectId, run_id: runId })}`,
