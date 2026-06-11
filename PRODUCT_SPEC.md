@@ -99,8 +99,15 @@ a team already uses.
     changed" factors, score history, run risk summary, and scores that evolve
     step-by-step in replay. Fixes the prior trust-1.0-while-quarantined bug.
 
+### Shipped in v0.6
+13. **Cost/token profiler** — deterministic local pricing; per-agent, per-model,
+    and per-run token + USD attribution; most-expensive / most-token-heavy /
+    slowest / failed-call rankings; model-call inspector; cost that accumulates
+    in replay. Mock providers only.
+
 ### Next (gated, in order)
-13. **Framework adapters (v0.6)** — LangGraph, CrewAI, OpenAI Agents SDK, MCP.
+14. **Model gateway / BYOK (v0.7)** — connect real OpenAI / Anthropic / Gemini /
+    Ollama providers with live token and cost.
 
 ## Non-goals (v1)
 

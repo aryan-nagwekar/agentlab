@@ -16,6 +16,13 @@ deterministic scoring engine from the events below. The malicious agent ends
 quarantined at ~0.1 trust / 1.0 risk; a faulted agent degrades to `caution`
 without being labelled malicious.
 
+Each agent uses a **mock model provider** (no real API calls): Planner & Coder
+on `mock:claude-sonnet`, Researcher on `mock:gpt-4.1`, Security on the free
+`mock:local-ollama`, Reporter on `mock:gemini-pro`. Cost is derived from a
+static pricing table, so in the **Cost & Tokens** tab the Coder is most
+expensive, the Researcher is most token-heavy, and the Security reviewer is
+free. The `failure` scenario includes one failed Security model call.
+
 ## Scenarios
 
 | Scenario  | What happens                                                                  |

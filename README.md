@@ -7,9 +7,9 @@
 A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
 run metrics, a replay debugger that steps through any run like a packet
-capture, a fault-injection lab for chaos-testing, a safe cyber range for
-simulating malicious agents, and a deterministic trust/risk engine that scores
-every agent — with framework adapters on the roadmap.
+capture, a fault-injection lab, a safe cyber range for simulating malicious
+agents, a deterministic trust/risk engine, and a cost/token profiler that
+attributes spend per agent and model — with a real model gateway on the roadmap.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -34,7 +34,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.5)
+## What works today (v0.6)
 
 | Capability | Status |
 | --- | --- |
@@ -50,7 +50,8 @@ inspect, and (soon) replay.
 | Fault injection lab — kill / overload / tool failure / model timeout / message delay / message drop, injected from the UI; graph reacts live, every fault is replayable, all simulated | ✅ |
 | Security Lab — 8 simulated malicious-agent attacks (prompt injection, mock exfiltration, fake capabilities, spam, trust poisoning, routing manipulation, unsafe tool request, rogue join); suspicious/quarantine markers, flagged edges, attack replay markers — all mock data, nothing real touched | ✅ |
 | Trust/risk engine — deterministic, event-derived, explainable scores: per-agent trust + risk, tier badges (trusted → high-risk), "why it changed" factors, score history, run risk summary, and scores that evolve step-by-step in replay | ✅ |
-| Framework adapters (LangGraph, CrewAI, OpenAI Agents SDK, MCP) | 🔜 v0.6 |
+| Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay (mock providers only) | ✅ |
+| Model gateway + BYOK (connect real OpenAI / Anthropic / Gemini / Ollama) | 🔜 v0.7 |
 
 ## Architecture
 
@@ -168,6 +169,11 @@ buffers through collector outages, and becomes a no-op with
    and hit the **Attack** marker to inspect the raw (mock) attack payload. Or
    open **Lab → Security Lab** and launch your own attacks — every payload is a
    `MOCK_*` placeholder; nothing real is read, sent, or executed.
+7. **follow the money** — open any run → **Cost & Tokens** tab → see which
+   agent burned the most tokens and cost the most (the Coder, on
+   `mock:claude-sonnet`) and which was free (the Security reviewer, on
+   `mock:local-ollama`). Click a `model.completed` event to inspect exact
+   token/cost metadata, or scrub **Replay** to watch the cost build up over time.
 
 ![Replay debugger: scrubber with markers, reconstructed topology at the failure, inspector following the playhead](docs/screenshots/replay-debugger.png)
 
@@ -182,6 +188,13 @@ quarantined malicious agent reads **trust 0.10 / risk 1.00** (never the old
 trust 1.00 bug), with a factor breakdown and a full score history:
 
 ![Trust/risk score panel: the quarantined malicious agent at trust 0.10 / risk 1.00 with why-it-changed factors and score history](docs/screenshots/trust-risk-scores.png)
+
+The Cost & Tokens tab profiles spend per agent and model — in the demo the
+**Coder is most expensive** (`mock:claude-sonnet`), the **Researcher is most
+token-heavy** (`mock:gpt-4.1`), and the **Security reviewer is free**
+(`mock:local-ollama`):
+
+![Cost & Tokens tab: per-agent token/cost ranking bars, model-by-provider breakdown, and an agent cost table](docs/screenshots/cost-tokens.png)
 
 | Fleet dashboard | Message inspector |
 | --- | --- |
@@ -266,7 +279,35 @@ Endpoints: `GET /api/runs/{id}/scores`, `/runs/{id}/score-history`,
 degraded reliability (e.g. `caution`) **without** being labelled malicious —
 only attack events push an agent into the suspicious/high-risk tiers.
 
-## Known limitations (v0.1–v0.5)
+## How cost & token attribution works (v0.6)
+
+Every model call (`model.completed` / `model.failed`) carries `provider`,
+`model_name`, `input_tokens`, `output_tokens`, and `latency_ms`. Cost is
+**recomputed deterministically** from a static local pricing table
+(`apps/api/app/pricing.py`, USD per 1M tokens) — never from an external API —
+so it is the single source of truth shared by the cost endpoints, metrics, the
+graph, and the dashboard (`apps/web/src/lib/costing.ts` mirrors it for replay).
+
+- Per-agent: input/output/total tokens, estimated cost, avg + p95 latency,
+  model-call count, failed calls, retries, most-used model.
+- Per-model: tokens, cost, calls, failures, avg latency, provider.
+- Per-run: totals plus most-expensive / most-token-heavy / slowest /
+  highest-failure agent and a model breakdown.
+- Unknown models → `pricing_status: "unknown"`, cost `null` ("Pricing
+  unavailable" in the inspector). Missing token fields are treated as zero.
+- A failed model call still incurs cost for the input tokens it consumed.
+
+Endpoints: `GET /api/runs/{id}/costs`, `/runs/{id}/token-summary`,
+`/agents/{id}/costs`, `/projects/{id}/cost-summary`. Mock providers only:
+`mock:gpt-4.1`, `mock:claude-sonnet`, `mock:gemini-pro`, `mock:local-ollama`
+(free). Connecting real providers (BYOK / model gateway) is v0.7.
+
+## Known limitations (v0.1–v0.6)
+
+- **Pricing is a static local table and model providers are mock/demo only.**
+  v0.6 does not connect to real OpenAI, Anthropic, Gemini, OpenRouter, or
+  Ollama providers; token metadata is simulated. BYOK / a real model gateway
+  is planned for v0.7.
 
 - **The trust/risk engine is deterministic and event-derived — not a policy or
   access-control system.** It scores and explains; it does not enforce. There's
@@ -281,7 +322,7 @@ Stated plainly so nobody discovers them the hard way:
   replica. A Redis pub/sub layer is the planned path to horizontal scale.
 - **Auth covers the write path only.** `AGENTLAB_API_KEYS` gates `POST
   /api/events`; the read API and dashboard are open, intended for local/
-  trusted-network use until team auth lands (v0.7).
+  trusted-network use until team auth lands (v0.9).
 - **Trust/risk fallback semantics.** A run's topology shows trust/risk as of
   that run when the run contains `trust.updated`/`risk.updated` events;
   otherwise it falls back to the agent's *current* project-wide score.
@@ -318,8 +359,9 @@ Stated plainly so nobody discovers them the hard way:
 - **v0.3 — fault injection lab** ✅ six simulated fault types, injectable from the UI, replayable
 - **v0.4 — malicious-agent simulation** ✅ eight sandboxed attack scenarios, suspicious/quarantine markers, attack replay
 - **v0.5 — trust/risk engine** ✅ deterministic event-derived scoring, explanations, history, tier badges, run risk summary, replay evolution
-- **v0.6 — framework adapters**: LangGraph, CrewAI, OpenAI Agents SDK, MCP
-- **v0.7 — teams**: project auth, retention, multi-user
+- **v0.6 — cost/token profiler** ✅ deterministic pricing, per-agent/model/run attribution, rankings, model-call inspector, replay cost evolution
+- **v0.7 — model gateway / BYOK**: connect real OpenAI / Anthropic / Gemini / Ollama providers
+- **v0.8 — teams**: project auth, retention, multi-user
 - **v1.0 — hosted platform**
 
 ## License

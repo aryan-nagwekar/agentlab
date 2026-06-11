@@ -373,6 +373,34 @@ read trust 1.0 / risk 0.95: it now reads ~0.10 / 1.0, derived from its own
 attack/quarantine events. The engine **scores and explains; it does not
 enforce** — no routing impact, no decay, quarantine stays a marker (future work).
 
+## Cost/token engine (v0.6 — shipped)
+
+`app/costing.py` folds a run's `model.*` events into per-agent, per-model, and
+run cost/token aggregates; `app/pricing.py` is a static USD-per-1M-token table
+for mock providers only. Cost is **always recomputed from tokens via the
+pricing table** (never trusted from the payload), making it the single source
+of truth shared by the cost endpoints, `metrics.py`, `graph.py`, the run
+finalizer, and the dashboard mirror `apps/web/src/lib/costing.ts`.
+
+- **Normalization** reads tokens leniently: new `input_tokens`/`output_tokens`/
+  `model_name`/`provider`, or legacy `prompt_tokens`/`completion_tokens`/
+  `model`. Missing fields → 0. Unknown model → cost `null`,
+  `pricing_status: "unknown"` (an explicit payload cost is honoured as
+  `"provided"`). A `model.failed` still costs its consumed input tokens.
+- **Per-agent:** in/out/total tokens, cost, avg + p95 latency, model-call
+  count, failed calls, retries (`model.called` minus finished), most-used model.
+- **Per-run highlights:** most-expensive / most-token-heavy / slowest /
+  highest-failure agent + model breakdown.
+- **Replay:** `aggregateCost(events[:cursor])` gives the cost at any cursor, so
+  the "Cost so far" strip and node token counts grow as replay advances.
+
+**Endpoints:** `/runs/{id}/costs`, `/runs/{id}/token-summary`,
+`/agents/{id}/costs`, `/projects/{id}/cost-summary`.
+
+**Scope:** mock providers only (`mock:gpt-4.1`, `mock:claude-sonnet`,
+`mock:gemini-pro`, `mock:local-ollama`). No real provider calls, no BYOK — that
+is the v0.7 model gateway.
+
 ## Testing
 
 - **SDK (22 tests):** transport against a real in-process HTTP server —

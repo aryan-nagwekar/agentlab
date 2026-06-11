@@ -81,14 +81,39 @@ Deterministic, event-derived, explainable scoring — no LLM, fully replayable.
 - Deferred: enforcement (routing impact, quarantine thresholds), score decay —
   the engine scores and explains, it is not a policy engine
 
-## v0.6 — Framework integrations (pending approval)
+## v0.6 — Cost/token profiler ✅
+
+Deterministic per-agent / per-model / per-run cost and token attribution.
+
+- `pricing.py` static table (mock providers, USD per 1M tokens) + `costing.py`
+  pure fold over `model.*` events; cost always recomputed from tokens = single
+  source of truth shared by endpoints, metrics, graph, and the JS mirror
+- Endpoints: `/runs/{id}/costs`, `/runs/{id}/token-summary`,
+  `/agents/{id}/costs`, `/projects/{id}/cost-summary`
+- UI: Cost & Tokens tab (summary cards, cost/token/latency ranking bars,
+  model-by-provider breakdown, agent table), model-call inspector with
+  token/cost details, "Cost so far" strip that accumulates in replay
+- SDK `log_model_call` gains provider/model_name/input_tokens/output_tokens
+- Demo: per-agent mock providers — Coder most expensive, Researcher most
+  token-heavy, Security on free local-ollama, a failed model call in the
+  failure scenario
+- 21 pytest + 10 vitest cost tests
+- Deferred: real provider calls / BYOK (v0.7); pricing is a static local table
+
+## v0.7 — Model gateway / BYOK (pending approval)
+
+- Connect real OpenAI / Anthropic / Gemini / Ollama providers
+- API key management (BYOK); live token/cost from real responses
+- Pricing synced to real provider rates
+
+## v0.8 — Framework integrations
 
 - Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
 - Auto-instrumentation where the framework exposes callbacks/middleware
 - OpenTelemetry span export (interop with existing tracing stacks)
 - Alembic migrations (lands with the first relational schema change)
 
-## v0.7 — Teams & projects
+## v0.9 — Teams & projects
 
 - Real API-key management per project, scoped tokens
 - Multi-user access, basic roles
@@ -108,7 +133,7 @@ Deterministic, event-derived, explainable scoring — no LLM, fully replayable.
 
 - Alembic migrations deferred until the first relational schema change
   (v0.3 added no tables — faults are events)
-- Read API is unauthenticated in local mode (auth lands v0.7)
+- Read API is unauthenticated in local mode (auth lands v0.9)
 - Trust/risk engine scores and explains but does not enforce (no routing
   impact, no score decay, quarantine is a marker) — enforcement is future work
 - Replay folds from scratch per cursor move (snapshot memoization when tapes
