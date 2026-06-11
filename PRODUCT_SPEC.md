@@ -105,9 +105,15 @@ a team already uses.
     slowest / failed-call rankings; model-call inspector; cost that accumulates
     in replay. Mock providers only.
 
+### Shipped in v0.7
+14. **Model gateway / BYOK** — one provider interface (mock + OpenAI-compatible +
+    Anthropic + Ollama); local-first keys read from the environment, never
+    stored/returned/logged, redacted in the UI; provider health + safe test-call;
+    gateway calls flow into telemetry, replay, and Cost & Tokens.
+
 ### Next (gated, in order)
-14. **Model gateway / BYOK (v0.7)** — connect real OpenAI / Anthropic / Gemini /
-    Ollama providers with live token and cost.
+15. **Agent Builder Studio (v0.8)** — define agents in-app and assign a
+    provider/model to each, built on the gateway.
 
 ## Non-goals (v1)
 

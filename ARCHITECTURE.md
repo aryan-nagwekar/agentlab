@@ -397,9 +397,53 @@ finalizer, and the dashboard mirror `apps/web/src/lib/costing.ts`.
 **Endpoints:** `/runs/{id}/costs`, `/runs/{id}/token-summary`,
 `/agents/{id}/costs`, `/projects/{id}/cost-summary`.
 
-**Scope:** mock providers only (`mock:gpt-4.1`, `mock:claude-sonnet`,
-`mock:gemini-pro`, `mock:local-ollama`). No real provider calls, no BYOK — that
-is the v0.7 model gateway.
+**Scope:** v0.6 pricing covers the mock models; real models priced via the
+gateway (v0.7) show `pricing_status: "unknown"` unless the provider returns a
+cost.
+
+## Model gateway / BYOK (v0.7 — shipped)
+
+`app/model_gateway/` is a provider abstraction: a `ModelProvider` exposes
+`async complete(ModelRequest) -> ModelResponse` and `async health_check()`. A
+`ProviderRegistry` is built once from `Settings` and lives on `app.state`.
+
+**Providers.** `mock` (keyless default — deterministic output + token usage,
+configurable latency/failure, never networks), `openai` (OpenAI-compatible
+chat completions, reused for OpenRouter), `anthropic` (messages API), `ollama`
+(local `/api/generate`). Real providers call out with stdlib `urllib` on a
+worker thread (`asyncio.to_thread`) — no new dependency, event loop never
+blocked.
+
+**Telemetry bridge.** `telemetry.build_model_events` turns a gateway call into
+`model.called` + `model.completed`/`model.failed` `EventIn`s, run through the
+normal `process_events` pipeline. So gateway calls land in storage, the WS
+stream, graph, replay, inspector, metrics, and Cost & Tokens with zero
+special-casing. Payloads carry a short prompt/output preview, never the key.
+
+**Endpoints.** `GET /model-gateway/providers`, `/providers/{p}/health`,
+`POST /model-gateway/test-call`, `POST /runs/{id}/model-call`. The SDK's
+`client.model_call(...)` posts to the last one and returns the response,
+capturing a clean `model.failed` if the gateway is unreachable.
+
+**Key safety (enforced by construction):**
+
+- Keys are read from the environment via `Settings` (validation aliases map the
+  conventional `OPENAI_API_KEY` etc. names) and kept only in provider instances.
+- They are never persisted, never serialized into any response schema
+  (`ProviderOut`/health expose only `key_redacted`), and never logged — the HTTP
+  helper deliberately omits headers from exceptions.
+- `redact_key` emits at most a 3-char prefix + 4-char suffix; short keys become
+  `***`; no key means "not configured".
+
+A backend test greps every gateway response for a planted secret to prove it
+never leaks.
+
+## Agent Builder Studio (v0.8 design sketch)
+
+The gateway is the substrate: a future studio lets users define agents in-app
+and assign a provider/model to each, persisting agent definitions and invoking
+them through `model_call`. v0.7 builds only the gateway layer — no visual
+builder, no templates, no hosted secrets.
 
 ## Testing
 

@@ -32,6 +32,28 @@ with client.run(name="nightly-pipeline"):
 | `client.log_model_call(...)` | `model.called` / `model.completed` / `model.failed` (tokens, cost) |
 | `client.routing_decision(...)` | `routing.decision` (candidates, reason, confidence) |
 | `client.update_trust(...)` / `update_risk(...)` | `trust.updated` / `risk.updated` |
+| `client.model_call(...)` | runs a provider via the model gateway → `model.called` + `model.completed`/`failed` |
+
+## Model gateway (v0.7)
+
+Route a model call through AgentLab's gateway. The server runs the provider and
+emits telemetry, so the call appears in the dashboard, replay, and Cost &
+Tokens. The `mock` provider needs no key; real providers use local-first BYOK
+(keys live in the server's environment, never in your code).
+
+```python
+result = client.model_call(
+    run_id="run-123",
+    agent_id="research-agent",
+    provider="mock",                 # or "openai" / "anthropic" / "ollama"
+    model_name="mock:gpt-4.1",
+    prompt="Research the security risks of multi-agent systems.",
+)
+print(result["status"], result["total_tokens"])
+```
+
+If the gateway is unreachable the failure is captured cleanly as a
+`model.failed` event — `model_call` never raises into your agent code.
 
 Nested calls are linked automatically through context variables: a tool call
 made inside a traced agent function is attributed to that agent, and every

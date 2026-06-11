@@ -100,20 +100,38 @@ Deterministic per-agent / per-model / per-run cost and token attribution.
 - 21 pytest + 10 vitest cost tests
 - Deferred: real provider calls / BYOK (v0.7); pricing is a static local table
 
-## v0.7 — Model gateway / BYOK (pending approval)
+## v0.7 — Model gateway / BYOK ✅
 
-- Connect real OpenAI / Anthropic / Gemini / Ollama providers
-- API key management (BYOK); live token/cost from real responses
-- Pricing synced to real provider rates
+Local-first model gateway: call providers through one interface, safely.
 
-## v0.8 — Framework integrations
+- `app/model_gateway/`: provider abstraction + mock (keyless default),
+  OpenAI-compatible, Anthropic, and Ollama providers; registry from Settings;
+  telemetry bridge to model.called/completed/failed
+- Endpoints: `/model-gateway/providers`, `/providers/{p}/health`,
+  `/model-gateway/test-call`, `/runs/{id}/model-call`
+- SDK `client.model_call(...)` (clean model.failed if the gateway is unreachable)
+- UI: Settings → Model Gateway — provider cards (status, models, redacted key)
+  + safe test-call panel; gateway calls flow into telemetry, replay & Cost & Tokens
+- Safe BYOK: keys env-only, never stored/returned/logged, redacted in UI; a test
+  greps responses to prove no leak; `.env.example` placeholders only
+- Demo `--use-gateway` routes model calls through the gateway (mock)
+- 13 pytest + 2 SDK + 4 vitest gateway tests
+- Deferred: hosted/cloud secret storage, per-user keys, real Gemini provider
+
+## v0.8 — Agent Builder Studio (pending approval)
+
+- Define agents in-app and assign a provider/model to each (built on the gateway)
+- Persisted agent definitions; invoke through the gateway
+- No visual workflow builder / templates yet
+
+## v0.9 — Framework integrations
 
 - Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
 - Auto-instrumentation where the framework exposes callbacks/middleware
 - OpenTelemetry span export (interop with existing tracing stacks)
 - Alembic migrations (lands with the first relational schema change)
 
-## v0.9 — Teams & projects
+## v0.10 — Teams & projects
 
 - Real API-key management per project, scoped tokens
 - Multi-user access, basic roles
@@ -133,7 +151,7 @@ Deterministic per-agent / per-model / per-run cost and token attribution.
 
 - Alembic migrations deferred until the first relational schema change
   (v0.3 added no tables — faults are events)
-- Read API is unauthenticated in local mode (auth lands v0.9)
+- Read API is unauthenticated in local mode (auth lands v0.10)
 - Trust/risk engine scores and explains but does not enforce (no routing
   impact, no score decay, quarantine is a marker) — enforcement is future work
 - Replay folds from scratch per cursor move (snapshot memoization when tapes

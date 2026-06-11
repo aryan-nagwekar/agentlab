@@ -40,7 +40,14 @@ free. The `failure` scenario includes one failed Security model call.
 python run_demo.py                 # one run of each scenario
 python run_demo.py --scenario retry --runs 2
 python run_demo.py --fast          # minimal sleeps, used for seeding
+python run_demo.py --use-gateway   # route model calls through the model gateway (mock)
 ```
+
+By default model calls are logged directly. With `--use-gateway` each call is
+routed through the AgentLab model gateway (mock provider) — useful for
+exercising the full provider path. To use a real provider, set
+`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in `.env` and test it from
+**Settings → Model Gateway**.
 
 The script falls back to the in-repo SDK automatically, so it works without
 installing anything (the SDK has zero dependencies).

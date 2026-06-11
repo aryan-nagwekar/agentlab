@@ -53,10 +53,15 @@ AGENT_MODELS = {
 
 
 class Pipeline:
-    def __init__(self, client: AgentLabClient, rng: random.Random, fast: bool) -> None:
+    def __init__(
+        self, client: AgentLabClient, rng: random.Random, fast: bool, use_gateway: bool = False
+    ) -> None:
         self.client = client
         self.rng = rng
         self.unit = 0.02 if fast else 0.12
+        # When set, model calls route through the AgentLab model gateway
+        # (mock provider) instead of being logged directly.
+        self.use_gateway = use_gateway
 
         self.planner = client.trace_agent(
             name="PlannerAgent", role="planner", agent_id="planner"
@@ -84,8 +89,19 @@ class Pipeline:
 
     def _model(self, agent_id: str, purpose: str, input_tokens: int, output_tokens: int) -> None:
         """Emit a mock model call for an agent. Cost is derived by the
-        collector's pricing table — the demo only supplies tokens + model."""
+        collector's pricing table — the demo only supplies tokens + model.
+
+        With --use-gateway, the call is routed through the AgentLab model
+        gateway (mock provider) so it exercises the full provider path."""
         self._work()
+        if self.use_gateway:
+            self.client.model_call(
+                provider="mock",
+                model_name=AGENT_MODELS[agent_id],
+                agent_id=agent_id,
+                prompt=f"{purpose} (goal: {GOAL})",
+            )
+            return
         self.client.log_model_call(
             AGENT_MODELS[agent_id],
             agent_id=agent_id,
@@ -378,13 +394,18 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=1, help="repetitions of the scenario set")
     parser.add_argument("--fast", action="store_true", help="minimal sleeps (seeding/CI)")
     parser.add_argument("--seed", type=int, default=None, help="RNG seed for reproducibility")
+    parser.add_argument(
+        "--use-gateway",
+        action="store_true",
+        help="route model calls through the AgentLab model gateway (mock provider)",
+    )
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
     client = AgentLabClient(
         project_id=args.project, api_key=args.api_key, endpoint=args.endpoint
     )
-    pipeline = Pipeline(client, rng, fast=args.fast)
+    pipeline = Pipeline(client, rng, fast=args.fast, use_gateway=args.use_gateway)
     scenarios = (
         ["success", "retry", "failure", "fault", "malicious"]
         if args.scenario == "all"

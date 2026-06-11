@@ -8,8 +8,9 @@ A production-style observability and control plane for multi-agent AI systems:
 SDK-based instrumentation, real-time agent topology, message-level inspection,
 run metrics, a replay debugger that steps through any run like a packet
 capture, a fault-injection lab, a safe cyber range for simulating malicious
-agents, a deterministic trust/risk engine, and a cost/token profiler that
-attributes spend per agent and model — with a real model gateway on the roadmap.
+agents, a deterministic trust/risk engine, a cost/token profiler, and a
+local-first model gateway with safe BYOK across mock / OpenAI / Anthropic /
+Ollama providers.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -34,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.6)
+## What works today (v0.7)
 
 | Capability | Status |
 | --- | --- |
@@ -50,8 +51,9 @@ inspect, and (soon) replay.
 | Fault injection lab — kill / overload / tool failure / model timeout / message delay / message drop, injected from the UI; graph reacts live, every fault is replayable, all simulated | ✅ |
 | Security Lab — 8 simulated malicious-agent attacks (prompt injection, mock exfiltration, fake capabilities, spam, trust poisoning, routing manipulation, unsafe tool request, rogue join); suspicious/quarantine markers, flagged edges, attack replay markers — all mock data, nothing real touched | ✅ |
 | Trust/risk engine — deterministic, event-derived, explainable scores: per-agent trust + risk, tier badges (trusted → high-risk), "why it changed" factors, score history, run risk summary, and scores that evolve step-by-step in replay | ✅ |
-| Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay (mock providers only) | ✅ |
-| Model gateway + BYOK (connect real OpenAI / Anthropic / Gemini / Ollama) | 🔜 v0.7 |
+| Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay | ✅ |
+| Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
+| Agent Builder Studio (create agents + assign models in-app) | 🔜 v0.8 |
 
 ## Architecture
 
@@ -196,6 +198,13 @@ token-heavy** (`mock:gpt-4.1`), and the **Security reviewer is free**
 
 ![Cost & Tokens tab: per-agent token/cost ranking bars, model-by-provider breakdown, and an agent cost table](docs/screenshots/cost-tokens.png)
 
+The Model Gateway (Settings) calls providers through one interface with
+local-first BYOK — keys are env-only and shown **only redacted** (`sk-...0XYZ`);
+the mock provider needs no key, and a test call flows straight into telemetry
+and Cost & Tokens:
+
+![Model Gateway: provider cards (mock available, OpenAI configured with a redacted key, Anthropic not configured, Ollama unavailable) and a safe test-call panel](docs/screenshots/model-gateway.png)
+
 | Fleet dashboard | Message inspector |
 | --- | --- |
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Message inspector with payload tree and parent event link](docs/screenshots/inspector-message.png) |
@@ -302,7 +311,41 @@ Endpoints: `GET /api/runs/{id}/costs`, `/runs/{id}/token-summary`,
 `mock:gpt-4.1`, `mock:claude-sonnet`, `mock:gemini-pro`, `mock:local-ollama`
 (free). Connecting real providers (BYOK / model gateway) is v0.7.
 
-## Known limitations (v0.1–v0.6)
+## Model Gateway / BYOK (v0.7)
+
+AgentLab calls models through one provider interface
+(`apps/api/app/model_gateway/`). The **mock** provider is the keyless default;
+**OpenAI-compatible**, **Anthropic**, and **Ollama** providers are included, and
+OpenRouter reuses the OpenAI-compatible path. A model call (from the SDK's
+`client.model_call(...)`, the test-call UI, or `POST /api/runs/{id}/model-call`)
+runs the provider and emits `model.called` + `model.completed`/`model.failed`
+through the normal collector — so it shows up in the graph, replay, inspector,
+metrics, and Cost & Tokens automatically.
+
+**Key handling (local-first, safe by construction):**
+
+- Keys are read from the **server environment only** (`OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, `OLLAMA_BASE_URL`, `OPENROUTER_API_KEY`).
+- They are **never** stored in the database, returned to the browser, written to
+  logs, or included in error messages (HTTP errors strip request headers).
+- The UI shows **only a redacted hint** (`sk-...abcd`); an unconfigured provider
+  reads "not configured"; Ollama with no server reads "unavailable".
+- `.env` is git-ignored; `.env.example` ships placeholders only.
+
+Configure a provider by setting its key in `.env`, then open **Settings → Model
+Gateway** and run a test call. Tests and the default demo never need a real key.
+Seed a gateway-routed demo run with:
+
+```bash
+python examples/basic_multi_agent/run_demo.py --scenario success --use-gateway
+```
+
+## Known limitations (v0.1–v0.7)
+
+- **Model gateway is local-first BYOK only.** Keys live in the server's
+  environment; there is no hosted/cloud secret storage, no per-user key
+  management, and no visual Agent Builder Studio yet (v0.8). Real provider calls
+  require your own key; without one a provider stays "not configured".
 
 - **Pricing is a static local table and model providers are mock/demo only.**
   v0.6 does not connect to real OpenAI, Anthropic, Gemini, OpenRouter, or
@@ -322,7 +365,7 @@ Stated plainly so nobody discovers them the hard way:
   replica. A Redis pub/sub layer is the planned path to horizontal scale.
 - **Auth covers the write path only.** `AGENTLAB_API_KEYS` gates `POST
   /api/events`; the read API and dashboard are open, intended for local/
-  trusted-network use until team auth lands (v0.9).
+  trusted-network use until team auth lands (v0.10).
 - **Trust/risk fallback semantics.** A run's topology shows trust/risk as of
   that run when the run contains `trust.updated`/`risk.updated` events;
   otherwise it falls back to the agent's *current* project-wide score.
@@ -360,8 +403,9 @@ Stated plainly so nobody discovers them the hard way:
 - **v0.4 — malicious-agent simulation** ✅ eight sandboxed attack scenarios, suspicious/quarantine markers, attack replay
 - **v0.5 — trust/risk engine** ✅ deterministic event-derived scoring, explanations, history, tier badges, run risk summary, replay evolution
 - **v0.6 — cost/token profiler** ✅ deterministic pricing, per-agent/model/run attribution, rankings, model-call inspector, replay cost evolution
-- **v0.7 — model gateway / BYOK**: connect real OpenAI / Anthropic / Gemini / Ollama providers
-- **v0.8 — teams**: project auth, retention, multi-user
+- **v0.7 — model gateway / BYOK** ✅ one provider interface (mock/OpenAI/Anthropic/Ollama), local-first safe keys, provider health + test call, telemetry integration
+- **v0.8 — Agent Builder Studio**: create agents and assign providers/models in-app
+- **v0.9 — teams**: project auth, retention, multi-user
 - **v1.0 — hosted platform**
 
 ## License
