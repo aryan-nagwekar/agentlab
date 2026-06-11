@@ -3,6 +3,7 @@ import { clsx } from "clsx";
 
 import { fmtMs } from "../../lib/format";
 import { agentStatus } from "../../lib/status";
+import { tierStyle } from "../../lib/scoring";
 import type { GraphNode } from "../../lib/types";
 import { Badge, StatusDot, TrustBar } from "../ui";
 
@@ -68,6 +69,16 @@ export function AgentNode({ data, selected }: NodeProps<AgentFlowNode>) {
           <span className="font-mono text-[11px] text-rose-300">{node.risk_score.toFixed(2)}</span>
         </div>
       ) : null}
+      {(() => {
+        const t = tierStyle(node.trust_score, node.risk_score);
+        return (
+          <div className="mt-2 flex justify-center">
+            <span className={`rounded-full border px-2 py-0.5 text-[9.5px] font-medium uppercase tracking-wider ${t.badge}`}>
+              {t.label}
+            </span>
+          </div>
+        );
+      })()}
       {node.avg_latency_ms != null ? (
         <div className="mt-1.5 text-[10px] text-zinc-500">
           avg task {fmtMs(node.avg_latency_ms)}

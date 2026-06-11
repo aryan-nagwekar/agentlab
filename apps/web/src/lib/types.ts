@@ -107,6 +107,8 @@ export interface MetricsTotals {
   attacks: number;
   flagged_messages: number;
   suspicious_agents: number;
+  avg_trust: number | null;
+  avg_risk: number | null;
 }
 
 export interface AgentMetrics {
@@ -121,6 +123,7 @@ export interface AgentMetrics {
   avg_latency_ms: number | null;
   errors: number;
   trust_score: number;
+  risk_score: number;
 }
 
 export interface Highlight {
@@ -203,6 +206,67 @@ export interface RunReplay {
   duration_ms: number | null;
   markers: ReplayMarkers;
   events: AgentLabEvent[];
+}
+
+export interface ScoreChange {
+  agent_id: string;
+  event_index: number;
+  caused_by_event_id: string | null;
+  caused_by_event_type: string;
+  previous_trust: number;
+  new_trust: number;
+  previous_risk: number;
+  new_risk: number;
+  trust_delta: number;
+  risk_delta: number;
+  reason: string;
+}
+
+export interface ScoreFactor {
+  event_type: string;
+  count: number;
+  trust_delta: number;
+  risk_delta: number;
+}
+
+export interface AgentScore {
+  agent_id: string;
+  name: string | null;
+  status: string;
+  trust_score: number;
+  risk_score: number;
+  tier: string;
+  latest_reason: string | null;
+  trust_factors: ScoreFactor[];
+  risk_factors: ScoreFactor[];
+  history: ScoreChange[];
+}
+
+export interface RunScores {
+  run_id: string;
+  scoring_version: string;
+  agents: AgentScore[];
+}
+
+export interface RiskSummaryAgent {
+  agent_id: string;
+  name: string | null;
+  trust_score: number;
+  risk_score: number;
+  tier: string;
+}
+
+export interface RunRiskSummary {
+  run_id: string;
+  highest_risk_agent: RiskSummaryAgent | null;
+  lowest_trust_agent: RiskSummaryAgent | null;
+  avg_trust: number | null;
+  avg_risk: number | null;
+  suspicious_agents: number;
+  quarantined_agents: number;
+  flagged_messages: number;
+  attack_events: number;
+  fault_events: number;
 }
 
 export interface HealthInfo {

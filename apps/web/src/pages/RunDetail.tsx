@@ -87,6 +87,7 @@ export function RunDetailPage() {
       nodes={graphState.data?.nodes ?? []}
       edges={graphState.data?.edges ?? []}
       projectId={run.project_id}
+      runId={runId}
       onSelect={setSelection}
       onClose={() => setSelection(null)}
     />
@@ -202,7 +203,7 @@ export function RunDetailPage() {
 
       {tab === "metrics" ? (
         metricsState.data ? (
-          <RunMetricsView metrics={metricsState.data} events={events} />
+          <RunMetricsView metrics={metricsState.data} events={events} projectId={run.project_id} runId={runId} />
         ) : metricsState.error ? (
           <ErrorNote message={metricsState.error} />
         ) : (

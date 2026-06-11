@@ -108,6 +108,16 @@ async function main() {
     await page.waitForTimeout(900); // fold + fitView
     await shot("malicious-replay.png");
     console.log("✓ malicious-replay.png");
+
+    // 9. Trust/risk score panel: click the malicious agent on the topology tab
+    await page.getByRole("button", { name: "topology" }).click();
+    await page.waitForSelector('.react-flow__node[data-id="malicious-agent"]');
+    await page.waitForTimeout(800);
+    await page.locator('.react-flow__node[data-id="malicious-agent"]').click();
+    await page.getByText("Why risk rose").waitFor();
+    await page.waitForTimeout(400);
+    await shot("trust-risk-scores.png");
+    console.log("✓ trust-risk-scores.png");
   }
 
   await browser.close();

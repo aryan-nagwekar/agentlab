@@ -6,6 +6,7 @@
  * semantics over the same wire events. Change one, change both (the backend
  * test suite pins the semantics; replayReducer.test.ts pins this mirror).
  */
+import { scoreEvents } from "../../lib/scoring";
 import type { AgentLabEvent, GraphEdge, GraphNode, RunGraph } from "../../lib/types";
 
 interface EdgeAccumulator {
@@ -32,8 +33,9 @@ export function foldReplayGraph(
   const names = new Map<string, string>();
   const roles = new Map<string, string>();
   const status = new Map<string, string>();
-  const trust = new Map<string, number>();
-  const risk = new Map<string, number>();
+  // Trust/risk are derived by the scoring engine mirror (lib/scoring.ts) over
+  // exactly the events applied so far, so replay shows scores evolving.
+  const scores = scoreEvents(events);
   const messagesIn = new Map<string, number>();
   const messagesOut = new Map<string, number>();
   const toolCalls = new Map<string, number>();
@@ -79,12 +81,6 @@ export function foldReplayGraph(
         if (typeof payload.role === "string" && payload.role) roles.set(src, payload.role);
       } else if (etype === "agent.heartbeat" && typeof payload.status === "string" && payload.status) {
         status.set(src, payload.status);
-      } else if (etype === "trust.updated") {
-        const score = asNumber(payload.trust_score);
-        if (score !== null) trust.set(src, score);
-      } else if (etype === "risk.updated") {
-        const score = asNumber(payload.risk_score);
-        if (score !== null) risk.set(src, score);
       }
 
       if (
@@ -161,8 +157,8 @@ export function foldReplayGraph(
       name: names.get(agentId) ?? agentId,
       role: roles.get(agentId) ?? null,
       status: status.get(agentId) ?? "unknown",
-      trust_score: trust.get(agentId) ?? 1.0,
-      risk_score: risk.get(agentId) ?? 0.0,
+      trust_score: scores.get(agentId)?.trust ?? 1.0,
+      risk_score: scores.get(agentId)?.risk ?? 0.0,
       messages_in: messagesIn.get(agentId) ?? 0,
       messages_out: messagesOut.get(agentId) ?? 0,
       tool_calls: toolCalls.get(agentId) ?? 0,

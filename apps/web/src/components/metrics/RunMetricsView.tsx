@@ -11,8 +11,12 @@ import {
   YAxis,
 } from "recharts";
 
+import { useFetch } from "../../hooks/useFetch";
+import { api } from "../../lib/api";
 import { fmtCost, fmtMs, fmtNum, fmtPercent } from "../../lib/format";
+import { tierStyle } from "../../lib/scoring";
 import type { AgentLabEvent, RunMetrics } from "../../lib/types";
+import { RiskSummaryView } from "../scoring/RiskSummary";
 import { Badge, Card, SectionLabel, Stat, TrustBar } from "../ui";
 
 const AXIS = { fill: "#71717a", fontSize: 11 } as const;
@@ -29,16 +33,26 @@ const HIGHLIGHT_LABELS: Record<string, string> = {
   most_expensive_agent: "Most expensive",
   most_active_agent: "Most active",
   most_unreliable_agent: "Most unreliable",
+  highest_risk_agent: "Highest risk",
+  lowest_trust_agent: "Lowest trust",
 };
 
 export function RunMetricsView({
   metrics,
   events,
+  projectId,
+  runId,
 }: {
   metrics: RunMetrics;
   events: AgentLabEvent[];
+  projectId?: string;
+  runId?: string;
 }) {
   const totals = metrics.totals;
+  const riskSummary = useFetch(
+    () => (runId ? api.runRiskSummary(runId) : Promise.resolve(null)),
+    [runId],
+  );
 
   const timeline = useMemo(() => {
     if (events.length === 0) return [];
@@ -103,12 +117,21 @@ export function RunMetricsView({
                   ? fmtMs(highlight.value)
                   : highlight.unit === "USD"
                     ? fmtCost(highlight.value)
-                    : `${fmtNum(highlight.value)} ${highlight.unit}`}
+                    : highlight.unit === "trust" || highlight.unit === "risk"
+                      ? `${highlight.unit} ${highlight.value.toFixed(2)}`
+                      : `${fmtNum(highlight.value)} ${highlight.unit}`}
               </span>
             </Badge>
           ) : null,
         )}
       </div>
+
+      {riskSummary.data ? (
+        <div>
+          <SectionLabel>Trust &amp; risk summary</SectionLabel>
+          <RiskSummaryView summary={riskSummary.data} projectId={projectId} />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4">
@@ -170,27 +193,36 @@ export function RunMetricsView({
               <th className="px-3 py-2.5 text-right font-medium">Avg task</th>
               <th className="px-3 py-2.5 text-right font-medium">Errors</th>
               <th className="px-4 py-2.5 font-medium">Trust</th>
+              <th className="px-4 py-2.5 font-medium">Tier</th>
             </tr>
           </thead>
           <tbody>
-            {metrics.per_agent.map((row) => (
-              <tr key={row.agent_id} className="border-b border-edge/60 last:border-0">
-                <td className="px-4 py-2 font-medium text-zinc-200">{row.name}</td>
-                <td className="px-3 py-2 text-zinc-500">{row.role ?? "—"}</td>
-                <td className="px-3 py-2 text-right font-mono">{row.messages}</td>
-                <td className="px-3 py-2 text-right font-mono">{row.tool_calls}</td>
-                <td className="px-3 py-2 text-right font-mono">{row.model_calls}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtNum(row.tokens)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtCost(row.cost_estimate)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtMs(row.avg_latency_ms)}</td>
-                <td className={`px-3 py-2 text-right font-mono ${row.errors > 0 ? "text-red-300" : ""}`}>
-                  {row.errors}
-                </td>
-                <td className="px-4 py-2">
-                  <TrustBar value={row.trust_score} compact />
-                </td>
-              </tr>
-            ))}
+            {metrics.per_agent.map((row) => {
+              const t = tierStyle(row.trust_score, row.risk_score);
+              return (
+                <tr key={row.agent_id} className="border-b border-edge/60 last:border-0">
+                  <td className="px-4 py-2 font-medium text-zinc-200">{row.name}</td>
+                  <td className="px-3 py-2 text-zinc-500">{row.role ?? "—"}</td>
+                  <td className="px-3 py-2 text-right font-mono">{row.messages}</td>
+                  <td className="px-3 py-2 text-right font-mono">{row.tool_calls}</td>
+                  <td className="px-3 py-2 text-right font-mono">{row.model_calls}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtNum(row.tokens)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtCost(row.cost_estimate)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtMs(row.avg_latency_ms)}</td>
+                  <td className={`px-3 py-2 text-right font-mono ${row.errors > 0 ? "text-red-300" : ""}`}>
+                    {row.errors}
+                  </td>
+                  <td className="px-4 py-2">
+                    <TrustBar value={row.trust_score} compact />
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[9.5px] font-medium uppercase tracking-wider ${t.badge}`}>
+                      {t.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>

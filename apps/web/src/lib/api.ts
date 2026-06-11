@@ -1,6 +1,7 @@
 import type {
   Agent,
   AgentLabEvent,
+  AgentScore,
   AttackInjectRequest,
   AttackInjectResult,
   AttackTemplate,
@@ -14,6 +15,7 @@ import type {
   RunGraph,
   RunMetrics,
   RunReplay,
+  RunRiskSummary,
 } from "./types";
 
 /** Same-origin by default (vite proxy in dev, nginx in Docker). */
@@ -99,6 +101,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  runRiskSummary: (runId: string) =>
+    request<RunRiskSummary>(`/api/runs/${runId}/risk-summary`),
+  agentScores: (agentId: string, projectId?: string, runId?: string) =>
+    request<AgentScore>(
+      `/api/agents/${agentId}/scores${query({ project_id: projectId, run_id: runId })}`,
+    ),
 };
 
 export function wsUrl(path: string): string {

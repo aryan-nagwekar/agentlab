@@ -4,6 +4,7 @@ import { fmtCost, fmtMs } from "../../lib/format";
 import { agentStatus, eventSummary } from "../../lib/status";
 import type { AgentLabEvent, GraphEdge, GraphNode } from "../../lib/types";
 import { Badge, Card, SectionLabel, StatusDot, TrustBar } from "../ui";
+import { ScorePanel } from "../scoring/ScorePanel";
 import { EventDetail } from "./EventDetail";
 
 export type Selection =
@@ -18,6 +19,8 @@ interface InspectorPanelProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   projectId: string | undefined;
+  /** When set, the agent inspector fetches the full run-scoped score explanation. */
+  runId?: string;
   onSelect: (selection: Selection) => void;
   onClose: () => void;
 }
@@ -28,6 +31,7 @@ export function InspectorPanel({
   nodes,
   edges,
   projectId,
+  runId,
   onSelect,
   onClose,
 }: InspectorPanelProps) {
@@ -59,6 +63,7 @@ export function InspectorPanel({
         node={node}
         events={events}
         projectId={projectId}
+        runId={runId}
         onSelectEvent={(event) => onSelect({ kind: "event", event })}
       />
     ) : (
@@ -106,11 +111,13 @@ function NodeInspector({
   node,
   events,
   projectId,
+  runId,
   onSelectEvent,
 }: {
   node: GraphNode;
   events: AgentLabEvent[];
   projectId: string | undefined;
+  runId?: string;
   onSelectEvent: (event: AgentLabEvent) => void;
 }) {
   const style = agentStatus(node.status);
@@ -131,23 +138,31 @@ function NodeInspector({
       </div>
       {node.role ? <div className="mt-1.5 text-[12px] text-zinc-500">role: {node.role}</div> : null}
 
-      <div className="mt-4 space-y-2.5">
-        <div>
-          <SectionLabel>Trust score</SectionLabel>
-          <TrustBar value={node.trust_score} />
-        </div>
-        <div>
-          <SectionLabel>Risk score</SectionLabel>
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-              <div
-                className="h-full rounded-full bg-rose-400"
-                style={{ width: `${Math.round(node.risk_score * 100)}%` }}
-              />
+      <div className="mt-4">
+        {runId ? (
+          // Full run-scoped score: tier, latest reason, factors, history.
+          <ScorePanel agentId={node.id} projectId={projectId} runId={runId} />
+        ) : (
+          // Replay: show the cursor-scoped score carried on the node.
+          <div className="space-y-2.5">
+            <div>
+              <SectionLabel>Trust score</SectionLabel>
+              <TrustBar value={node.trust_score} />
             </div>
-            <span className="font-mono text-[11px] text-zinc-400">{node.risk_score.toFixed(2)}</span>
+            <div>
+              <SectionLabel>Risk score</SectionLabel>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+                  <div
+                    className="h-full rounded-full bg-rose-400"
+                    style={{ width: `${Math.round(node.risk_score * 100)}%` }}
+                  />
+                </div>
+                <span className="font-mono text-[11px] text-zinc-400">{node.risk_score.toFixed(2)}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">

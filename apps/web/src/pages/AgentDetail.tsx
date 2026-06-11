@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { EventDetail } from "../components/inspector/EventDetail";
+import { ScorePanel } from "../components/scoring/ScorePanel";
 import { EventTimeline } from "../components/timeline/EventTimeline";
 import { RawJson } from "../components/JsonView";
 import {
@@ -12,7 +13,6 @@ import {
   SectionLabel,
   Spinner,
   StatusDot,
-  TrustBar,
 } from "../components/ui";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
@@ -60,26 +60,10 @@ export function AgentDetailPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
-        <Card className="px-4 py-3">
-          <SectionLabel>Trust score</SectionLabel>
-          <TrustBar value={agent.trust_score} />
-        </Card>
-        <Card className="px-4 py-3">
-          <SectionLabel>Risk score</SectionLabel>
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-              <div
-                className="h-full rounded-full bg-rose-400"
-                style={{ width: `${Math.round(agent.risk_score * 100)}%` }}
-              />
-            </div>
-            <span className="font-mono text-[11px] text-zinc-400">
-              {agent.risk_score.toFixed(2)}
-            </span>
-          </div>
-        </Card>
-      </div>
+      <Card className="mb-5 px-4 py-4">
+        <SectionLabel>Trust &amp; risk (all runs)</SectionLabel>
+        <ScorePanel agentId={agent.id} projectId={agent.project_id} />
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
         <div>
