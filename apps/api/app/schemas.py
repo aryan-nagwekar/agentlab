@@ -298,6 +298,68 @@ class RunRiskSummaryOut(BaseModel):
     fault_events: int = 0
 
 
+# --------------------------------------------------------------------- costing
+
+
+class AgentCostOut(BaseModel):
+    agent_id: str
+    agent_name: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    average_latency_ms: float | None = None
+    p95_latency_ms: float | None = None
+    model_call_count: int = 0
+    failed_model_calls: int = 0
+    retry_count: int = 0
+    most_used_model: str | None = None
+
+
+class ModelCostOut(BaseModel):
+    model_name: str
+    provider: str
+    total_tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    call_count: int = 0
+    failure_count: int = 0
+    average_latency_ms: float | None = None
+
+
+class RunCostOut(BaseModel):
+    run_id: str
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    average_latency_ms: float | None = None
+    p95_latency_ms: float | None = None
+    most_expensive_agent: str | None = None
+    most_token_heavy_agent: str | None = None
+    slowest_agent: str | None = None
+    highest_failure_agent: str | None = None
+    model_breakdown: list[ModelCostOut] = Field(default_factory=list)
+    agent_breakdown: list[AgentCostOut] = Field(default_factory=list)
+
+
+class RunTokenSummaryOut(BaseModel):
+    run_id: str
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_tokens: int = 0
+    model_breakdown: list[ModelCostOut] = Field(default_factory=list)
+
+
+class ProjectCostSummaryOut(BaseModel):
+    project_id: str
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    run_count: int = 0
+    model_breakdown: list[ModelCostOut] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------- replay
 
 

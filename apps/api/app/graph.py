@@ -6,7 +6,7 @@ from collections import defaultdict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import models, scoring
+from . import costing, models, scoring
 from .events import FAILURE_EVENT_TYPES, LAB_EVENT_TYPES
 from .schemas import GraphEdgeOut, GraphNodeOut, RunGraphOut
 
@@ -64,15 +64,12 @@ def build_run_graph(session: Session, run: models.Run) -> RunGraphOut:
             and payload.get("latency_ms") is not None
         ):
             agent_latencies[src].append(float(payload["latency_ms"]))
-        if etype == "model.completed" and src:
-            try:
-                tokens[src] += int(payload.get("total_tokens") or 0)
-            except (TypeError, ValueError):
-                pass
-            try:
-                costs[src] += float(payload.get("cost_estimate") or 0.0)
-            except (TypeError, ValueError):
-                pass
+
+    # Tokens/cost per node come from the costing engine (pricing-derived).
+    cost_agg = costing.aggregate(rows)
+    for agent_id, agent_cost in cost_agg.agents.items():
+        tokens[agent_id] = agent_cost.total_tokens
+        costs[agent_id] = agent_cost.estimated_cost_usd
 
     # Trust/risk come from the deterministic scoring engine (single source of
     # truth shared with replay, the score endpoints, and the dashboard).

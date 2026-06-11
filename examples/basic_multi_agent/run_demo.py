@@ -41,6 +41,17 @@ from agentlab import AgentLabClient
 GOAL = "Build a small REST API endpoint and review it for security."
 
 
+# Mock model providers per agent (v0.6). No real provider calls — pricing is a
+# static table on the collector. local-ollama is free.
+AGENT_MODELS = {
+    "planner": "mock:claude-sonnet",
+    "researcher": "mock:gpt-4.1",
+    "coder": "mock:claude-sonnet",
+    "security": "mock:local-ollama",
+    "reporter": "mock:gemini-pro",
+}
+
+
 class Pipeline:
     def __init__(self, client: AgentLabClient, rng: random.Random, fast: bool) -> None:
         self.client = client
@@ -71,23 +82,23 @@ class Pipeline:
     def _latency(self, base: float) -> float:
         return round(base * self.rng.uniform(0.7, 1.4), 1)
 
-    def _model(self, purpose: str, prompt_tokens: int, completion_tokens: int) -> None:
-        latency = self._latency(420)
-        cost = round((prompt_tokens * 3 + completion_tokens * 15) / 1_000_000, 6)
+    def _model(self, agent_id: str, purpose: str, input_tokens: int, output_tokens: int) -> None:
+        """Emit a mock model call for an agent. Cost is derived by the
+        collector's pricing table — the demo only supplies tokens + model."""
         self._work()
         self.client.log_model_call(
-            "sim-fable-5",
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            latency_ms=latency,
-            cost_estimate=cost,
+            AGENT_MODELS[agent_id],
+            agent_id=agent_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=self._latency(420),
             metadata={"purpose": purpose, "simulated": True},
         )
 
     # ------------------------------------------------------------ agents
 
     def _planner(self, goal: str, scenario: str) -> dict:
-        self._model("decompose goal into tasks", 380, 140)
+        self._model("planner", "decompose goal into tasks", 380, 140)
         self.client.routing_decision(
             task="gather background for the implementation",
             candidates=[
@@ -129,7 +140,7 @@ class Pipeline:
                     "results": self.rng.randint(3, 9),
                     "top_source": "owasp.org" if "OWASP" in query else "swagger.io",
                 }
-        self._model("summarize findings into research brief", 900, 260)
+        self._model("researcher", "summarize findings into research brief", 2400, 300)
         self.client.send_message(
             "coder",
             {
@@ -166,7 +177,10 @@ class Pipeline:
             metadata={"safe_simulation": True, "created_by": "lab"},
         )
         self.client.log_model_call(
-            "sim-fable-5",
+            AGENT_MODELS["researcher"],
+            agent_id="researcher",
+            input_tokens=2200,
+            output_tokens=0,
             status="failed",
             error=f"SimulatedTimeout: no tokens after {timeout_ms}ms",
             latency_ms=timeout_ms,
@@ -179,7 +193,7 @@ class Pipeline:
 
     def _coder(self, revision: int = 0) -> dict:
         purpose = "generate endpoint implementation" if revision == 0 else "apply security fix"
-        self._model(purpose, 1100 + 300 * revision, 420)
+        self._model("coder", purpose, 1100 + 300 * revision, 600)
         with self.client.trace_tool(
             "code.lint", input={"files": ["api/users.py"], "revision": revision}
         ) as span:
@@ -199,6 +213,16 @@ class Pipeline:
     def _security(self, scenario: str, revision: int = 0) -> dict:
         if scenario == "failure":
             self._work(0.5, 0.9)
+            # The scanner's model call fails before the subprocess dies.
+            self.client.log_model_call(
+                AGENT_MODELS["security"],
+                agent_id="security",
+                input_tokens=650,
+                output_tokens=0,
+                status="failed",
+                error="Simulated model timeout during security scan",
+                latency_ms=self._latency(3000),
+            )
             raise RuntimeError(
                 "scanner subprocess crashed (exit 137) before review could complete"
             )
@@ -208,7 +232,7 @@ class Pipeline:
             self._work()
             findings = 1 if scenario == "retry" and revision == 0 else 0
             span.output = {"findings": findings, "rules_evaluated": 142}
-        self._model("assess scan findings", 700, 180)
+        self._model("security", "assess scan findings", 700, 180)
         if scenario == "retry" and revision == 0:
             self.client.send_message(
                 "coder",
@@ -228,7 +252,7 @@ class Pipeline:
         return {"verdict": "approved", "findings": 0}
 
     def _reporter(self) -> dict:
-        self._model("write run report", 600, 240)
+        self._model("reporter", "write run report", 600, 240)
         return {"report": "Endpoint implemented and approved by security review."}
 
     # ---------------------------------------------------------- scenario

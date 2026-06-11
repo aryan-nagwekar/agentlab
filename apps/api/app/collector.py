@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models, scoring
+from . import costing, models, scoring
 from .events import FAILURE_EVENT_TYPES
 from .schemas import EventIn
 from .timeutil import to_utc_naive, utcnow
@@ -301,28 +301,18 @@ def _finalize_run(session: Session, run: models.Run) -> None:
     """Recompute authoritative aggregates when a run finishes."""
     model_events = (
         session.execute(
-            select(models.Event.payload).where(
+            select(models.Event).where(
                 models.Event.run_id == run.id,
-                models.Event.event_type == "model.completed",
+                models.Event.event_type.in_(["model.completed", "model.failed"]),
             )
         )
         .scalars()
         .all()
     )
-    tokens = 0
-    cost = 0.0
-    for payload in model_events:
-        payload = payload or {}
-        try:
-            tokens += int(payload.get("total_tokens") or 0)
-        except (TypeError, ValueError):
-            pass
-        try:
-            cost += float(payload.get("cost_estimate") or 0.0)
-        except (TypeError, ValueError):
-            pass
-    run.total_tokens = tokens
-    run.total_cost_estimate = round(cost, 6)
+    # Tokens + cost via the costing engine (pricing-derived, single source).
+    costed = costing.aggregate(model_events)
+    run.total_tokens = costed.total_tokens
+    run.total_cost_estimate = costed.estimated_cost_usd
 
     failures = (
         session.execute(

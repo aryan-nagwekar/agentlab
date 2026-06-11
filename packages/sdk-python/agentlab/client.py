@@ -397,8 +397,11 @@ class AgentLabClient:
         self,
         model: str,
         *,
+        provider: str | None = None,
         prompt_tokens: int = 0,
         completion_tokens: int = 0,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
         latency_ms: float | None = None,
         cost_estimate: float | None = None,
         agent_id: str | None = None,
@@ -406,35 +409,53 @@ class AgentLabClient:
         error: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
+        """Record a model call. ``model`` is the model name (e.g.
+        ``"mock:claude-sonnet"``). ``input_tokens``/``output_tokens`` are the
+        preferred token fields; ``prompt_tokens``/``completion_tokens`` remain
+        as aliases. Cost is normally derived from the collector's pricing
+        table, so ``cost_estimate`` is optional."""
         aid = agent_id or current_agent_id.get()
         meta = dict(metadata or {})
         meta["model_call_id"] = ev.new_id("model")
+        in_tokens = input_tokens if input_tokens is not None else prompt_tokens
+        out_tokens = output_tokens if output_tokens is not None else completion_tokens
+        if provider is None and ":" in model:
+            provider = model.split(":", 1)[0]
         self.emit(
-            ev.MODEL_CALLED, source_agent_id=aid, payload={"model": model}, metadata=meta
+            ev.MODEL_CALLED,
+            source_agent_id=aid,
+            payload={"model": model, "model_name": model, "provider": provider},
+            metadata=meta,
         )
+        # Both new (model_name/input_tokens/…) and legacy (model/prompt_tokens/…)
+        # field names are emitted so old and new readers both work.
+        base = {
+            "model": model,
+            "model_name": model,
+            "provider": provider,
+            "input_tokens": in_tokens,
+            "output_tokens": out_tokens,
+            "prompt_tokens": in_tokens,
+            "completion_tokens": out_tokens,
+            "total_tokens": (in_tokens or 0) + (out_tokens or 0),
+            "latency_ms": latency_ms,
+        }
+        if cost_estimate is not None:
+            base["cost_estimate"] = cost_estimate
+            base["estimated_cost_usd"] = cost_estimate
         if status == "failed":
             self.emit(
                 ev.MODEL_FAILED,
                 source_agent_id=aid,
-                payload={
-                    "model": model,
-                    "error": error or "model call failed",
-                    "latency_ms": latency_ms,
-                },
+                payload={**base, "status": "failed", "error": error or "model call failed",
+                         "error_message": error or "model call failed"},
                 metadata=meta,
             )
         else:
             self.emit(
                 ev.MODEL_COMPLETED,
                 source_agent_id=aid,
-                payload={
-                    "model": model,
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                    "total_tokens": (prompt_tokens or 0) + (completion_tokens or 0),
-                    "latency_ms": latency_ms,
-                    "cost_estimate": cost_estimate,
-                },
+                payload={**base, "status": "completed"},
                 metadata=meta,
             )
 

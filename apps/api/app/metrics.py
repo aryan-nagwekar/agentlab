@@ -13,7 +13,7 @@ from collections import defaultdict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import models, scoring
+from . import costing, models, scoring
 from .events import FAILURE_EVENT_TYPES, LAB_EVENT_TYPES
 from .schemas import AgentMetricsOut, HighlightOut, MetricsTotalsOut, RunMetricsOut
 from .timeutil import utcnow
@@ -100,15 +100,8 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
             model_calls += 1
             if src:
                 per_models[src] += 1
-        if etype == "model.completed" and src:
-            try:
-                per_tokens[src] += int(payload.get("total_tokens") or 0)
-            except (TypeError, ValueError):
-                pass
-            try:
-                per_costs[src] += float(payload.get("cost_estimate") or 0.0)
-            except (TypeError, ValueError):
-                pass
+        # Tokens and cost come from the costing engine below (single source of
+        # truth, pricing-derived) — see `cost_agg`.
         if etype in FAILURE_EVENT_TYPES:
             error_count += 1
             if src:
@@ -140,8 +133,13 @@ def build_run_metrics(session: Session, run: models.Run) -> RunMetricsOut:
     else:
         duration_ms = run.total_latency_ms
 
-    tokens_total = sum(per_tokens.values())
-    cost_total = round(sum(per_costs.values()), 6)
+    # Tokens + cost from the costing engine (pricing-derived, single source).
+    cost_agg = costing.aggregate(event_rows)
+    for agent_id, agent_cost in cost_agg.agents.items():
+        per_tokens[agent_id] = agent_cost.total_tokens
+        per_costs[agent_id] = agent_cost.estimated_cost_usd
+    tokens_total = cost_agg.total_tokens
+    cost_total = cost_agg.estimated_cost_usd
 
     # Run-scoped trust/risk from the deterministic scoring engine.
     scores = scoring.score_events(event_rows, seed=participants)
