@@ -1,11 +1,14 @@
 """Runtime configuration, environment-driven with sane local defaults."""
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AGENTLAB_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="AGENTLAB_", env_file=".env", extra="ignore", populate_by_name=True
+    )
 
     # SQLite needs zero services for bare-metal dev and tests;
     # docker-compose overrides this with a PostgreSQL URL.
@@ -18,6 +21,28 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
     environment: str = "development"
+
+    # ---- Model gateway BYOK (v0.7) ----
+    # Read from the conventional unprefixed env vars (OPENAI_API_KEY, …) only;
+    # never stored in the DB, returned to clients, or logged. The mock provider
+    # needs none of these.
+    openai_api_key: str = Field(
+        default="", validation_alias=AliasChoices("OPENAI_API_KEY", "AGENTLAB_OPENAI_API_KEY")
+    )
+    openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias=AliasChoices("OPENAI_BASE_URL", "AGENTLAB_OPENAI_BASE_URL"),
+    )
+    anthropic_api_key: str = Field(
+        default="", validation_alias=AliasChoices("ANTHROPIC_API_KEY", "AGENTLAB_ANTHROPIC_API_KEY")
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        validation_alias=AliasChoices("OLLAMA_BASE_URL", "AGENTLAB_OLLAMA_BASE_URL"),
+    )
+    openrouter_api_key: str = Field(
+        default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "AGENTLAB_OPENROUTER_API_KEY")
+    )
 
     @property
     def api_key_list(self) -> list[str]:

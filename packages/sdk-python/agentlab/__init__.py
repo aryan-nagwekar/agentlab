@@ -18,6 +18,7 @@ from .client import AgentLabClient, RunHandle, ToolSpan, get_default_client, set
 from .decorators import (
     init,
     log_model_call,
+    model_call,
     routing_decision,
     send_message,
     trace_agent,
@@ -44,6 +45,7 @@ __all__ = [
     "trace_model",
     "send_message",
     "log_model_call",
+    "model_call",
     "routing_decision",
     "update_trust",
     "update_risk",

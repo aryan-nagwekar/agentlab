@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import atexit
 import functools
+import json
 import logging
 import os
 import re
 import threading
 import time
 import traceback
+import urllib.request
 from contextlib import contextmanager
 from typing import Any, Callable, Iterator, TypeVar
 
@@ -158,6 +160,7 @@ class AgentLabClient:
         if disabled is None:
             disabled = _truthy_env("AGENTLAB_DISABLED")
         self.disabled = bool(disabled)
+        self._api_key = api_key
         self._transport: HttpTransport | None = None
         if not self.disabled:
             self._transport = HttpTransport(
@@ -458,6 +461,71 @@ class AgentLabClient:
                 payload={**base, "status": "completed"},
                 metadata=meta,
             )
+
+    # -------------------------------------------------------- model gateway
+
+    def model_call(
+        self,
+        *,
+        provider: str,
+        model_name: str,
+        prompt: str,
+        run_id: str | None = None,
+        agent_id: str | None = None,
+        system_prompt: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 512,
+        simulate_failure: bool = False,
+        timeout: float = 60.0,
+    ) -> dict[str, Any]:
+        """Run a model call through the AgentLab model gateway.
+
+        The gateway calls the selected provider and emits telemetry
+        (model.called + model.completed/failed) server-side, so the call shows
+        up in the dashboard, metrics, replay, and Cost & Tokens. Returns the
+        gateway's JSON response. If the gateway is unreachable the error is
+        captured locally as a ``model.failed`` event and a failed response dict
+        is returned — this never raises into your agent code."""
+        rid = run_id or current_run_id.get() or self._ensure_implicit_run()
+        aid = agent_id or current_agent_id.get()
+        body = {
+            "provider": provider,
+            "model_name": model_name,
+            "prompt": prompt,
+            "system_prompt": system_prompt,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "agent_id": aid,
+            "project_id": self.project_id,
+            "run_id": rid,
+            "simulate_failure": simulate_failure,
+        }
+        url = f"{self.endpoint}/api/runs/{rid}/model-call"
+        data = json.dumps(body).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
+        request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001 - gateway failure must stay clean
+            # Capture the failure as telemetry via the normal buffered transport.
+            self.log_model_call(
+                model_name,
+                provider=provider,
+                agent_id=aid,
+                status="failed",
+                error=f"model gateway unreachable: {type(exc).__name__}",
+            )
+            return {
+                "provider": provider,
+                "model_name": model_name,
+                "output_text": "",
+                "status": "failed",
+                "error_message": f"model gateway unreachable: {type(exc).__name__}",
+                "latency_ms": 0,
+            }
 
     # --------------------------------------------------------- control plane
 

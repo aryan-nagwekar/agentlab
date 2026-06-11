@@ -67,6 +67,11 @@ def log_model_call(model: str, **kwargs: Any) -> None:
     return _require_client().log_model_call(model, **kwargs)
 
 
+def model_call(**kwargs: Any) -> dict[str, Any]:
+    """Run a model call through the AgentLab model gateway (default client)."""
+    return _require_client().model_call(**kwargs)
+
+
 # Alias for symmetry with trace_agent / trace_tool.
 trace_model = log_model_call
 

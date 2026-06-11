@@ -298,6 +298,60 @@ class RunRiskSummaryOut(BaseModel):
     fault_events: int = 0
 
 
+# --------------------------------------------------------------- model gateway
+
+
+class ProviderHealthOut(BaseModel):
+    name: str
+    status: str  # available | not_configured | unavailable | error
+    configured: bool
+    detail: str | None = None
+    # A redacted hint only — never a full key.
+    key_redacted: str | None = None
+
+
+class ProviderOut(BaseModel):
+    name: str
+    configured: bool
+    status: str
+    requires_key: bool
+    models: list[str] = Field(default_factory=list)
+    key_redacted: str | None = None
+
+
+class ProviderListOut(BaseModel):
+    providers: list[ProviderOut]
+
+
+class ModelTestCallIn(BaseModel):
+    provider: str
+    model_name: str
+    prompt: str = Field(min_length=1, max_length=8000)
+    system_prompt: str | None = Field(default=None, max_length=4000)
+    temperature: float = 0.2
+    max_tokens: int = Field(default=512, ge=1, le=8000)
+    agent_id: str | None = None
+    project_id: str | None = None
+    run_id: str | None = None
+    # Mock-only knobs (ignored by real providers).
+    simulate_failure: bool = False
+
+
+class ModelCallOut(BaseModel):
+    provider: str
+    model_name: str
+    output_text: str
+    status: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    estimated_cost_usd: float | None = None
+    latency_ms: int
+    error_message: str | None = None
+    # The model.completed/failed event id, so the UI can open it in the inspector.
+    event_id: str | None = None
+
+
 # --------------------------------------------------------------------- costing
 
 
