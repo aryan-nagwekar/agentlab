@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useFetch } from "../../hooks/useFetch";
 import { api } from "../../lib/api";
+import { aggregateCost } from "../../lib/costing";
+import { fmtCost, fmtNum } from "../../lib/format";
 import type { AgentLabEvent } from "../../lib/types";
 import { InspectorPanel, type Selection } from "../inspector/InspectorPanel";
 import { EventTimeline } from "../timeline/EventTimeline";
@@ -32,6 +34,7 @@ export function ReplayView({ runId, projectId, runStatus }: ReplayViewProps) {
     [events, cursor, runId, projectId],
   );
   const visibleEvents = useMemo(() => events.slice(0, cursor + 1), [events, cursor]);
+  const costSoFar = useMemo(() => aggregateCost(visibleEvents), [visibleEvents]);
   const currentEvent: AgentLabEvent | undefined = events[Math.min(cursor, maxIndex)];
 
   // Inspector follows the playhead unless the user pinned something.
@@ -145,6 +148,23 @@ export function ReplayView({ runId, projectId, runStatus }: ReplayViewProps) {
         onSpeed={setSpeed}
         onJump={jump}
       />
+
+      <Card className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[12px]">
+        <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-500">
+          Cost so far
+        </span>
+        <span className="font-mono text-zinc-300">
+          <span className="text-zinc-500">tokens</span> {fmtNum(costSoFar.totalTokens)}
+        </span>
+        <span className="font-mono text-zinc-300">
+          <span className="text-zinc-500">in/out</span> {fmtNum(costSoFar.totalInputTokens)}/
+          {fmtNum(costSoFar.totalOutputTokens)}
+        </span>
+        <span className="font-mono text-indigo-300">
+          <span className="text-zinc-500">cost</span> {fmtCost(costSoFar.estimatedCostUsd)}
+        </span>
+        <span className="ml-auto text-[11px] text-zinc-600">accumulates as the cursor advances</span>
+      </Card>
 
       {runStatus === "running" ? (
         <div className="rounded-lg border border-sky-400/30 bg-sky-400/5 px-3 py-2 text-[12px] text-sky-300">

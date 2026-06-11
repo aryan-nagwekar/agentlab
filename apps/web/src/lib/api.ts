@@ -12,6 +12,7 @@ import type {
   Project,
   ProjectDetail,
   Run,
+  RunCost,
   RunGraph,
   RunMetrics,
   RunReplay,
@@ -103,6 +104,7 @@ export const api = {
     }),
   runRiskSummary: (runId: string) =>
     request<RunRiskSummary>(`/api/runs/${runId}/risk-summary`),
+  runCosts: (runId: string) => request<RunCost>(`/api/runs/${runId}/costs`),
   agentScores: (agentId: string, projectId?: string, runId?: string) =>
     request<AgentScore>(
       `/api/agents/${agentId}/scores${query({ project_id: projectId, run_id: runId })}`,

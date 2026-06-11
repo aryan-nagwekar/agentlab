@@ -269,6 +269,49 @@ export interface RunRiskSummary {
   fault_events: number;
 }
 
+export interface AgentCost {
+  agent_id: string;
+  agent_name: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  average_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  model_call_count: number;
+  failed_model_calls: number;
+  retry_count: number;
+  most_used_model: string | null;
+}
+
+export interface ModelCost {
+  model_name: string;
+  provider: string;
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  call_count: number;
+  failure_count: number;
+  average_latency_ms: number | null;
+}
+
+export interface RunCost {
+  run_id: string;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  average_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  most_expensive_agent: string | null;
+  most_token_heavy_agent: string | null;
+  slowest_agent: string | null;
+  highest_failure_agent: string | null;
+  model_breakdown: ModelCost[];
+  agent_breakdown: AgentCost[];
+}
+
 export interface HealthInfo {
   status: string;
   service: string;

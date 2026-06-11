@@ -1,11 +1,45 @@
 import { clsx } from "clsx";
 import { useState } from "react";
 
-import { fmtClock, fmtMs } from "../../lib/format";
+import { normalizeModelEvent } from "../../lib/costing";
+import { fmtClock, fmtCost, fmtMs, fmtNum } from "../../lib/format";
 import { FAMILY_STYLES, eventFamily, eventSummary, isFailureEvent } from "../../lib/status";
 import type { AgentLabEvent } from "../../lib/types";
 import { JsonView, RawJson } from "../JsonView";
 import { Badge, CopyButton, SectionLabel } from "../ui";
+
+function ModelCallDetail({ event }: { event: AgentLabEvent }) {
+  const call = normalizeModelEvent(event);
+  return (
+    <div>
+      <SectionLabel>Model call</SectionLabel>
+      <div className="grid grid-cols-2 gap-2 text-[12px]">
+        <Field label="provider" value={call.provider} mono />
+        <Field label="model" value={call.modelName} mono />
+        <Field label="input tokens" value={fmtNum(call.inputTokens)} mono />
+        <Field label="output tokens" value={fmtNum(call.outputTokens)} mono />
+        <Field label="total tokens" value={fmtNum(call.totalTokens)} mono />
+        <Field
+          label="estimated cost"
+          value={call.estimatedCostUsd === null ? "—" : fmtCost(call.estimatedCostUsd)}
+          mono
+        />
+        {call.latencyMs !== null ? <Field label="latency" value={fmtMs(call.latencyMs)} mono /> : null}
+        <Field label="status" value={call.status} mono />
+      </div>
+      {call.pricingStatus === "unknown" ? (
+        <div className="mt-2 rounded-md border border-amber-400/30 bg-amber-400/5 px-2.5 py-1.5 text-[11px] text-amber-300">
+          Pricing unavailable for this model — cost not estimated.
+        </div>
+      ) : null}
+      {call.errorMessage ? (
+        <div className="mt-2 rounded-md border border-red-400/30 bg-red-400/5 px-2.5 py-1.5 text-[11px] text-red-300">
+          {call.errorMessage}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 interface EventDetailProps {
   event: AgentLabEvent;
@@ -80,6 +114,8 @@ export function EventDetail({ event, allEvents, onSelectEvent }: EventDetailProp
                 <Field label="model call" value={event.metadata.model_call_id} mono />
               ) : null}
             </div>
+
+            {event.event_type.startsWith("model.") ? <ModelCallDetail event={event} /> : null}
 
             <div>
               <SectionLabel>Payload</SectionLabel>

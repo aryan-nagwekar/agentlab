@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { CostPanel } from "../components/costs/CostPanel";
 import { InspectorPanel, type Selection } from "../components/inspector/InspectorPanel";
 import { RunMetricsView } from "../components/metrics/RunMetricsView";
 import { ReplayView } from "../components/replay/ReplayView";
@@ -16,7 +17,7 @@ import { runStatus } from "../lib/status";
 import type { AgentLabEvent } from "../lib/types";
 import { useAppStore } from "../store/app";
 
-type Tab = "topology" | "timeline" | "metrics" | "replay";
+type Tab = "topology" | "timeline" | "metrics" | "cost" | "replay";
 
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -139,7 +140,7 @@ export function RunDetailPage() {
       />
 
       <div className="mb-4 flex gap-1 border-b border-edge">
-        {(["topology", "timeline", "metrics", "replay"] as const).map((key) => (
+        {(["topology", "timeline", "metrics", "cost", "replay"] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -151,7 +152,7 @@ export function RunDetailPage() {
                 : "border-transparent text-zinc-500 hover:text-zinc-300",
             )}
           >
-            {key}
+            {key === "cost" ? "Cost & Tokens" : key}
           </button>
         ))}
       </div>
@@ -196,6 +197,8 @@ export function RunDetailPage() {
           <div className="h-[620px]">{inspector}</div>
         </div>
       ) : null}
+
+      {tab === "cost" ? <CostPanel runId={runId!} /> : null}
 
       {tab === "replay" ? (
         <ReplayView runId={runId!} projectId={run.project_id} runStatus={run.status} />

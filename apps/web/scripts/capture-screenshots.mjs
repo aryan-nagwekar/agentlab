@@ -70,6 +70,13 @@ async function main() {
   await shot("metrics.png");
   console.log("✓ metrics.png");
 
+  // 4b. Cost & Tokens tab
+  await page.getByRole("button", { name: "Cost & Tokens" }).click();
+  await page.getByText("Cost by agent").waitFor();
+  await page.waitForTimeout(500);
+  await shot("cost-tokens.png");
+  console.log("✓ cost-tokens.png");
+
   // 5. Replay debugger on the failed run, jumped to the error
   const failureRun = runs.find((r) => r.name?.startsWith("failure"));
   if (failureRun) {
