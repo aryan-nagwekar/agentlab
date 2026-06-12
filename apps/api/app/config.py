@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # Gitignored JSON file, chmod 0600; values overlay the env vars above.
     secrets_file: str = ".agentlab-secrets.json"
 
+    # ---- Runtime workspace sandbox (v1.2) ----
+    # Root for workspace-bounded file sandboxes; every file operation is
+    # confined beneath {workspaces_root}/{workspace_id}. Gitignored.
+    workspaces_root: str = ".agentlab-workspaces"
+
     @property
     def api_key_list(self) -> list[str]:
         return [k.strip() for k in self.api_keys.split(",") if k.strip()]

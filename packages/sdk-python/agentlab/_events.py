@@ -73,6 +73,17 @@ WORKSPACE_AGENT_STATUS_CHANGED = "workspace_agent.status_changed"
 WORKSPACE_AGENT_DELETED = "workspace_agent.deleted"
 WORKSPACE_AGENT_TEMPLATE_INSTANTIATED = "workspace_agent.template_instantiated"
 
+# Sandboxed file runtime (v1.2) — workspace-bounded file operations emitted by
+# the server's sandbox APIs. Payloads carry logical workspace paths and
+# hashes, never host paths or file content; nothing executes behind them.
+SANDBOX_INITIALIZED = "sandbox.initialized"
+SANDBOX_FILE_CREATED = "sandbox.file.created"
+SANDBOX_FILE_UPDATED = "sandbox.file.updated"
+SANDBOX_FILE_READ = "sandbox.file.read"
+SANDBOX_FILE_DELETED = "sandbox.file.deleted"
+SANDBOX_DIRECTORY_CREATED = "sandbox.directory.created"
+SANDBOX_FILE_BLOCKED = "sandbox.file.blocked"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -112,6 +123,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         WORKSPACE_AGENT_STATUS_CHANGED,
         WORKSPACE_AGENT_DELETED,
         WORKSPACE_AGENT_TEMPLATE_INSTANTIATED,
+        SANDBOX_INITIALIZED,
+        SANDBOX_FILE_CREATED,
+        SANDBOX_FILE_UPDATED,
+        SANDBOX_FILE_READ,
+        SANDBOX_FILE_DELETED,
+        SANDBOX_DIRECTORY_CREATED,
+        SANDBOX_FILE_BLOCKED,
     }
 )
 

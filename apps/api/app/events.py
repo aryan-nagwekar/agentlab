@@ -44,6 +44,16 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "workspace_agent.status_changed",
         "workspace_agent.deleted",
         "workspace_agent.template_instantiated",
+        # Sandboxed file runtime (v1.2) — workspace-bounded file operations.
+        # Payloads carry logical workspace paths and hashes, never host paths
+        # or file content. No commands/builds/servers run behind these.
+        "sandbox.initialized",
+        "sandbox.file.created",
+        "sandbox.file.updated",
+        "sandbox.file.read",
+        "sandbox.file.deleted",
+        "sandbox.directory.created",
+        "sandbox.file.blocked",
     }
 )
 

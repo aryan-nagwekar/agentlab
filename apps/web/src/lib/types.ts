@@ -572,6 +572,40 @@ export interface WorkspaceAgent {
   updated_at: string;
 }
 
+// ------------------------------------------------- sandbox files (v1.2)
+
+export interface SandboxStatus {
+  workspace_id: string;
+  initialized: boolean;
+  file_count: number;
+  directory_count: number;
+  total_bytes: number;
+}
+
+/** Logical workspace-relative entries — host paths never reach the client. */
+export interface SandboxFileEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size_bytes: number;
+  modified_at: number | null;
+  children?: SandboxFileEntry[] | null;
+}
+
+export interface SandboxFileRead {
+  path: string;
+  content: string;
+  size_bytes: number;
+  sha256: string;
+}
+
+export interface SandboxFileWriteResult {
+  path: string;
+  size_bytes: number;
+  sha256: string;
+  created: boolean;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

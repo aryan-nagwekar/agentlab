@@ -34,3 +34,6 @@ agentlab.db
 .idea/
 .vscode/
 *.log
+
+# Workspace file sandboxes (v1.2 runtime; user project files, never committed)
+.agentlab-workspaces/

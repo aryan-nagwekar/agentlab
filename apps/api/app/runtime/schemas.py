@@ -198,6 +198,60 @@ class AgentDefinitionOut(RuntimeModel):
         return isoz(value)
 
 
+# ----------------------------------------------------------- sandbox files (v1.2)
+
+
+class SandboxStatusOut(BaseModel):
+    workspace_id: str
+    initialized: bool
+    file_count: int = 0
+    directory_count: int = 0
+    total_bytes: int = 0
+
+
+class FileEntryOut(BaseModel):
+    name: str
+    # Logical workspace-relative path — host filesystem paths never leave the server.
+    path: str
+    type: str  # "file" | "directory"
+    size_bytes: int = 0
+    modified_at: float | None = None
+    children: list["FileEntryOut"] | None = None
+
+
+class FileReadOut(BaseModel):
+    path: str
+    content: str
+    size_bytes: int
+    sha256: str
+
+
+class FileWriteIn(BaseModel):
+    path: str = Field(min_length=1, max_length=512)
+    content: str = Field(default="", max_length=1_000_000)
+
+
+class FileWriteOut(BaseModel):
+    path: str
+    size_bytes: int
+    sha256: str
+    created: bool
+
+
+class MkdirIn(BaseModel):
+    path: str = Field(min_length=1, max_length=512)
+
+
+class MkdirOut(BaseModel):
+    path: str
+    created: bool
+
+
+class FileDeleteOut(BaseModel):
+    path: str
+    kind: str  # "file" | "directory"
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

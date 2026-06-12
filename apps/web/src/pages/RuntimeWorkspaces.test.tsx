@@ -75,6 +75,16 @@ vi.mock("../lib/api", () => ({
     // v1.1 agents panel — detail page renders it; default to no agents here.
     workspaceAgents: () => Promise.resolve([]),
     workspaceAgentTemplates: () => Promise.resolve([]),
+    // v1.2 files panel — default to an uninitialized sandbox here.
+    sandboxStatus: () =>
+      Promise.resolve({
+        workspace_id: "ws-abc123",
+        initialized: false,
+        file_count: 0,
+        directory_count: 0,
+        total_bytes: 0,
+      }),
+    sandboxTree: () => Promise.resolve([]),
   },
 }));
 

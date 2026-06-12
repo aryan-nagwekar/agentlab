@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import service
+from ..runtime import sandbox, service
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import Workspace, WorkspaceAgent
 from ..runtime.schemas import (
@@ -26,6 +26,14 @@ from ..runtime.schemas import (
     AgentTemplateOut,
     ArtifactIn,
     ArtifactOut,
+    FileDeleteOut,
+    FileEntryOut,
+    FileReadOut,
+    FileWriteIn,
+    FileWriteOut,
+    MkdirIn,
+    MkdirOut,
+    SandboxStatusOut,
     WorkspaceIn,
     WorkspaceOut,
     WorkspacePatch,
@@ -269,6 +277,143 @@ async def register_artifact(
     out, stored, project_id = await run_in_threadpool(_register)
     await _broadcast(request, project_id, stored)
     return out
+
+
+# ------------------------------------------------------------- sandbox files (v1.2)
+
+
+async def _sandbox_call(request: Request, workspace_id: str, fn):
+    """Run a sandbox operation off the event loop, committing its events —
+    including the audit event of a *blocked* operation — and broadcasting
+    them before the response (or the safe error) goes out."""
+    session_factory = request.app.state.session_factory
+
+    def _run():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            try:
+                result = fn(session, workspace)
+            except sandbox.SandboxBlocked as exc:
+                session.commit()  # the rejection is part of workspace history
+                return "blocked", exc, exc.events, workspace.project_id
+            except sandbox.SandboxError as exc:
+                session.rollback()
+                return "error", exc, [], workspace.project_id
+            session.commit()
+            payload, stored = result if isinstance(result, tuple) else (result, [])
+            return "ok", payload, list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    kind, payload, stored, project_id = await run_in_threadpool(_run)
+    await _broadcast(request, project_id, stored)
+    if kind == "blocked":
+        raise HTTPException(status_code=400, detail=f"blocked ({payload.rule}): {payload.reason}")
+    if kind == "error":
+        raise HTTPException(status_code=payload.status_code, detail=payload.detail)
+    return payload
+
+
+def _workspaces_root(request: Request) -> str:
+    return request.app.state.settings.workspaces_root
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/sandbox/init",
+    response_model=SandboxStatusOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def init_sandbox(workspace_id: str, request: Request) -> SandboxStatusOut:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.init_sandbox(s, w, root)
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/sandbox/status",
+    response_model=SandboxStatusOut,
+)
+def sandbox_status(
+    workspace_id: str, request: Request, session: Session = Depends(get_session)
+) -> SandboxStatusOut:
+    workspace = _require_workspace(session, workspace_id)
+    return SandboxStatusOut(**sandbox.status(workspace, _workspaces_root(request)))
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/files", response_model=list[FileEntryOut]
+)
+async def list_files(
+    workspace_id: str, request: Request, path: str = ""
+) -> list[FileEntryOut]:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.list_dir(s, w, root, path)
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/files/tree", response_model=list[FileEntryOut]
+)
+async def file_tree(workspace_id: str, request: Request) -> list[FileEntryOut]:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.tree(s, w, root)
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/files/read", response_model=FileReadOut
+)
+async def read_file(workspace_id: str, request: Request, path: str) -> FileReadOut:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.read_file(s, w, root, path)
+    )
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/files/write",
+    response_model=FileWriteOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def write_file(
+    workspace_id: str, body: FileWriteIn, request: Request
+) -> FileWriteOut:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request,
+        workspace_id,
+        lambda s, w: sandbox.write_file(s, w, root, body.path, body.content),
+    )
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/files/mkdir",
+    response_model=MkdirOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def make_directory(
+    workspace_id: str, body: MkdirIn, request: Request
+) -> MkdirOut:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.make_dir(s, w, root, body.path)
+    )
+
+
+@router.delete(
+    "/runtime/workspaces/{workspace_id}/files",
+    response_model=FileDeleteOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def delete_file(workspace_id: str, request: Request, path: str) -> FileDeleteOut:
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request, workspace_id, lambda s, w: sandbox.delete_path(s, w, root, path)
+    )
 
 
 # ----------------------------------------------------------- workspace agents (v1.1)

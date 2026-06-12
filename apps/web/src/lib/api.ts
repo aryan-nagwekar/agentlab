@@ -18,6 +18,10 @@ import type {
   Run,
   RuntimeArtifact,
   RuntimeWorkspace,
+  SandboxFileEntry,
+  SandboxFileRead,
+  SandboxFileWriteResult,
+  SandboxStatus,
   RunCost,
   RunGraph,
   RunMetrics,
@@ -214,6 +218,33 @@ export const api = {
     }),
   workspaceAgentTemplates: () =>
     request<WorkspaceAgentTemplate[]>("/api/runtime/agent-templates"),
+  sandboxInit: (workspaceId: string) =>
+    request<SandboxStatus>(`/api/runtime/workspaces/${workspaceId}/sandbox/init`, {
+      method: "POST",
+    }),
+  sandboxStatus: (workspaceId: string) =>
+    request<SandboxStatus>(`/api/runtime/workspaces/${workspaceId}/sandbox/status`),
+  sandboxTree: (workspaceId: string) =>
+    request<SandboxFileEntry[]>(`/api/runtime/workspaces/${workspaceId}/files/tree`),
+  sandboxRead: (workspaceId: string, path: string) =>
+    request<SandboxFileRead>(
+      `/api/runtime/workspaces/${workspaceId}/files/read${query({ path })}`,
+    ),
+  sandboxWrite: (workspaceId: string, body: { path: string; content: string }) =>
+    request<SandboxFileWriteResult>(
+      `/api/runtime/workspaces/${workspaceId}/files/write`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  sandboxMkdir: (workspaceId: string, path: string) =>
+    request<{ path: string; created: boolean }>(
+      `/api/runtime/workspaces/${workspaceId}/files/mkdir`,
+      { method: "POST", body: JSON.stringify({ path }) },
+    ),
+  sandboxDelete: (workspaceId: string, path: string) =>
+    request<{ path: string; kind: string }>(
+      `/api/runtime/workspaces/${workspaceId}/files${query({ path })}`,
+      { method: "DELETE" },
+    ),
   workspaceAgents: (workspaceId: string) =>
     request<WorkspaceAgent[]>(`/api/runtime/workspaces/${workspaceId}/agents`),
   createWorkspaceAgent: (workspaceId: string, body: Partial<WorkspaceAgent>) =>

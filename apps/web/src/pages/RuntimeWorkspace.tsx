@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
 import { WorkspaceAgentsPanel } from "../components/runtime/WorkspaceAgentsPanel";
 import { WorkspaceStatusBadge } from "../components/runtime/WorkspaceStatusBadge";
 import { Card, ErrorNote, PageHeader, SectionLabel, Spinner } from "../components/ui";
@@ -204,6 +205,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Agents (v1.1) */}
           <WorkspaceAgentsPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Sandboxed files (v1.2) */}
+          <SandboxFilesPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}
