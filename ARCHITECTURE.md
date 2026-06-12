@@ -520,6 +520,31 @@ action."; Agent Mode performs project actions (run, edit, `/connect`,
 answers built from existing read APIs (workflow structure, latest run,
 `run.failed` payloads, costs, risk summary) — there is no LLM behind the chat.
 
+## Runtime Workspaces (v1.0 — shipped, metadata only)
+
+`app/runtime/` is the foundation of the Runtime phase (master plan:
+`docs/AGENTLAB_RUNTIME_V1_PLAN.md`). A **workspace** is the future home of an
+AI-built project: id, name, goal, status (draft → active → paused/completed/
+failed; archived), linked AgentLab project, free-form metadata for later
+Runtime versions. **Artifacts** are registry entries (name/type/logical
+path/metadata) for future project outputs — v1.0 never reads or writes real
+files.
+
+**Events, not a parallel history.** Each workspace owns an *activity run*
+(`{workspace_id}-activity`) in its project. Every lifecycle action emits a
+`workspace.*` event (`created`/`updated`/`status_changed`/`archived`/
+`artifact_registered` — added to the shared event registry in both the API
+and the SDK) through `collector.process_events`, so the workspace's history
+is ordinary telemetry: the `/activity` endpoint is an event query, and the
+run timeline + replay reconstruct workspace history unchanged. Terminal
+workspace statuses map onto the activity-run projection
+(completed/failed/archived); otherwise the stream stays "running".
+DELETE archives rather than destroys — append-only history discipline.
+
+**Explicit non-goals for v1.0** (later Runtime versions): command execution,
+shell, file writes/edits, sandboxing, orchestration, enforcement gateway,
+policy blocking, human approvals, validators, real quarantine.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

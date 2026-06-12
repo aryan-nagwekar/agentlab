@@ -141,10 +141,17 @@ a team already uses.
     only in a local gitignored file, never in chat/DB/logs/events; key-like
     pastes into chat are blocked with a warning.
 
+### Shipped in v1.0
+19. **Runtime Workspaces (foundation)** — workspace metadata + lifecycle +
+    artifact registry + activity history through normal AgentLab events;
+    Runtime list/detail UI with status banner, goal panel, activity feed,
+    and project-health placeholder. No execution of any kind yet.
+
 ### Next (gated, in order)
-19. **Runtime v1.0 — Runtime Workspaces** — not started; requires explicit
-    approval. (Workspaces, sandbox runtime, enforcement gateway, approvals,
-    validators, real quarantine.)
+20. **Runtime v1.1 — Workspace Agent Definitions + Permissions** — not
+    started; requires explicit approval. Later Runtime versions own sandbox
+    execution, command running, file writes, enforcement, approvals,
+    validators, and real quarantine.
 
 ## Non-goals (v1)
 

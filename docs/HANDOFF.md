@@ -24,9 +24,17 @@
 > field) backed by `POST /model-gateway/providers/{p}/configure|clear`;
 > secrets in gitignored `.agentlab-secrets.json` (0600, overlays env, never
 > DB/logs/events/responses); key-like chat pastes blocked with a warning.
-> Next gated milestone: **Runtime v1.0 Runtime Workspaces** (requires explicit
-> approval — workspaces, sandbox runtime, enforcement gateway, approvals,
-> validators, real quarantine).
+> v1.0 Runtime Workspaces shipped (Runtime master plan saved at
+> docs/AGENTLAB_RUNTIME_V1_PLAN.md): `app/runtime/` workspace + artifact
+> models (metadata only), status lifecycle (DELETE = archive), workspace.*
+> events (registry extended in API + SDK) into a per-workspace activity run
+> (`{workspace_id}-activity`) so activity/timeline/replay work unchanged;
+> `/api/runtime/workspaces` CRUD + `/activity` + `/artifacts`; Runtime UI
+> (list, create, detail with status banner / goal / activity / health
+> placeholder). NO execution: no sandbox, command runner, file writes,
+> enforcement, approvals, validators, quarantine, or bottle demo.
+> Next gated milestone: **Runtime v1.1 Workspace Agent Definitions +
+> Permissions** (spec to be provided; requires explicit approval).
 
 ## 1. One-paragraph product summary
 

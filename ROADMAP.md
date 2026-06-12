@@ -199,11 +199,35 @@ The Studio usability/safety patch before the Runtime v1 roadmap.
 - 8 pytest + 9 vitest; the assistant is deterministic/local (rule-based over
   existing APIs — no LLM behind the chat)
 
-## Runtime v1.0 — Runtime Workspaces (next, pending approval)
+## Runtime v1.0 — Runtime Workspaces ✅
 
-The Runtime v1 roadmap begins after v0.9: workspaces, sandboxed runtime,
-enforcement gateway, human approvals, deterministic validators, and real
-quarantine enforcement. Not started — requires explicit owner approval.
+The foundation of the Runtime phase (master plan:
+docs/AGENTLAB_RUNTIME_V1_PLAN.md). **Metadata and UI only** — v1.0 does not
+run commands, write files, sandbox code, enforce policy, or approve actions.
+
+- `app/runtime/`: Workspace + WorkspaceArtifact models (own tables; the
+  append-only `events` log stays the source of truth), status lifecycle
+  (draft / active / paused / completed / archived / failed; DELETE archives —
+  history is never destroyed)
+- Every lifecycle action emits a workspace.* event (created / updated /
+  status_changed / archived / artifact_registered — added to the shared
+  event registry, API + SDK) into the workspace's **activity run**
+  (`{workspace_id}-activity`), so the activity feed, timeline, and replay
+  work through the normal pipeline with zero special-casing
+- Endpoints: `/runtime/workspaces` CRUD (PATCH metadata/status, DELETE =
+  archive), `/activity`, `/artifacts` list + register
+- UI: Runtime nav section — workspace list + create flow, detail page with
+  status banner (lifecycle actions), editable goal panel, recent activity
+  (links to timeline/replay), artifact registry, project-health placeholder;
+  Chat Mode renders it all read-only
+- 11 pytest + 9 vitest
+
+## Runtime v1.1 — Workspace Agent Definitions + Permissions (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: sandbox
+execution, command runner, file writes, orchestration, enforcement gateway,
+policy blocking, human approvals, validators, real quarantine, and the
+bottle-selling website demo. None of these are started.
 
 ## Later (unscheduled)
 

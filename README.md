@@ -35,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.9.1)
+## What works today (v1.0)
 
 | Capability | Status |
 | --- | --- |
@@ -56,7 +56,8 @@ inspect, and (soon) replay.
 | Agent Builder Studio — build multi-agent workflows in-app: visual DAG canvas, per-agent role/prompt/provider/model, validation, one-click run through the Model Gateway; Studio runs flow into the graph, replay, inspector, metrics, trust/risk, and Cost & Tokens unchanged; seeded "Code Review Agent Team" works with zero keys | ✅ |
 | Project templates — six prebuilt agent-team blueprints (code review, research, resume tailoring, SOC investigation, customer support, data analysis) with preview + one-click "create workflow"; template workflows are ordinary Studio workflows on keyless mock defaults | ✅ |
 | Chat Mode / Agent Mode — Studio mode switcher: Chat is read-only Q&A (workflow, runs, failures, cost, trust/risk), Agent performs actions; `/connect <provider>` opens a secure key-setup modal; key-like pastes into chat are blocked; keys live in a local gitignored file, redacted everywhere | ✅ |
-| Runtime v1 — workspaces, sandbox runtime, enforcement gateway, approvals, validators, real quarantine | 🔜 next |
+| Runtime Workspaces (v1.0 foundation) — workspace metadata, status lifecycle, artifact registry, and activity history as normal AgentLab events (timeline/replay work unchanged); list + detail UI with status banner, goal panel, activity feed, health placeholder | ✅ |
+| Runtime v1.1+ — workspace agent definitions/permissions, then sandbox runtime, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -460,7 +461,30 @@ clears the file entry and falls back to the env var if one is set.
 > yet support templates, loops, hosted collaboration, arbitrary tools, cloud
 > key storage, or enterprise workflow governance.
 
-## Known limitations (v0.1–v0.9.1)
+## Runtime Workspaces (v1.0)
+
+The first piece of the Runtime phase (master plan:
+[docs/AGENTLAB_RUNTIME_V1_PLAN.md](docs/AGENTLAB_RUNTIME_V1_PLAN.md)). A
+**workspace** is the future home of an AI-built software project: a name, a
+goal, a status (`draft → active → paused / completed / failed`, plus
+`archived` — deleting archives, history is never destroyed), an artifact
+registry (metadata pointers like `index.html · file · site/index.html`), and
+an activity history.
+
+Open **Runtime** in the sidebar to create a workspace, edit its goal, move it
+through the lifecycle from the status banner, and register artifacts. Every
+action emits a normal AgentLab event (`workspace.created`,
+`workspace.updated`, `workspace.status_changed`, `workspace.archived`,
+`workspace.artifact_registered`) into the workspace's **activity run** — so
+the Recent Activity panel, the run timeline, and even the Replay debugger
+reconstruct workspace history through the same pipeline as every other event.
+Chat Mode (v0.9.1) renders all Runtime pages read-only.
+
+> v1.0 Runtime Workspaces are metadata and UI only. They do not run
+> commands, edit files, sandbox code, enforce policies, or approve actions —
+> those arrive in later Runtime versions per the master plan.
+
+## Known limitations (v0.1–v1.0)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
