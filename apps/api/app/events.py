@@ -29,6 +29,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "fault.injected",
         "attack.injected",
         "agent.quarantined",
+        # Runtime workspace lifecycle (v1.0) — metadata-only control-plane
+        # events; no execution happens behind them.
+        "workspace.created",
+        "workspace.updated",
+        "workspace.status_changed",
+        "workspace.archived",
+        "workspace.artifact_registered",
     }
 )
 

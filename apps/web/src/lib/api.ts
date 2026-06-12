@@ -16,6 +16,8 @@ import type {
   Provider,
   ProviderHealth,
   Run,
+  RuntimeArtifact,
+  RuntimeWorkspace,
   RunCost,
   RunGraph,
   RunMetrics,
@@ -166,6 +168,48 @@ export const api = {
     }),
   studioWorkflowRuns: (workflowId: string) =>
     request<StudioRunRecord[]>(`/api/studio/workflows/${workflowId}/runs`),
+  runtimeWorkspaces: () => request<RuntimeWorkspace[]>("/api/runtime/workspaces"),
+  runtimeWorkspace: (workspaceId: string) =>
+    request<RuntimeWorkspace>(`/api/runtime/workspaces/${workspaceId}`),
+  createRuntimeWorkspace: (body: {
+    name: string;
+    goal?: string | null;
+    project_id?: string;
+    metadata?: Record<string, unknown>;
+  }) =>
+    request<RuntimeWorkspace>("/api/runtime/workspaces", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  patchRuntimeWorkspace: (
+    workspaceId: string,
+    body: {
+      name?: string;
+      goal?: string | null;
+      status?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) =>
+    request<RuntimeWorkspace>(`/api/runtime/workspaces/${workspaceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  archiveRuntimeWorkspace: (workspaceId: string) =>
+    request<RuntimeWorkspace>(`/api/runtime/workspaces/${workspaceId}`, { method: "DELETE" }),
+  runtimeWorkspaceActivity: (workspaceId: string, limit = 50) =>
+    request<AgentLabEvent[]>(
+      `/api/runtime/workspaces/${workspaceId}/activity${query({ limit })}`,
+    ),
+  runtimeWorkspaceArtifacts: (workspaceId: string) =>
+    request<RuntimeArtifact[]>(`/api/runtime/workspaces/${workspaceId}/artifacts`),
+  registerRuntimeArtifact: (
+    workspaceId: string,
+    body: { name: string; type?: string; path?: string | null; metadata?: Record<string, unknown> },
+  ) =>
+    request<RuntimeArtifact>(`/api/runtime/workspaces/${workspaceId}/artifacts`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   studioTemplates: () => request<StudioTemplateSummary[]>("/api/studio/templates"),
   studioTemplate: (templateId: string) =>
     request<StudioTemplate>(`/api/studio/templates/${templateId}`),

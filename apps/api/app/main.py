@@ -13,13 +13,24 @@ from sqlalchemy.exc import OperationalError
 from .config import Settings
 from .db import Base, make_engine, make_session_factory
 from .model_gateway import build_registry
-from .routers import agents, costs, events, lab, model_gateway, projects, runs, scoring, studio
+from .routers import (
+    agents,
+    costs,
+    events,
+    lab,
+    model_gateway,
+    projects,
+    runs,
+    runtime,
+    scoring,
+    studio,
+)
 from .studio import seed_default_workflow
 from .ws import ConnectionManager
 
 logger = logging.getLogger("agentlab.api")
 
-API_VERSION = "0.9.1"
+API_VERSION = "1.0.0"
 
 
 def _init_db(engine, attempts: int = 12, delay: float = 1.5) -> None:
@@ -82,6 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(costs.router, prefix="/api", tags=["costs"])
     app.include_router(model_gateway.router, prefix="/api", tags=["model-gateway"])
     app.include_router(studio.router, prefix="/api", tags=["studio"])
+    app.include_router(runtime.router, prefix="/api", tags=["runtime"])
 
     @app.get("/api/health", tags=["meta"])
     def health() -> dict:

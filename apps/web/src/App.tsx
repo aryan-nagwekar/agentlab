@@ -7,6 +7,8 @@ import { LabPage } from "./pages/Lab";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
 import { RunDetailPage } from "./pages/RunDetail";
+import { RuntimeWorkspacePage } from "./pages/RuntimeWorkspace";
+import { RuntimeWorkspacesPage } from "./pages/RuntimeWorkspaces";
 import { SettingsPage } from "./pages/Settings";
 import { StudioPage } from "./pages/Studio";
 import { StudioTemplatePage } from "./pages/StudioTemplate";
@@ -29,6 +31,8 @@ export function App() {
           <Route path="/studio/templates/:templateId" element={<StudioTemplatePage />} />
           <Route path="/studio/workflows" element={<Navigate to="/studio" replace />} />
           <Route path="/studio/workflows/:workflowId" element={<StudioWorkflowPage />} />
+          <Route path="/runtime" element={<RuntimeWorkspacesPage />} />
+          <Route path="/runtime/workspaces/:workspaceId" element={<RuntimeWorkspacePage />} />
           <Route path="/lab" element={<LabPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

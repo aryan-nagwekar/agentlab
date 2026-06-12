@@ -482,6 +482,40 @@ export interface StudioRunRecord {
   created_at: string;
 }
 
+// ----------------------------------------------------------- runtime (v1.0)
+
+export type WorkspaceStatus =
+  | "draft"
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived"
+  | "failed";
+
+export interface RuntimeWorkspace {
+  workspace_id: string;
+  name: string;
+  goal: string | null;
+  status: WorkspaceStatus;
+  project_id: string;
+  activity_run_id: string;
+  metadata: Record<string, unknown>;
+  artifact_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RuntimeArtifact {
+  artifact_id: string;
+  workspace_id: string;
+  name: string;
+  type: string;
+  path: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface HealthInfo {
   status: string;
   service: string;

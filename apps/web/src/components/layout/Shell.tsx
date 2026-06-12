@@ -8,6 +8,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: "◧" },
   { to: "/projects", label: "Projects", icon: "▣" },
   { to: "/studio", label: "Studio", icon: "✦" },
+  { to: "/runtime", label: "Runtime", icon: "⬢" },
   { to: "/lab", label: "Lab", icon: "⚗" },
   { to: "/settings", label: "Settings", icon: "⚙" },
 ];
@@ -77,7 +78,7 @@ export function Shell() {
         </nav>
         <ConnectionPill />
         <div className="border-t border-edge px-4 py-3 text-[10px] text-zinc-600">
-          v0.9.1 · local mode
+          v1.0.0 · local mode
         </div>
       </aside>
       <main className="min-w-0 flex-1 overflow-y-auto">

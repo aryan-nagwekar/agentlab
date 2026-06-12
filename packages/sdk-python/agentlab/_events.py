@@ -56,6 +56,14 @@ FAULT_INJECTED = "fault.injected"
 ATTACK_INJECTED = "attack.injected"
 AGENT_QUARANTINED = "agent.quarantined"
 
+# Runtime workspaces (v1.0) — metadata-only lifecycle events emitted by the
+# server's workspace APIs; no execution happens behind them.
+WORKSPACE_CREATED = "workspace.created"
+WORKSPACE_UPDATED = "workspace.updated"
+WORKSPACE_STATUS_CHANGED = "workspace.status_changed"
+WORKSPACE_ARCHIVED = "workspace.archived"
+WORKSPACE_ARTIFACT_REGISTERED = "workspace.artifact_registered"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -84,6 +92,11 @@ EVENT_TYPES: frozenset[str] = frozenset(
         FAULT_INJECTED,
         ATTACK_INJECTED,
         AGENT_QUARANTINED,
+        WORKSPACE_CREATED,
+        WORKSPACE_UPDATED,
+        WORKSPACE_STATUS_CHANGED,
+        WORKSPACE_ARCHIVED,
+        WORKSPACE_ARTIFACT_REGISTERED,
     }
 )
 
