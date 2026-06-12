@@ -13,12 +13,13 @@ from sqlalchemy.exc import OperationalError
 from .config import Settings
 from .db import Base, make_engine, make_session_factory
 from .model_gateway import build_registry
-from .routers import agents, costs, events, lab, model_gateway, projects, runs, scoring
+from .routers import agents, costs, events, lab, model_gateway, projects, runs, scoring, studio
+from .studio import seed_default_workflow
 from .ws import ConnectionManager
 
 logger = logging.getLogger("agentlab.api")
 
-API_VERSION = "0.7.1"
+API_VERSION = "0.8.0"
 
 
 def _init_db(engine, attempts: int = 12, delay: float = 1.5) -> None:
@@ -42,6 +43,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         _init_db(engine)
+        # Studio ships with one demo workflow (mock provider, zero keys) so the
+        # builder is demoable out of the box. No-op once any workflow exists.
+        session = session_factory()
+        try:
+            seed_default_workflow(session)
+        finally:
+            session.close()
         yield
         engine.dispose()
 
@@ -73,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(scoring.router, prefix="/api", tags=["scoring"])
     app.include_router(costs.router, prefix="/api", tags=["costs"])
     app.include_router(model_gateway.router, prefix="/api", tags=["model-gateway"])
+    app.include_router(studio.router, prefix="/api", tags=["studio"])
 
     @app.get("/api/health", tags=["meta"])
     def health() -> dict:

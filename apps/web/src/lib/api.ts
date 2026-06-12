@@ -20,6 +20,12 @@ import type {
   RunMetrics,
   RunReplay,
   RunRiskSummary,
+  StudioRunRecord,
+  StudioRunResult,
+  StudioValidation,
+  StudioWorkflow,
+  StudioWorkflowSave,
+  StudioWorkflowSummary,
 } from "./types";
 
 /** Same-origin by default (vite proxy in dev, nginx in Docker). */
@@ -56,6 +62,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       `${response.status} ${response.statusText} — ${path}${detail}`,
     );
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -118,6 +125,32 @@ export const api = {
     request<AgentScore>(
       `/api/agents/${agentId}/scores${query({ project_id: projectId, run_id: runId })}`,
     ),
+  studioWorkflows: () => request<StudioWorkflowSummary[]>("/api/studio/workflows"),
+  studioWorkflow: (workflowId: string) =>
+    request<StudioWorkflow>(`/api/studio/workflows/${workflowId}`),
+  createStudioWorkflow: (body: StudioWorkflowSave) =>
+    request<StudioWorkflow>("/api/studio/workflows", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateStudioWorkflow: (workflowId: string, body: StudioWorkflowSave) =>
+    request<StudioWorkflow>(`/api/studio/workflows/${workflowId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteStudioWorkflow: (workflowId: string) =>
+    request<void>(`/api/studio/workflows/${workflowId}`, { method: "DELETE" }),
+  validateStudioWorkflow: (workflowId: string) =>
+    request<StudioValidation>(`/api/studio/workflows/${workflowId}/validate`, {
+      method: "POST",
+    }),
+  runStudioWorkflow: (workflowId: string, body: { input: string; project_id?: string }) =>
+    request<StudioRunResult>(`/api/studio/workflows/${workflowId}/run`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  studioWorkflowRuns: (workflowId: string) =>
+    request<StudioRunRecord[]>(`/api/studio/workflows/${workflowId}/runs`),
 };
 
 export function wsUrl(path: string): string {

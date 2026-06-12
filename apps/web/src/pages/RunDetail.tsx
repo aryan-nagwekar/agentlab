@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { CostPanel } from "../components/costs/CostPanel";
 import { InspectorPanel, type Selection } from "../components/inspector/InspectorPanel";
@@ -19,9 +19,15 @@ import { useAppStore } from "../store/app";
 
 type Tab = "topology" | "timeline" | "metrics" | "cost" | "replay";
 
+const TABS: Tab[] = ["topology", "timeline", "metrics", "cost", "replay"];
+
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
-  const [tab, setTab] = useState<Tab>("topology");
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") as Tab | null;
+  const [tab, setTab] = useState<Tab>(
+    requestedTab && TABS.includes(requestedTab) ? requestedTab : "topology",
+  );
   const [selection, setSelection] = useState<Selection>(null);
   const [events, setEvents] = useState<AgentLabEvent[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);

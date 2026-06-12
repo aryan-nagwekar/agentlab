@@ -8,6 +8,8 @@ import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
 import { RunDetailPage } from "./pages/RunDetail";
 import { SettingsPage } from "./pages/Settings";
+import { StudioPage } from "./pages/Studio";
+import { StudioWorkflowPage } from "./pages/StudioWorkflow";
 
 export function App() {
   return (
@@ -20,6 +22,9 @@ export function App() {
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/runs/:runId" element={<RunDetailPage />} />
           <Route path="/agents/:agentId" element={<AgentDetailPage />} />
+          <Route path="/studio" element={<StudioPage />} />
+          <Route path="/studio/workflows" element={<Navigate to="/studio" replace />} />
+          <Route path="/studio/workflows/:workflowId" element={<StudioWorkflowPage />} />
           <Route path="/lab" element={<LabPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

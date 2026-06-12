@@ -347,6 +347,86 @@ export interface ModelCallResult {
   event_id: string | null;
 }
 
+// ------------------------------------------------------------ studio (v0.8)
+
+export interface StudioAgent {
+  agent_id: string;
+  workflow_id?: string;
+  name: string;
+  role: string;
+  description?: string | null;
+  system_prompt?: string | null;
+  provider: string;
+  model_name: string;
+  temperature: number;
+  max_tokens: number;
+  position_x: number;
+  position_y: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StudioEdge {
+  edge_id: string;
+  workflow_id?: string;
+  source_agent_id: string;
+  target_agent_id: string;
+  label?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StudioWorkflow {
+  workflow_id: string;
+  project_id: string;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+  agents: StudioAgent[];
+  edges: StudioEdge[];
+}
+
+export interface StudioWorkflowSummary {
+  workflow_id: string;
+  project_id: string;
+  name: string;
+  description?: string | null;
+  agent_count: number;
+  edge_count: number;
+  updated_at: string;
+  last_run_id: string | null;
+  last_run_status: string | null;
+}
+
+export interface StudioWorkflowSave {
+  name: string;
+  description?: string | null;
+  project_id: string;
+  agents: Omit<StudioAgent, "workflow_id">[];
+  edges: Omit<StudioEdge, "workflow_id">[];
+}
+
+export interface StudioValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface StudioRunResult {
+  workflow_id: string;
+  run_id: string;
+  status: string;
+  open_run_url: string;
+}
+
+export interface StudioRunRecord {
+  run_id: string;
+  workflow_id: string;
+  project_id: string;
+  status: string;
+  input: string | null;
+  created_at: string;
+}
+
 export interface HealthInfo {
   status: string;
   service: string;
