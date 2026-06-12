@@ -59,7 +59,8 @@ inspect, and (soon) replay.
 | Runtime Workspaces (v1.0 foundation) — workspace metadata, status lifecycle, artifact registry, and activity history as normal AgentLab events (timeline/replay work unchanged); list + detail UI with status banner, goal panel, activity feed, health placeholder | ✅ |
 | Workspace Agent Definitions + Permissions (v1.1) — agents inside a workspace with role/prompt/model metadata, a 13-flag permission profile (risky flags warned), status lifecycle, 7 templates, and `workspace_agent.*` events into the activity run (timeline/replay work unchanged) | ✅ |
 | Sandboxed File Runtime (v1.2) — workspace-bounded file CRUD under `.agentlab-workspaces/{id}/` with deterministic path safety (absolute/traversal/symlink/secret blocked, audited via `sandbox.file.blocked`), `sandbox.*` events into the activity run, and a Files panel UI | ✅ |
-| Runtime v1.3+ — safe command runner, then orchestration, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
+| Safe Command Runner (v1.3) — allowlisted, deterministic, sandbox-bounded commands (`shell=False`, scrubbed env, timeout, capped/redacted output) with pre-execution blocking audited via `sandbox.command.*` events and a Commands panel UI | ✅ |
+| Runtime v1.4+ — orchestration engine, then enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -545,7 +546,41 @@ Mode disables every mutating file action.
 > approvals, validate outputs, or quarantine agents at runtime — those arrive
 > in later Runtime versions per the master plan.
 
-## Known limitations (v0.1–v1.2)
+## Safe Command Runner (v1.3)
+
+The **Commands** panel on a workspace runs a small allowlisted set of
+development commands inside that workspace's sandbox — and nothing else.
+Requests are structured (program + arguments, never a shell string) and every
+command is evaluated by a deterministic safety policy **before any process
+spawns**: shell metacharacters (`;`, `&&`, `|`, `>`, backticks, `$()`),
+program paths (`/bin/ls`, `./script`), known-dangerous programs (`rm`,
+`sudo`, `curl`, `bash`, `git`, `docker`, `pip`, …), package installs, inline
+code (`python -c`, `node -e`), unknown commands, and any path argument that
+fails the v1.2 path-safety checks are blocked outright. A blocked command is
+never executed; it returns a clear `blocked (<rule>)` error and emits a
+`sandbox.command.blocked` audit event.
+
+The allowlist starts deliberately tiny: `pwd`, `ls` (safe flags, one checked
+path), `cat` (one path-checked workspace file), version checks for
+`node`/`npm`/`python`/`python3`, plus `npm test`, `npm run build` (only when
+`package.json` exists) and `python -m pytest` (only with pytest config or a
+`tests/` directory). Allowed commands run with `shell=False`, cwd locked
+inside the sandbox, a scrubbed environment (host env vars and secrets never
+reach the child process), a hard timeout (default 30 s, max 120 s), and
+stdout/stderr captured with size caps and obvious-secret redaction.
+
+Every run emits `sandbox.command.proposed → allowed → started →
+completed/failed/timed_out` (or `proposed → blocked`) into the workspace
+activity run, so command history, the timeline, and Replay reconstruct every
+decision. Chat Mode disables execution.
+
+> v1.3 is **not** the enforcement gateway. There is no interactive shell, no
+> persistent session, no long-running process, no dev server, no package
+> installation, no orchestration, no policy engine, no approvals, no
+> validators, and no runtime quarantine — those arrive in later Runtime
+> versions per the master plan.
+
+## Known limitations (v0.1–v1.3)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -602,6 +637,14 @@ Stated plainly so nobody discovers them the hard way:
   container, or filesystem-permission isolation, no quota beyond the
   per-request read/write caps, and no binary-file support. Nothing in the
   sandbox is ever executed.
+- **The command runner is allowlist-level, not container-level.** v1.3
+  commands run as local child processes with `shell=False`, a scrubbed
+  environment, cwd locked to the sandbox, and a hard timeout — but there is
+  no container/jail isolation, no CPU/memory limits, and no network
+  namespace. An allowed interpreter (e.g. `python -m pytest` over workspace
+  test files) executes whatever those workspace files contain. The
+  deterministic allowlist is the boundary; container isolation is the
+  planned hardening for later Runtime versions.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

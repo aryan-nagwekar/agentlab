@@ -283,12 +283,47 @@ no build/test execution, no dev server, no orchestration, no enforcement.
 - 21 pytest + 11 vitest (incl. proofs that blocked writes leave disk
   untouched and symlink escapes are refused)
 
-## Runtime v1.3 — Safe Command Runner + Sandbox Events (next, pending approval)
+## Runtime v1.3 — Safe Command Runner + Sandbox Events ✅
 
-Spec to be provided by the owner. Later Runtime versions own: command
-execution, orchestration, enforcement gateway, policy blocking, human
-approvals, validators, real quarantine, and the bottle-selling website demo.
-None of these are started.
+A narrow, deterministic command runner for workspace sandboxes — explicitly
+NOT the future enforcement gateway. No interactive shell, no persistent
+sessions, no long-running processes, no dev servers, no package installs.
+
+- `app/runtime/commands.py`: structured requests (program + argv, never a
+  shell string; `shell=False` end to end), evaluated by an allowlist-first
+  safety policy **before any process spawns** — shell metacharacters
+  (`;&|<>$\``), program paths, known-dangerous programs (rm/sudo/curl/bash/
+  git/docker/pip/…), package installs, inline code (`-c`/`-e`), unknown
+  programs, disallowed argument shapes, and path args failing the v1.2
+  path-safety checker are all rejected with a `sandbox.command.blocked`
+  audit event (reason + matched rule)
+- Allowlist: `pwd`, `ls` (safe flags + one checked path), `cat` (one
+  path-safety-checked file), `node/npm/python/python3 --version`,
+  `npm test` / `npm run build` (require package.json), `python -m pytest`
+  (requires pytest config or tests/)
+- Execution: cwd locked inside the sandbox (working_subdir path-checked),
+  scrubbed environment (PATH/HOME/LANG only — host env and secrets never
+  reach commands), hard timeout (1–120 s), stdout/stderr capped (10 KB
+  response / 2 KB event summary) and secret-redacted; the command display
+  string itself is redacted too
+- Events: `sandbox.command.proposed/allowed/blocked/started/completed/
+  failed/timed_out` (shared registry, API + SDK) into the workspace
+  activity run — history is an event query; timeline/replay reconstruct
+  every decision
+- Endpoints: `POST /runtime/workspaces/{id}/commands/run` (API-key gated),
+  `GET …/commands/history`, `GET …/commands/allowed`
+- UI: Commands panel on workspace detail — allowed-commands help, command
+  input + optional subdir, outcome card (status/exit/duration/output,
+  truncation notes), clear blocked-reason display, history; Chat Mode and
+  archived workspaces disable execution
+- 40 pytest (incl. marker-file proofs that blocked commands never execute,
+  env-scrub and redaction proofs) + 9 vitest
+
+## Runtime v1.4 — Orchestration Engine (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: orchestration,
+enforcement gateway, policy blocking, human approvals, validators, real
+quarantine, and the bottle-selling website demo. None of these are started.
 
 ## Later (unscheduled)
 

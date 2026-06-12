@@ -14,13 +14,17 @@
 > - v1.1 Workspace Agent Definitions + Permissions — ✅ shipped (Milestone 2,
 >   metadata-only form; no execution)
 > - v1.2 Sandboxed File Runtime — ✅ shipped (Milestone 3, file operations
->   only; command runner NOT started)
-> - **v1.3 Safe Command Runner + Sandbox Events — next, gated on owner
->   approval (separate spec to be provided)**
-> - Milestones 4–12 (orchestration engine, enforcement gateway, real
->   quarantine, human approvals, deterministic validators, visual debugging,
->   bottle-selling demo, gateway/cost integration, full testing) — not
->   started, gated on owner approval
+>   only)
+> - v1.3 Safe Command Runner + Sandbox Events — ✅ shipped (Milestone 3,
+>   command portion: allowlisted, deterministic, pre-execution blocking;
+>   NOT the enforcement gateway — no dev servers, long-running processes,
+>   package installs, or policy engine)
+> - **v1.4 Orchestration Engine — next, gated on owner approval (separate
+>   spec to be provided)**
+> - Milestones 4–12 remainder (orchestration engine, enforcement gateway,
+>   real quarantine, human approvals, deterministic validators, visual
+>   debugging, bottle-selling demo, gateway/cost integration, full testing)
+>   — not started, gated on owner approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

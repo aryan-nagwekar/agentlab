@@ -630,6 +630,62 @@ shell, subprocess, build/test runners, dev servers, orchestration,
 model-driven file writing, enforcement gateway, approvals, validators, real
 quarantine, the bottle-selling demo.
 
+## Safe Command Runner (v1.3 — shipped, allowlisted commands only)
+
+`app/runtime/commands.py` adds narrow command execution to the sandbox — a
+local safety layer for sandbox commands, deliberately **not** the Milestone-5
+enforcement gateway (no policy engine, no approvals, no reroute/quarantine
+decisions).
+
+**Structured requests, never shell.** A request is `command` + `args` +
+`timeout_seconds` + optional `working_subdir`. There is no shell string
+anywhere: evaluation scans raw tokens, and execution is
+`subprocess.run([resolved_executable, *args], shell=False)`. Shell
+metacharacters (`;&|<>$`, backticks, newlines) are rejected in any token —
+not because they would expand (they can't without a shell) but so a request
+can never even encode chaining or redirection.
+
+**Allowlist-first, block-by-default.** `evaluate()` rejects, in order:
+metacharacters/null bytes → program paths (`/bin/ls`, `./x`) → named
+dangerous programs (rm/mv/sudo/ssh/curl/nc/bash/perl/pip/yarn/git/docker/
+kubectl/psql/env/… — an explicit `dangerous_command` rule for a clearer
+audit trail) → unknown programs (anything not allowlisted) → per-command
+argument validators. The validators are strict shapes: `pwd` takes nothing;
+`ls` takes safe flags plus at most one path that must pass the v1.2
+`check_path` (the pure resolver extracted in this version — `resolve_path`
+now wraps it and keeps emitting `sandbox.file.blocked` for file APIs, while
+the command runner converts the same `PathViolation` into
+`sandbox.command.blocked`); `cat` takes exactly one checked path (secret
+names included); interpreters accept `--version` only, with `-c`/`-e`
+inline code explicitly rejected; `npm test`/`npm run build` additionally
+require a real `package.json`, `python -m pytest` requires pytest config or
+`tests/`; `npm install`-family subcommands map to a dedicated
+`package_install` rule. If uncertain, block.
+
+**Contained execution.** cwd is the path-checked sandbox directory; the
+environment is rebuilt from scratch (PATH/HOME/LANG/NO_COLOR/CI only) so
+host env vars — and any secrets in them — never reach the child; timeouts
+are clamped to 1–120 s and produce `sandbox.command.timed_out`;
+stdout/stderr are decoded with `errors="replace"`, secret-pattern redacted
+(`sk-…`, `AIza…`, `ghp_…`, `AKIA…`, `xox…`), and capped (10 KB in the API
+response, 2 KB summaries in events with an `output_truncated` flag). The
+command display string and proposed argv are redacted too — a secret pasted
+*as an argument* is scrubbed the same as one printed to stdout. Only logical
+workspace paths appear anywhere.
+
+**Events, same pipeline.** Every run emits `sandbox.command.proposed`, then
+either `blocked` (committed even though the request fails — the rejection is
+workspace history) or `allowed → started → completed/failed/timed_out`, all
+through `collector.process_events` into the workspace activity run. The
+history endpoint is an event query (`event_type LIKE 'sandbox.command.%'`);
+timeline and Replay reconstruct every decision with zero special-casing.
+
+**Explicit non-goals for v1.3** (later Runtime versions): interactive
+shells, persistent sessions, long-running processes/process manager, dev
+servers, file watchers, package installation, orchestration, the policy
+engine/enforcement gateway, approvals, validators, real quarantine, the
+bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a
