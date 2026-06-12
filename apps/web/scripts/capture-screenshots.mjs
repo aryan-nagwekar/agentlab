@@ -150,6 +150,13 @@ async function main() {
   await shot("studio-builder.png");
   console.log("✓ studio-builder.png");
 
+  // 12. Project templates gallery (v0.9)
+  await page.goto(`${BASE_URL}/studio/templates`);
+  await page.getByText("Data Analysis Agent Team").waitFor();
+  await page.waitForTimeout(400);
+  await shot("studio-templates.png");
+  console.log("✓ studio-templates.png");
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

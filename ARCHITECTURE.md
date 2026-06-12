@@ -485,7 +485,30 @@ inspector.
 (Planner → Coder → Security Reviewer → Report, all on keyless mock models) is
 created so Studio demos with zero configuration.
 
-Deferred: templates (v0.9), loops, tools, hosted collaboration, cloud secrets.
+Deferred: loops, tools, hosted collaboration, cloud secrets.
+
+## Project templates (v0.9 — shipped)
+
+`app/studio/templates.py` is a static registry of six agent-team blueprints
+(Code Review, Research, Resume Tailoring, SOC Investigation, Customer
+Support, Data Analysis — five agents each, linear DAGs with labeled hops).
+A template carries category/tags/difficulty/use case, per-agent role +
+system prompt + mock-model defaults, a default input, expected outputs, and
+demo notes.
+
+**Templates are data, not a new run format.** `POST
+/studio/templates/{id}/create-workflow` materializes the template into a
+plain `WorkflowIn` and hands it to the same `service.create_workflow` used by
+the editor — the result is an ordinary v0.8 workflow (editable, validatable,
+runnable through the gateway; agents carry `template_id` in their metadata
+for provenance). `GET /studio/templates[/{id}]` feeds the gallery and the
+preview page, which reuses the Studio canvas read-only. Workflows created
+from a template open in the editor with the template's default input
+pre-filled in the run panel (via the `?template=` query param).
+
+Deferred to Runtime v1 (not started): workspaces, sandboxed file runtime,
+command execution, enforcement gateway, human approvals, deterministic
+validators, real quarantine enforcement.
 
 ## Testing
 

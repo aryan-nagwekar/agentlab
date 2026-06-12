@@ -35,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.8)
+## What works today (v0.9)
 
 | Capability | Status |
 | --- | --- |
@@ -54,7 +54,8 @@ inspect, and (soon) replay.
 | Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay | ✅ |
 | Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Gemini + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + troubleshooting hints + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
 | Agent Builder Studio — build multi-agent workflows in-app: visual DAG canvas, per-agent role/prompt/provider/model, validation, one-click run through the Model Gateway; Studio runs flow into the graph, replay, inspector, metrics, trust/risk, and Cost & Tokens unchanged; seeded "Code Review Agent Team" works with zero keys | ✅ |
-| Project templates | 🔜 v0.9 |
+| Project templates — six prebuilt agent-team blueprints (code review, research, resume tailoring, SOC investigation, customer support, data analysis) with preview + one-click "create workflow"; template workflows are ordinary Studio workflows on keyless mock defaults | ✅ |
+| Runtime v1 — workspaces, sandbox runtime, enforcement gateway, approvals, validators, real quarantine | 🔜 next |
 
 ## Architecture
 
@@ -399,12 +400,42 @@ the same event stream.
 
 ![Agent Builder Studio: the seeded Code Review Agent Team on the workflow canvas with the agent inspector, a completed run, and Open Run / Replay / Cost links](docs/screenshots/studio-builder.png)
 
+### Project templates (v0.9)
+
+Instead of a blank canvas, start from a blueprint: **Studio → Start from
+template** opens a gallery of six agent teams —
+
+| Template | Category | Team |
+| --- | --- | --- |
+| Code Review Agent Team | engineering | Planner → Coder → Test Writer → Security Reviewer → Final Report |
+| Research Agent Team | research | Planner → Researcher → Fact Checker → Citation Reviewer → Summary |
+| Resume Tailoring Agent Team | careers | JD Analyzer → Resume Optimizer → ATS Keywords → Cover Letter → Reviewer |
+| SOC Investigation Agent Team | security | Log Parser → Threat Classifier → Timeline → Remediation → Report |
+| Customer Support Agent Team | support | Classifier → Troubleshooter → Policy Checker → Writer → Quality Review |
+| Data Analysis Agent Team | analytics | Planner → Profiler → Insights → Assumption Checker → Exec Summary |
+
+Each card links to a **preview** (canvas, agent team with roles and models,
+default input, expected outputs, demo notes; system prompts behind an
+"advanced" toggle). **Create workflow** (optionally renamed) materializes a
+normal Studio workflow — every agent defaults to a keyless mock model, the
+editor opens with the template's default input pre-filled, and you customize
+agents/edges exactly like a hand-built workflow (including switching any agent
+to OpenAI/Anthropic/Gemini/Ollama later). Runs from template workflows land in
+the same graph/replay/inspector/metrics/trust-risk/Cost & Tokens views.
+
+![Template gallery: six agent-team blueprint cards with categories, tags, preview and create-workflow actions](docs/screenshots/studio-templates.png)
+
+> v0.9 Project Templates provide reusable Studio workflow blueprints. They do
+> not yet provide sandboxed file generation, command execution, enforcement
+> policies, human approval gates, deterministic validators, or real runtime
+> quarantine. Those begin in the Runtime v1 roadmap.
+
 > v0.8 Agent Builder Studio supports simple DAG-style workflows and
 > local-first model execution through the existing Model Gateway. It does not
 > yet support templates, loops, hosted collaboration, arbitrary tools, cloud
 > key storage, or enterprise workflow governance.
 
-## Known limitations (v0.1–v0.8)
+## Known limitations (v0.1–v0.9)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key

@@ -156,26 +156,43 @@ Build and run multi-agent workflows inside AgentLab.
 - Deferred: templates (v0.9), loops/recursion, tools, hosted collaboration,
   cloud key storage, workflow governance
 
-## v0.9 — Framework integrations
+## v0.9 — Project Templates ✅
 
-- Adapters: LangGraph, CrewAI, OpenAI Agents SDK, MCP servers
-- Auto-instrumentation where the framework exposes callbacks/middleware
-- OpenTelemetry span export (interop with existing tracing stacks)
-- Alembic migrations (lands with the first relational schema change)
+Start from real agent-team blueprints instead of a blank canvas.
 
-## v0.10 — Teams & projects
+- `app/studio/templates.py`: template registry — six 5-agent teams (Code
+  Review, Research, Resume Tailoring, SOC Investigation, Customer Support,
+  Data Analysis), each with category/tags/difficulty/use case, per-agent
+  role + system prompt + mock model defaults, labeled edges, default input,
+  expected outputs, and demo notes
+- Templates are data, not a new run format: `create-workflow` materializes a
+  normal v0.8 workflow (editable, validatable, runnable; agents carry
+  `template_id` provenance in metadata)
+- Endpoints: `GET /studio/templates`, `GET /studio/templates/{id}`,
+  `POST /studio/templates/{id}/create-workflow`
+- UI: template gallery ("Start from template"), preview page (canvas preview,
+  agent team, default input, expected outputs, demo notes; system prompts
+  behind an advanced toggle), create-with-optional-rename → opens the v0.8
+  editor with the template's default input pre-filled in the run panel
+- 11 pytest + 4 vitest template tests
+- Deferred: Runtime v1 (workspaces, sandbox runtime, enforcement gateway,
+  approvals, validators, real quarantine) — starts after v0.9 approval
 
-- Real API-key management per project, scoped tokens
-- Multi-user access, basic roles
-- Retention policies + event archival
-- Saved views, run comparison (A/B of two runs)
+## Runtime v1.0 — Runtime Workspaces (next, pending approval)
 
-## v1.0 — Hosted platform
+The Runtime v1 roadmap begins after v0.9: workspaces, sandboxed runtime,
+enforcement gateway, human approvals, deterministic validators, and real
+quarantine enforcement. Not started — requires explicit owner approval.
 
-- Managed multi-tenant deployment
-- Usage-based ingest quotas
-- Alerting (failed runs, trust drops, cost spikes → Slack/webhook)
-- SOC2-friendly audit logging
+## Later (unscheduled)
+
+- Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
+  adapters, auto-instrumentation, OpenTelemetry span export, Alembic
+  migrations (lands with the first relational schema change)
+- Teams & projects: per-project key management, scoped tokens, multi-user
+  roles, retention/archival, saved views, run comparison
+- Hosted platform: managed multi-tenant deployment, ingest quotas, alerting,
+  audit logging
 
 ---
 

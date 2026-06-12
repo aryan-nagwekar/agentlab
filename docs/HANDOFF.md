@@ -9,8 +9,17 @@
 > deterministic executor through the Model Gateway), `/api/studio/*` endpoints,
 > Studio UI (React Flow canvas, agent/edge editors, run panel), seeded "Code
 > Review Agent Team" (mock-only). Studio runs emit normal AgentLab events —
-> graph/replay/inspector/metrics/trust-risk/costs all work unchanged. Next
-> gated milestone: v0.9 Project Templates (requires explicit approval).
+> graph/replay/inspector/metrics/trust-risk/costs all work unchanged.
+>
+> v0.9 Project Templates shipped: `app/studio/templates.py` registry of six
+> 5-agent blueprints (code-review-team, research-team, resume-tailoring-team,
+> soc-investigation-team, customer-support-team, data-analysis-team), `GET
+> /api/studio/templates[/{id}]` + `POST …/{id}/create-workflow` (materializes
+> a normal v0.8 workflow), gallery + preview UI at /studio/templates, default
+> input carried into the editor's run panel via `?template=`. Next gated
+> milestone: **Runtime v1.0 Runtime Workspaces** (requires explicit approval —
+> workspaces, sandbox runtime, enforcement gateway, approvals, validators,
+> real quarantine).
 
 ## 1. One-paragraph product summary
 

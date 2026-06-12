@@ -127,8 +127,17 @@ a team already uses.
     Cost & Tokens work unchanged. Seeded "Code Review Agent Team" runs on the
     keyless mock provider.
 
+### Shipped in v0.9
+17. **Project Templates** — six prebuilt agent-team blueprints (Code Review,
+    Research, Resume Tailoring, SOC Investigation, Customer Support, Data
+    Analysis) with preview, one-click create, and mock-model defaults.
+    Template-created workflows are ordinary Studio workflows — fully
+    editable and observable in every existing view.
+
 ### Next (gated, in order)
-17. **Project templates (v0.9)** — not started; requires explicit approval.
+18. **Runtime v1.0 — Runtime Workspaces** — not started; requires explicit
+    approval. (Workspaces, sandbox runtime, enforcement gateway, approvals,
+    validators, real quarantine.)
 
 ## Non-goals (v1)
 
