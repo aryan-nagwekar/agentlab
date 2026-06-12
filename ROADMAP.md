@@ -319,11 +319,46 @@ sessions, no long-running processes, no dev servers, no package installs.
 - 40 pytest (incl. marker-file proofs that blocked commands never execute,
   env-scrub and redaction proofs) + 9 vitest
 
-## Runtime v1.4 — Orchestration Engine (next, pending approval)
+## Runtime v1.4 — Orchestration Engine ✅
 
-Spec to be provided by the owner. Later Runtime versions own: orchestration,
-enforcement gateway, policy blocking, human approvals, validators, real
-quarantine, and the bottle-selling website demo. None of these are started.
+Turns a workspace goal into a structured, replayable workflow — and nothing
+more. Status metadata only: orchestrated agents never write files, run
+commands, or call models in v1.4 (the manual Files/Commands panels remain
+user-triggered and the orchestrator never invokes them).
+
+- `app/runtime/orchestration.py`: deterministic planner (fixed 5-step
+  pipeline — plan → research → backend → UI → verify — with role keywords,
+  per-step risk levels, and recorded-but-inert validation/approval flags),
+  role-based assignment (ready > running > caution > suspicious;
+  disabled/quarantined agents are never assigned — unassignable steps become
+  blocked tasks with explicit reasons + `runtime.task.assignment_failed`),
+  dependency-respecting scheduler tick (`_advance`: start eligible tasks,
+  settle workflow to completed/failed/blocked), manual task results
+  (bounded text) that complete tasks and advance the DAG
+- Models: `RuntimeWorkflow` (planned/running/paused/blocked/failed/
+  completed/cancelled), `RuntimeWorkflowPlan` (one per workflow),
+  `RuntimeTask` (8 statuses; waiting_for_validation/approval reserved for
+  later versions), `RuntimeTaskResult`
+- 19 events `runtime.workflow.*` / `runtime.task.*` (shared registry,
+  API + SDK) into the workspace activity run — timeline/replay reconstruct
+  plan → assign → start → block → reroute → resume → complete
+- Endpoints: workflows CRUD-lite, `POST …/plan`, `start|pause|resume|
+  cancel`, `GET …/tasks`, `PATCH …/tasks/{id}` (status/reassign with
+  unassignable-agent rejection), `POST …/tasks/{id}/result` — writes behind
+  the existing API-key gate
+- UI: Workflows panel on workspace detail — create from goal, generate
+  plan, status banner + lifecycle controls, task cards (agent, status,
+  risk, dependencies, artifacts, results, blocked reasons), record-result
+  flow; Chat Mode and archived workspaces disable mutations
+- 17 pytest (incl. a boundary test proving a full workflow cycle emits no
+  sandbox.file/sandbox.command/model.* events and never creates a sandbox
+  directory) + 10 vitest
+
+## Runtime v1.5 — Action Enforcement Gateway (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: enforcement
+gateway, policy blocking, human approvals, validators, real quarantine, and
+the bottle-selling website demo. None of these are started.
 
 ## Later (unscheduled)
 

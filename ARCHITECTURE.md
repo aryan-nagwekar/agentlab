@@ -686,6 +686,51 @@ servers, file watchers, package installation, orchestration, the policy
 engine/enforcement gateway, approvals, validators, real quarantine, the
 bottle-selling demo.
 
+## Orchestration Engine (v1.4 — shipped, status metadata only)
+
+`app/runtime/orchestration.py` turns a workspace goal into a workflow →
+plan → tasks pipeline whose every transition is an event. The hard v1.4
+boundary: **orchestration is bookkeeping**. No model calls, no file writes,
+no command execution, no tool calls stand behind any transition — a
+dedicated test proves a full plan→start→complete cycle emits only
+`runtime.workflow.*`/`runtime.task.*` events and never creates a sandbox
+directory. The Files (v1.2) and Commands (v1.3) panels stay strictly
+user-triggered; the orchestrator has no code path into them.
+
+**Deterministic planner.** `PLAN_STEPS` is a fixed five-step pipeline
+(plan → research → backend → UI → verify) with per-step role keywords,
+risk levels, expected artifacts, and validation/approval flags that are
+recorded on tasks but deliberately inert (inputs for the future
+enforcement/approval versions). No model calls — plans are reproducible in
+tests with zero keys. The DAG is acyclic by construction and dependencies
+are not user-editable, so cycle detection is deferred until they are.
+
+**Assignment rules (v1.1 statuses enforced).** For each step, candidates
+are workspace agents whose role/name contains a step keyword, excluding
+`disabled`/`quarantined` outright; among candidates the orchestrator
+prefers `ready > running > caution > suspicious`, then creation order. A
+step with no candidate becomes a `blocked` task with a `blocked_reason`
+and a `runtime.task.assignment_failed` event. `PATCH` reassignment rejects
+unassignable agents (409), revives blocked tasks to `pending`, and emits
+`runtime.task.rerouted` when the task already had an agent.
+
+**Lifecycle.** Workflow: planned → running (start requires a plan) with
+pause/resume/cancel; `_advance` is the scheduler tick — it starts every
+assigned pending task whose dependencies are all completed, then settles
+the workflow: all-completed → `completed`; stuck with a failed task →
+`failed`; stuck otherwise (unassigned/blocked tasks in the way) →
+`blocked` (recoverable: reroute + resume). Task results are bounded text
+(4 KB stored, 300-char event summary) recorded manually; recording
+completes the task and re-runs the tick. `waiting_for_validation` /
+`waiting_for_approval` statuses exist in the model but are unreachable —
+reserved for the versions that own them.
+
+**Explicit non-goals for v1.4** (later Runtime versions): enforcement
+gateway, policy engine, approvals, validators, real quarantine, autonomous
+or model-driven file/command execution, browser automation/web research,
+dev servers, package installation, cost-budget enforcement, the
+bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

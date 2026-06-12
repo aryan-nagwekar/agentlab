@@ -60,7 +60,8 @@ inspect, and (soon) replay.
 | Workspace Agent Definitions + Permissions (v1.1) — agents inside a workspace with role/prompt/model metadata, a 13-flag permission profile (risky flags warned), status lifecycle, 7 templates, and `workspace_agent.*` events into the activity run (timeline/replay work unchanged) | ✅ |
 | Sandboxed File Runtime (v1.2) — workspace-bounded file CRUD under `.agentlab-workspaces/{id}/` with deterministic path safety (absolute/traversal/symlink/secret blocked, audited via `sandbox.file.blocked`), `sandbox.*` events into the activity run, and a Files panel UI | ✅ |
 | Safe Command Runner (v1.3) — allowlisted, deterministic, sandbox-bounded commands (`shell=False`, scrubbed env, timeout, capped/redacted output) with pre-execution blocking audited via `sandbox.command.*` events and a Commands panel UI | ✅ |
-| Runtime v1.4+ — orchestration engine, then enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
+| Orchestration Engine (v1.4) — goal → deterministic plan → role-assigned tasks with dependencies and lifecycle (disabled/quarantined never assigned), manual text results, 19 `runtime.workflow.*`/`runtime.task.*` events with full replay, and a Workflows panel UI; zero autonomous execution | ✅ |
+| Runtime v1.5+ — action enforcement gateway, then approvals, validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -580,7 +581,37 @@ decision. Chat Mode disables execution.
 > validators, and no runtime quarantine — those arrive in later Runtime
 > versions per the master plan.
 
-## Known limitations (v0.1–v1.3)
+## Orchestration Engine (v1.4)
+
+The **Workflows** panel turns a workspace goal into a structured, replayable
+multi-agent workflow. Creating a workflow (it inherits the workspace goal)
+and generating its plan materializes a deterministic five-step pipeline —
+plan → research → backend → UI → verify — as tasks with dependencies, risk
+levels, and expected artifacts. Tasks are assigned to your v1.1 workspace
+agents by role keywords, preferring healthier agents (ready > running >
+caution > suspicious); **disabled or quarantined agents are never assigned**,
+and steps with no suitable agent become blocked tasks with an explicit
+reason. Reassigning a blocked task to a new agent emits a reroute event and
+lets the workflow resume.
+
+Starting the workflow begins a dependency-respecting lifecycle: tasks start
+only when everything they depend on has completed, recording a (bounded,
+text-only) result completes a task and advances the DAG, and the workflow
+settles to completed, failed (a task failed and nothing can proceed), or
+blocked (unassigned/blocked tasks in the way). Pause/resume/cancel are
+available throughout. Every transition emits `runtime.workflow.*` /
+`runtime.task.*` events into the workspace activity run, so the timeline and
+Replay reconstruct the entire orchestration story — including assignment
+failures, reroutes, and blocks.
+
+> v1.4 is **orchestration metadata only**. Orchestrated agents never write
+> files, run commands, call models or tools, install packages, or touch the
+> network — the Files and Commands panels remain strictly user-triggered,
+> and the orchestrator never invokes them. Enforcement, approvals,
+> validators, and real quarantine arrive in later Runtime versions per the
+> master plan.
+
+## Known limitations (v0.1–v1.4)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -645,6 +676,13 @@ Stated plainly so nobody discovers them the hard way:
   test files) executes whatever those workspace files contain. The
   deterministic allowlist is the boundary; container isolation is the
   planned hardening for later Runtime versions.
+- **Orchestration is bookkeeping, not execution.** v1.4 workflows track
+  statuses, assignments, and manually recorded text results; agents do no
+  real work yet — no model calls, file writes, or commands happen behind a
+  task. The planner is a fixed deterministic pipeline, not goal-aware; task
+  dependencies are planner-owned and not user-editable; `waiting_for_
+  validation`/`waiting_for_approval` statuses are reserved for later
+  versions.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
