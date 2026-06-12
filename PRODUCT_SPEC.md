@@ -119,9 +119,16 @@ a team already uses.
     configured `OLLAMA_BASE_URL`, `ollama serve`, and the Docker
     `host.docker.internal` workaround).
 
+### Shipped in v0.8
+16. **Agent Builder Studio** — build multi-agent workflows in-app: visual DAG
+    canvas, per-agent role/system prompt/provider/model (via the Model
+    Gateway), validation (cycles rejected), one-click run. Studio runs are
+    normal AgentLab runs — graph, replay, inspector, metrics, trust/risk, and
+    Cost & Tokens work unchanged. Seeded "Code Review Agent Team" runs on the
+    keyless mock provider.
+
 ### Next (gated, in order)
-16. **Agent Builder Studio (v0.8)** — define agents in-app and assign a
-    provider/model to each, built on the gateway.
+17. **Project templates (v0.9)** — not started; requires explicit approval.
 
 ## Non-goals (v1)
 

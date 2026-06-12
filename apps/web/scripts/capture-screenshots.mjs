@@ -138,6 +138,18 @@ async function main() {
   await shot("model-gateway.png");
   console.log("✓ model-gateway.png");
 
+  // 11. Agent Builder Studio — seeded workflow, run it, capture canvas+result
+  await page.goto(`${BASE_URL}/studio`);
+  await page.getByText("Code Review Agent Team").waitFor();
+  await page.locator('a[href^="/studio/workflows/"]').first().click();
+  await page.getByText("Workflow input").waitFor();
+  await page.waitForTimeout(900); // canvas fitView
+  await page.getByText("▶ Run Workflow").click();
+  await page.getByText("run completed").waitFor({ timeout: 15000 });
+  await page.waitForTimeout(400);
+  await shot("studio-builder.png");
+  console.log("✓ studio-builder.png");
+
   await browser.close();
   console.log(`\nSaved to ${OUT_DIR}`);
 }

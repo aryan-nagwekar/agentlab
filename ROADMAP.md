@@ -132,11 +132,29 @@ Local-first model gateway: call providers through one interface, safely.
 - 17 pytest + 6 vitest gateway tests (planted-key leak grep extended to Gemini)
 - Still deferred: hosted/cloud secret storage, per-user keys
 
-## v0.8 — Agent Builder Studio (pending approval)
+## v0.8 — Agent Builder Studio ✅
 
-- Define agents in-app and assign a provider/model to each (built on the gateway)
-- Persisted agent definitions; invoke through the gateway
-- No visual workflow builder / templates yet
+Build and run multi-agent workflows inside AgentLab.
+
+- `app/studio/`: workflow/agent/edge definitions (own tables; the append-only
+  `events` log stays the runtime source of truth), validation (DAG-only —
+  cycles rejected with a clear error; provider/model checked against the
+  gateway registry), and a deterministic topological executor
+- Every model call goes through the v0.7 Model Gateway; a Studio run emits the
+  standard run/agent/message/model events through the collector, so the graph,
+  replay, inspector, metrics, trust/risk, and Cost & Tokens all work unchanged
+- Endpoints: `/studio/workflows` CRUD, agent/edge CRUD, `/validate`, `/run`
+  (+ `/runs` history); failed providers fail cleanly with `model.failed`,
+  downstream agents are skipped, and the run ends in `run.failed`
+- UI: Studio section — workflow list, React Flow canvas (drag, connect,
+  select), agent editor (role/system prompt/provider/model/temperature/max
+  tokens with unconfigured-provider warnings), edge editor, validate banner,
+  run panel with Open Run / Replay / Cost & Tokens links, run history
+- Seeded "Code Review Agent Team" (Planner → Coder → Security Reviewer →
+  Report, all on keyless mock models) created at startup when no workflows exist
+- 16 pytest + 11 vitest studio tests
+- Deferred: templates (v0.9), loops/recursion, tools, hosted collaboration,
+  cloud key storage, workflow governance
 
 ## v0.9 — Framework integrations
 

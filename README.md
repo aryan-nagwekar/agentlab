@@ -35,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.7.1)
+## What works today (v0.8)
 
 | Capability | Status |
 | --- | --- |
@@ -53,7 +53,8 @@ inspect, and (soon) replay.
 | Trust/risk engine — deterministic, event-derived, explainable scores: per-agent trust + risk, tier badges (trusted → high-risk), "why it changed" factors, score history, run risk summary, and scores that evolve step-by-step in replay | ✅ |
 | Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay | ✅ |
 | Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Gemini + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + troubleshooting hints + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
-| Agent Builder Studio (create agents + assign models in-app) | 🔜 v0.8 |
+| Agent Builder Studio — build multi-agent workflows in-app: visual DAG canvas, per-agent role/prompt/provider/model, validation, one-click run through the Model Gateway; Studio runs flow into the graph, replay, inspector, metrics, trust/risk, and Cost & Tokens unchanged; seeded "Code Review Agent Team" works with zero keys | ✅ |
+| Project templates | 🔜 v0.9 |
 
 ## Architecture
 
@@ -354,12 +355,65 @@ ollama pull llama3.2                   # get a model
 The card shows the `OLLAMA_BASE_URL` it tried. Running AgentLab in Docker
 against Ollama on the host? Set `OLLAMA_BASE_URL=http://host.docker.internal:11434`.
 
-## Known limitations (v0.1–v0.7.1)
+## Agent Builder Studio (v0.8)
+
+Studio turns AgentLab from "observe existing agent systems" into "build, run,
+debug, replay, and profile multi-agent systems inside the platform."
+
+**How it works.** Open **Studio** in the sidebar. A workflow is a DAG of
+agents on a React Flow canvas:
+
+- **Add agents** with *+ Agent*; select a node to edit its name, role,
+  description, system prompt, provider, model, temperature, and max tokens in
+  the right-hand inspector. The provider/model selector is fed by the v0.7
+  Model Gateway list (mock / openai / anthropic / gemini / ollama) and shows
+  configured status; picking an unconfigured provider warns you up front.
+- **Connect agents** by dragging from a node's right handle to another node;
+  select an edge to label or delete it.
+- **Validate** checks structure (at least one agent, no dangling edges, no
+  duplicate ids, provider/model known to the gateway) and rejects cycles:
+  *"Cycles are not supported in v0.8. Please use a DAG workflow."*
+- **Run Workflow** executes the DAG in topological order. Each agent's prompt
+  combines its role, system prompt, the workflow input, and its upstream
+  agents' outputs; every model call goes through the Model Gateway.
+
+**Studio runs are normal AgentLab runs.** The executor emits the standard
+`run.started` → `message.sent`/`message.received` → `agent.started` →
+`model.called` → `model.completed`/`model.failed` →
+`agent.completed`/`agent.failed` → `run.completed`/`run.failed` events through
+the normal collector — so the live topology, Wireshark-style inspector, replay
+debugger, metrics, trust/risk engine, fault/security labs, and Cost & Tokens
+all work on Studio runs with zero special-casing. A failed provider call fails
+cleanly (`model.failed`), skips downstream agents, and ends in `run.failed`;
+the failing agent's reliability degrades without being marked malicious.
+
+**Seeded demo.** On first start AgentLab seeds the **Code Review Agent Team**
+(Planner → Coder → Security Reviewer → Report Agent, all on keyless mock
+models). Open it, click *Run Workflow*, then *Open Run Detail* → step through
+the run in **Replay**, and open **Cost & Tokens** to see which agent used the
+most tokens and which cost the most. No API keys required.
+
+**vs. SDK instrumentation:** the SDK observes agent systems you already run
+elsewhere; Studio authors and executes workflows inside AgentLab. Both produce
+the same event stream.
+
+![Agent Builder Studio: the seeded Code Review Agent Team on the workflow canvas with the agent inspector, a completed run, and Open Run / Replay / Cost links](docs/screenshots/studio-builder.png)
+
+> v0.8 Agent Builder Studio supports simple DAG-style workflows and
+> local-first model execution through the existing Model Gateway. It does not
+> yet support templates, loops, hosted collaboration, arbitrary tools, cloud
+> key storage, or enterprise workflow governance.
+
+## Known limitations (v0.1–v0.8)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
-  environment; there is no hosted/cloud secret storage, no per-user key
-  management, and no visual Agent Builder Studio yet (v0.8). Real provider calls
-  require your own key; without one a provider stays "not configured".
+  environment; there is no hosted/cloud secret storage and no per-user key
+  management. Real provider calls require your own key; without one a provider
+  stays "not configured".
+
+- **Studio workflows are simple DAGs.** No loops/recursion, no templates, no
+  tools, no agent memory, no hosted collaboration; prompt construction is plain
+  text. The executor's only side effect is model calls through the gateway.
 
 - **Pricing is a static local table and model providers are mock/demo only.**
   v0.6 does not connect to real OpenAI, Anthropic, Gemini, OpenRouter, or

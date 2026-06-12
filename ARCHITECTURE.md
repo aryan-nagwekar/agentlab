@@ -446,12 +446,46 @@ capturing a clean `model.failed` if the gateway is unreachable.
 A backend test greps every gateway response for a planted secret to prove it
 never leaks.
 
-## Agent Builder Studio (v0.8 design sketch)
+## Agent Builder Studio (v0.8 — shipped)
 
-The gateway is the substrate: a future studio lets users define agents in-app
-and assign a provider/model to each, persisting agent definitions and invoking
-them through `model_call`. v0.7 builds only the gateway layer — no visual
-builder, no templates, no hosted secrets.
+`app/studio/` lets users author and run multi-agent workflows in-app. The
+design principle: **definitions and telemetry stay separate**. Studio tables
+(`studio_workflows`, `studio_agents`, `studio_edges`, `studio_workflow_runs`)
+describe what was authored; the append-only `events` table remains the only
+record of what happened when a workflow ran.
+
+**Model.** A workflow is a DAG of agent definitions (name, role, system
+prompt, provider, model, temperature, max tokens, canvas position) connected
+by labeled edges. `validation.py` rejects cycles ("Cycles are not supported in
+v0.8."), dangling edges, duplicate ids, and unknown providers/mock models
+(checked against the gateway registry); an unconfigured real provider is a
+*warning* — the run is allowed and fails cleanly.
+
+**Executor** (`executor.py`). Topological sort (Kahn, stable), then per agent:
+hand upstream outputs over as `message.sent`/`message.received`, emit
+`agent.started`, build a plain-text prompt (role + system prompt + workflow
+input + upstream outputs), call the provider through the **Model Gateway**,
+reuse `telemetry.build_model_events` for `model.called` +
+`model.completed`/`model.failed`, then `agent.completed`/`agent.failed`. A
+failed agent skips its downstream subtree; the run ends `run.completed` or
+`run.failed` with failed/skipped agent lists. Timestamps advance on a
+simulated clock by each call's reported latency, so the replay timeline reads
+realistically. No user code, shell, tools, loops, or recursion — model calls
+are the only side effect.
+
+**Integration for free.** The executor returns plain `EventIn`s persisted
+through `collector.process_events` and broadcast per-project over WS — so a
+Studio run is indistinguishable from an SDK run to the graph, replay,
+inspector, metrics, trust/risk, costing, and even the fault/attack labs. Every
+event carries `metadata.source: "studio"` plus workflow id/name, agent
+definition id, role, provider/model, and upstream/downstream agents for the
+inspector.
+
+**Seed.** At startup, if no workflows exist, the "Code Review Agent Team"
+(Planner → Coder → Security Reviewer → Report, all on keyless mock models) is
+created so Studio demos with zero configuration.
+
+Deferred: templates (v0.9), loops, tools, hosted collaboration, cloud secrets.
 
 ## Testing
 

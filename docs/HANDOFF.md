@@ -2,6 +2,15 @@
 
 > Snapshot taken 2026-06-12, at the start of the v0.7.1 Model Gateway patch.
 > Status in §6 reflects that moment; see git history for anything later.
+>
+> **Addendum (2026-06-12, later):** v0.7.1 shipped (Gemini provider + Ollama
+> troubleshooting, 134 pytest + 44 vitest). v0.8 Agent Builder Studio shipped:
+> `apps/api/app/studio/` (workflow/agent/edge definitions, DAG validation,
+> deterministic executor through the Model Gateway), `/api/studio/*` endpoints,
+> Studio UI (React Flow canvas, agent/edge editors, run panel), seeded "Code
+> Review Agent Team" (mock-only). Studio runs emit normal AgentLab events —
+> graph/replay/inspector/metrics/trust-risk/costs all work unchanged. Next
+> gated milestone: v0.9 Project Templates (requires explicit approval).
 
 ## 1. One-paragraph product summary
 
