@@ -251,12 +251,44 @@ does not execute, write files, call tools, or enforce anything.
   status), delete; quarantined/disabled dimmed; Chat Mode disables mutations
 - 18 pytest + 6 vitest
 
-## Runtime v1.2 — Sandboxed File Runtime (next, pending approval)
+## Runtime v1.2 — Sandboxed File Runtime ✅
 
-Spec to be provided by the owner. Later Runtime versions own: sandbox
-execution, command runner, real file writes, orchestration, enforcement
-gateway, policy blocking, human approvals, validators, real quarantine, and
-the bottle-selling website demo. None of these are started.
+The first real runtime layer, kept deliberately narrow: **file operations
+only**, confined beneath `{AGENTLAB_WORKSPACES_ROOT}/{workspace_id}`
+(default `.agentlab-workspaces/`, gitignored). No shell, no command runner,
+no build/test execution, no dev server, no orchestration, no enforcement.
+
+- `app/runtime/sandbox.py`: deterministic path safety checked before any
+  disk access — absolute paths, `..` traversal, null bytes, secret-named
+  files (`.env*`, `*.pem`, `*.key`, `id_rsa*`, …), and anything *resolving*
+  outside the workspace root (which also catches symlink escapes) are
+  rejected; a rejected operation never touches disk and emits a
+  `sandbox.file.blocked` audit event carrying only the attempted logical
+  path + matched rule — never host paths or content
+- Operations: init sandbox (idempotent), status (file/dir counts + bytes),
+  list, recursive tree, read (UTF-8, 256 KB cap), write/create (1 MB cap,
+  parents auto-created), mkdir, delete (files + empty directories)
+- Events: `sandbox.initialized` / `file.created` / `file.updated` /
+  `file.read` / `file.deleted` / `directory.created` / `file.blocked`
+  (shared registry, API + SDK) into the workspace activity run — list/tree/
+  status reads emit nothing; payloads carry logical paths, sizes, and
+  sha256 prefixes, never content or host paths
+- Endpoints: `/runtime/workspaces/{id}/sandbox/init|status`,
+  `/files`, `/files/tree`, `/files/read`, `/files/write`, `/files/mkdir`,
+  `DELETE /files` — writes behind the existing API-key gate
+- UI: Files panel on workspace detail — status card + initialize flow,
+  recursive file tree, new file/folder flows, read/edit/save editor with
+  size + hash, delete, safe blocked-path errors; Chat Mode disables all
+  mutations; archived workspaces render read-only
+- 21 pytest + 11 vitest (incl. proofs that blocked writes leave disk
+  untouched and symlink escapes are refused)
+
+## Runtime v1.3 — Safe Command Runner + Sandbox Events (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: command
+execution, orchestration, enforcement gateway, policy blocking, human
+approvals, validators, real quarantine, and the bottle-selling website demo.
+None of these are started.
 
 ## Later (unscheduled)
 

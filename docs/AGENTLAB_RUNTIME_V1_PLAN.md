@@ -256,7 +256,36 @@ policy, request approvals, run validators, or quarantine at runtime.
   (role/model/status/trust/risk/permissions with risky flags warned), inline
   editor, delete; quarantined/disabled dimmed; Chat Mode disables mutations.
 
+## v1.2 — Sandboxed File Runtime ✅ (shipped)
+
+The first real runtime layer, **file operations only**, confined to
+`{AGENTLAB_WORKSPACES_ROOT}/{workspace_id}` (default `.agentlab-workspaces/`,
+gitignored). No shell, no command runner, no build/test execution, no dev
+server, no orchestration, no enforcement, no approvals, no validators, no
+real quarantine.
+
+- **Module** `app/runtime/sandbox.py`: deterministic path safety before any
+  disk access — absolute paths, `..` traversal, null bytes, secret-named
+  files (`.env*`, `*.pem`, `*.key`, `id_rsa*`, …), and paths *resolving*
+  outside the workspace root (also the symlink-escape guard) are rejected.
+  A rejected operation never touches disk and emits `sandbox.file.blocked`
+  (operation, attempted logical path, reason, matched rule — never host
+  paths or content).
+- **Operations** init (idempotent) / status / list / tree / read (UTF-8,
+  256 KB cap) / write (1 MB cap, parents auto-created) / mkdir / delete
+  (files + empty directories).
+- **Events** sandbox.initialized / file.created / file.updated / file.read /
+  file.deleted / directory.created / file.blocked — shared registry (API +
+  SDK), emitted into the workspace activity run so activity/timeline/replay
+  work; payloads carry logical paths, sizes, sha256 prefixes only.
+- **APIs** `/runtime/workspaces/{id}/sandbox/init|status`, `/files`,
+  `/files/tree`, `/files/read`, `/files/write`, `/files/mkdir`,
+  `DELETE /files` — writes behind the existing API-key gate.
+- **UI** Files panel on workspace detail: status card + initialize flow,
+  recursive tree, new file/folder, read/edit/save editor, delete, safe
+  blocked-path errors; Chat Mode disables mutations; archived = read-only.
+
 ## Next milestone (gated on explicit approval)
 
-**v1.2 — Sandboxed File Runtime** (spec to be provided by the owner; do not
-start without approval).
+**v1.3 — Safe Command Runner + Sandbox Events** (spec to be provided by the
+owner; do not start without approval).

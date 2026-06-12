@@ -58,7 +58,8 @@ inspect, and (soon) replay.
 | Chat Mode / Agent Mode — Studio mode switcher: Chat is read-only Q&A (workflow, runs, failures, cost, trust/risk), Agent performs actions; `/connect <provider>` opens a secure key-setup modal; key-like pastes into chat are blocked; keys live in a local gitignored file, redacted everywhere | ✅ |
 | Runtime Workspaces (v1.0 foundation) — workspace metadata, status lifecycle, artifact registry, and activity history as normal AgentLab events (timeline/replay work unchanged); list + detail UI with status banner, goal panel, activity feed, health placeholder | ✅ |
 | Workspace Agent Definitions + Permissions (v1.1) — agents inside a workspace with role/prompt/model metadata, a 13-flag permission profile (risky flags warned), status lifecycle, 7 templates, and `workspace_agent.*` events into the activity run (timeline/replay work unchanged) | ✅ |
-| Runtime v1.2+ — sandboxed file runtime, then command runner, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
+| Sandboxed File Runtime (v1.2) — workspace-bounded file CRUD under `.agentlab-workspaces/{id}/` with deterministic path safety (absolute/traversal/symlink/secret blocked, audited via `sandbox.file.blocked`), `sandbox.*` events into the activity run, and a Files panel UI | ✅ |
+| Runtime v1.3+ — safe command runner, then orchestration, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -514,7 +515,37 @@ agent mutations.
 > *assignment* in the UI as metadata. Real execution and enforcement arrive in
 > later Runtime versions.
 
-## Known limitations (v0.1–v1.1)
+## Sandboxed File Runtime (v1.2)
+
+Each workspace can own a real, **workspace-bounded file sandbox** on disk
+under `.agentlab-workspaces/{workspace_id}/` (gitignored; override the root
+with `AGENTLAB_WORKSPACES_ROOT`). The **Files** panel on the workspace page
+initializes the sandbox and then lists, creates, reads, edits, and deletes
+files and folders inside it — and nothing else: no shell, no command runner,
+no builds or tests, no dev server.
+
+Path safety is deterministic and checked before any disk access. Absolute
+paths, `..` traversal, null bytes, secret-named files (`.env*`, `*.pem`,
+`*.key`, `id_rsa*`, `.agentlab-secrets.json`, …), and any path that
+*resolves* outside the workspace root — including through a symlink — are
+rejected. A rejected operation never touches disk; it returns a clear
+`blocked (<rule>)` error and emits a `sandbox.file.blocked` audit event
+carrying only the attempted logical path and the matched rule.
+
+Successful operations emit `sandbox.initialized`, `sandbox.file.created`,
+`sandbox.file.updated`, `sandbox.file.read`, `sandbox.file.deleted`, and
+`sandbox.directory.created` events into the workspace activity run, so the
+activity feed, timeline, and Replay reconstruct file history through the
+normal pipeline. Event payloads carry logical workspace paths, sizes, and
+content hashes — never file content and never host filesystem paths. Chat
+Mode disables every mutating file action.
+
+> v1.2 is **file operations only**. It does not execute commands, run
+> tests/builds, start servers, orchestrate agents, enforce policies, request
+> approvals, validate outputs, or quarantine agents at runtime — those arrive
+> in later Runtime versions per the master plan.
+
+## Known limitations (v0.1–v1.2)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -565,6 +596,12 @@ Stated plainly so nobody discovers them the hard way:
   paints the node and is recorded in the timeline/replay; it does not actually
   stop or isolate a running agent (real lifecycle control is out of scope until
   a later milestone).
+- **The file sandbox is application-level, not OS-level.** v1.2 path safety
+  is deterministic and enforced in the API process (absolute/traversal/
+  symlink/secret checks before any disk access), but there is no chroot,
+  container, or filesystem-permission isolation, no quota beyond the
+  per-request read/write caps, and no binary-file support. Nothing in the
+  sandbox is ever executed.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

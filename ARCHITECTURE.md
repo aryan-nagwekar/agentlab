@@ -586,6 +586,50 @@ removes the definition row but the event log keeps the history.
 command runner, shell, real file writes, orchestration, enforcement gateway,
 approvals, validators, real runtime quarantine, the bottle-selling demo.
 
+## Sandboxed File Runtime (v1.2 — shipped, file operations only)
+
+`app/runtime/sandbox.py` is the first real runtime layer, deliberately
+narrow: create/read/update/list/delete files **inside
+`{workspaces_root}/{workspace_id}` only** (Settings.workspaces_root, default
+`.agentlab-workspaces/`, gitignored). No shell, no subprocess, no command
+runner, no build/test execution, no dev server.
+
+**Path safety is deterministic and runs before any disk access.**
+`resolve_path` rejects, in order: empty paths (where a target is required),
+null bytes, absolute paths (POSIX, Windows-drive, and `~` spellings), any
+`..` segment, and any segment whose *name* matches the secret list (`.env`,
+`.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.agentlab-secrets.json`,
+`.netrc`, …). The surviving candidate is then `resolve()`d — which follows
+symlinks — and rejected unless it is still relative to the resolved sandbox
+root: that single check is also the symlink-escape guard. A rejected
+operation raises `SandboxBlocked` **after** emitting a `sandbox.file.blocked`
+audit event (operation, attempted logical path truncated to 200 chars,
+human reason, matched rule). The router commits that event even though the
+request fails — the rejection is part of workspace history — and returns a
+clear `400 blocked (<rule>)` error. Tests prove blocked writes leave the
+disk byte-for-byte untouched.
+
+**Boundaries on success paths too.** Reads are UTF-8 only and capped at
+256 KB; writes are capped at 1 MB by the schema; deletes accept files and
+*empty* directories only. The only path representation that ever leaves the
+server is the logical workspace-relative path (`_logical`); host filesystem
+paths and file content never appear in events, error messages, or logs.
+Event payloads carry logical path, byte size, and a sha256 prefix.
+
+**Events, same pipeline.** Mutations emit `sandbox.initialized` /
+`sandbox.file.created` / `sandbox.file.updated` / `sandbox.file.deleted` /
+`sandbox.directory.created`, and content reads emit `sandbox.file.read`
+(an access-audit signal), all through `collector.process_events` into the
+workspace's activity run — so the activity feed, timeline, and Replay
+reconstruct file history with zero special-casing. Pure queries (status,
+list, tree) emit nothing, keeping the activity run signal-dense. The shared
+event registry is extended in both the API and the SDK.
+
+**Explicit non-goals for v1.2** (later Runtime versions): command execution,
+shell, subprocess, build/test runners, dev servers, orchestration,
+model-driven file writing, enforcement gateway, approvals, validators, real
+quarantine, the bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a
