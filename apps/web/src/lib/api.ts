@@ -32,6 +32,8 @@ import type {
   StudioWorkflow,
   StudioWorkflowSave,
   StudioWorkflowSummary,
+  WorkspaceAgent,
+  WorkspaceAgentTemplate,
 } from "./types";
 
 /** Same-origin by default (vite proxy in dev, nginx in Docker). */
@@ -209,6 +211,37 @@ export const api = {
     request<RuntimeArtifact>(`/api/runtime/workspaces/${workspaceId}/artifacts`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  workspaceAgentTemplates: () =>
+    request<WorkspaceAgentTemplate[]>("/api/runtime/agent-templates"),
+  workspaceAgents: (workspaceId: string) =>
+    request<WorkspaceAgent[]>(`/api/runtime/workspaces/${workspaceId}/agents`),
+  createWorkspaceAgent: (workspaceId: string, body: Partial<WorkspaceAgent>) =>
+    request<WorkspaceAgent>(`/api/runtime/workspaces/${workspaceId}/agents`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  createWorkspaceAgentFromTemplate: (
+    workspaceId: string,
+    templateId: string,
+    body: { name?: string } = {},
+  ) =>
+    request<WorkspaceAgent>(
+      `/api/runtime/workspaces/${workspaceId}/agents/from-template/${templateId}`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  patchWorkspaceAgent: (
+    workspaceId: string,
+    agentId: string,
+    body: Partial<WorkspaceAgent>,
+  ) =>
+    request<WorkspaceAgent>(
+      `/api/runtime/workspaces/${workspaceId}/agents/${agentId}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  deleteWorkspaceAgent: (workspaceId: string, agentId: string) =>
+    request<void>(`/api/runtime/workspaces/${workspaceId}/agents/${agentId}`, {
+      method: "DELETE",
     }),
   studioTemplates: () => request<StudioTemplateSummary[]>("/api/studio/templates"),
   studioTemplate: (templateId: string) =>

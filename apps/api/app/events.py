@@ -36,6 +36,14 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "workspace.status_changed",
         "workspace.archived",
         "workspace.artifact_registered",
+        # Workspace agent definitions (v1.1) — metadata-only control-plane
+        # events; agents do not execute, write files, or enforce anything.
+        "workspace_agent.created",
+        "workspace_agent.updated",
+        "workspace_agent.permission_changed",
+        "workspace_agent.status_changed",
+        "workspace_agent.deleted",
+        "workspace_agent.template_instantiated",
     }
 )
 

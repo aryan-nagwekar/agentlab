@@ -64,6 +64,15 @@ WORKSPACE_STATUS_CHANGED = "workspace.status_changed"
 WORKSPACE_ARCHIVED = "workspace.archived"
 WORKSPACE_ARTIFACT_REGISTERED = "workspace.artifact_registered"
 
+# Workspace agent definitions (v1.1) — metadata-only control-plane events
+# emitted by the server's workspace-agent APIs; nothing executes behind them.
+WORKSPACE_AGENT_CREATED = "workspace_agent.created"
+WORKSPACE_AGENT_UPDATED = "workspace_agent.updated"
+WORKSPACE_AGENT_PERMISSION_CHANGED = "workspace_agent.permission_changed"
+WORKSPACE_AGENT_STATUS_CHANGED = "workspace_agent.status_changed"
+WORKSPACE_AGENT_DELETED = "workspace_agent.deleted"
+WORKSPACE_AGENT_TEMPLATE_INSTANTIATED = "workspace_agent.template_instantiated"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -97,6 +106,12 @@ EVENT_TYPES: frozenset[str] = frozenset(
         WORKSPACE_STATUS_CHANGED,
         WORKSPACE_ARCHIVED,
         WORKSPACE_ARTIFACT_REGISTERED,
+        WORKSPACE_AGENT_CREATED,
+        WORKSPACE_AGENT_UPDATED,
+        WORKSPACE_AGENT_PERMISSION_CHANGED,
+        WORKSPACE_AGENT_STATUS_CHANGED,
+        WORKSPACE_AGENT_DELETED,
+        WORKSPACE_AGENT_TEMPLATE_INSTANTIATED,
     }
 )
 

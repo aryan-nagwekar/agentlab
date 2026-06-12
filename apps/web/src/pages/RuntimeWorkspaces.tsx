@@ -129,7 +129,13 @@ export function RuntimeWorkspacesPage() {
                 {workspace.goal ? (
                   <p className="mt-2 line-clamp-2 text-[12.5px] text-zinc-500">{workspace.goal}</p>
                 ) : null}
-                <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
+                  <div className="rounded-md bg-surface-2 px-2 py-1.5">
+                    <div className="font-mono text-[13px] text-zinc-200">
+                      {workspace.agent_count}
+                    </div>
+                    <div className="text-zinc-600">agents</div>
+                  </div>
                   <div className="rounded-md bg-surface-2 px-2 py-1.5">
                     <div className="font-mono text-[13px] text-zinc-200">
                       {workspace.artifact_count}

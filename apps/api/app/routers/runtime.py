@@ -16,8 +16,20 @@ from starlette.concurrency import run_in_threadpool
 from .. import models as core_models
 from ..deps import get_session, require_api_key
 from ..runtime import service
-from ..runtime.models import Workspace
-from ..runtime.schemas import ArtifactIn, ArtifactOut, WorkspaceIn, WorkspaceOut, WorkspacePatch
+from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
+from ..runtime.models import Workspace, WorkspaceAgent
+from ..runtime.schemas import (
+    AgentDefinitionIn,
+    AgentDefinitionOut,
+    AgentDefinitionPatch,
+    AgentFromTemplateIn,
+    AgentTemplateOut,
+    ArtifactIn,
+    ArtifactOut,
+    WorkspaceIn,
+    WorkspaceOut,
+    WorkspacePatch,
+)
 from ..schemas import EventOut
 
 router = APIRouter()
@@ -33,6 +45,7 @@ def _workspace_out(session: Session, workspace: Workspace) -> WorkspaceOut:
         activity_run_id=workspace.activity_run_id,
         metadata=workspace.meta or {},
         artifact_count=service.artifact_count(session, workspace.id),
+        agent_count=service.agent_count(session, workspace.id),
         created_at=workspace.created_at,
         updated_at=workspace.updated_at,
     )
@@ -51,11 +64,44 @@ def _artifact_out(artifact) -> ArtifactOut:
     )
 
 
+def _agent_out(agent: WorkspaceAgent) -> AgentDefinitionOut:
+    return AgentDefinitionOut(
+        agent_id=agent.id,
+        workspace_id=agent.workspace_id,
+        name=agent.name,
+        role=agent.role,
+        description=agent.description,
+        system_prompt=agent.system_prompt,
+        model_provider=agent.model_provider,
+        model_name=agent.model_name,
+        allowed_tools=agent.allowed_tools or [],
+        denied_tools=agent.denied_tools or [],
+        permissions=agent.permissions or {},
+        max_tokens_per_call=agent.max_tokens_per_call,
+        max_calls_per_run=agent.max_calls_per_run,
+        max_tool_calls_per_run=agent.max_tool_calls_per_run,
+        requires_verification=agent.requires_verification,
+        trust_score=agent.trust_score,
+        risk_score=agent.risk_score,
+        status=agent.status,
+        metadata=agent.meta or {},
+        created_at=agent.created_at,
+        updated_at=agent.updated_at,
+    )
+
+
 def _require_workspace(session: Session, workspace_id: str) -> Workspace:
     workspace = service.get_workspace(session, workspace_id)
     if workspace is None:
         raise HTTPException(status_code=404, detail="workspace not found")
     return workspace
+
+
+def _require_agent(session: Session, workspace_id: str, agent_id: str) -> WorkspaceAgent:
+    agent = service.get_agent(session, workspace_id, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="workspace agent not found")
+    return agent
 
 
 async def _broadcast(request: Request, project_id: str, stored) -> None:
@@ -223,3 +269,187 @@ async def register_artifact(
     out, stored, project_id = await run_in_threadpool(_register)
     await _broadcast(request, project_id, stored)
     return out
+
+
+# ----------------------------------------------------------- workspace agents (v1.1)
+
+
+@router.get("/runtime/agent-templates", response_model=list[AgentTemplateOut])
+def list_agent_templates() -> list[AgentTemplateOut]:
+    return [
+        AgentTemplateOut(
+            template_id=t.template_id,
+            name=t.name,
+            role=t.role,
+            description=t.description,
+            system_prompt=t.system_prompt,
+            model_provider=t.model_provider,
+            model_name=t.model_name,
+            permissions=t.permissions,
+            allowed_tools=list(t.allowed_tools),
+            denied_tools=list(t.denied_tools),
+            max_tokens_per_call=t.max_tokens_per_call,
+            max_calls_per_run=t.max_calls_per_run,
+            max_tool_calls_per_run=t.max_tool_calls_per_run,
+            requires_verification=t.requires_verification,
+            trust_score=t.trust_score,
+            risk_score=t.risk_score,
+            status=t.status,
+            risk_notes=list(t.risk_notes),
+            future_approval_required=list(t.future_approval_required),
+        )
+        for t in AGENT_TEMPLATES
+    ]
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/agents", response_model=list[AgentDefinitionOut]
+)
+def list_workspace_agents(
+    workspace_id: str, session: Session = Depends(get_session)
+) -> list[AgentDefinitionOut]:
+    _require_workspace(session, workspace_id)
+    return [_agent_out(a) for a in service.list_agents(session, workspace_id)]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agents",
+    status_code=201,
+    response_model=AgentDefinitionOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_workspace_agent(
+    workspace_id: str, body: AgentDefinitionIn, request: Request
+) -> AgentDefinitionOut:
+    session_factory = request.app.state.session_factory
+
+    def _create():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            agent, stored = service.create_agent(
+                session,
+                workspace,
+                name=body.name,
+                role=body.role,
+                description=body.description,
+                system_prompt=body.system_prompt,
+                model_provider=body.model_provider,
+                model_name=body.model_name,
+                allowed_tools=body.allowed_tools,
+                denied_tools=body.denied_tools,
+                permissions=body.permissions,
+                max_tokens_per_call=body.max_tokens_per_call,
+                max_calls_per_run=body.max_calls_per_run,
+                max_tool_calls_per_run=body.max_tool_calls_per_run,
+                requires_verification=body.requires_verification,
+                trust_score=body.trust_score,
+                risk_score=body.risk_score,
+                status=body.status,
+                metadata=body.metadata,
+            )
+            session.commit()
+            return _agent_out(agent), list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    out, stored, project_id = await run_in_threadpool(_create)
+    await _broadcast(request, project_id, stored)
+    return out
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agents/from-template/{template_id}",
+    status_code=201,
+    response_model=AgentDefinitionOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_workspace_agent_from_template(
+    workspace_id: str, template_id: str, body: AgentFromTemplateIn, request: Request
+) -> AgentDefinitionOut:
+    template = get_template(template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="agent template not found")
+    session_factory = request.app.state.session_factory
+
+    def _create():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            agent, stored = service.create_agent_from_template(
+                session, workspace, template, name=body.name
+            )
+            session.commit()
+            return _agent_out(agent), list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    out, stored, project_id = await run_in_threadpool(_create)
+    await _broadcast(request, project_id, stored)
+    return out
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}",
+    response_model=AgentDefinitionOut,
+)
+def get_workspace_agent(
+    workspace_id: str, agent_id: str, session: Session = Depends(get_session)
+) -> AgentDefinitionOut:
+    _require_workspace(session, workspace_id)
+    return _agent_out(_require_agent(session, workspace_id, agent_id))
+
+
+@router.patch(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}",
+    response_model=AgentDefinitionOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def patch_workspace_agent(
+    workspace_id: str, agent_id: str, body: AgentDefinitionPatch, request: Request
+) -> AgentDefinitionOut:
+    session_factory = request.app.state.session_factory
+
+    def _patch():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            agent = _require_agent(session, workspace_id, agent_id)
+            stored = service.update_agent(
+                session, workspace, agent, body.model_dump(exclude_unset=True)
+            )
+            session.commit()
+            return _agent_out(agent), list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    out, stored, project_id = await run_in_threadpool(_patch)
+    await _broadcast(request, project_id, stored)
+    return out
+
+
+@router.delete(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}",
+    status_code=204,
+    dependencies=[Depends(require_api_key)],
+)
+async def delete_workspace_agent(
+    workspace_id: str, agent_id: str, request: Request
+) -> None:
+    """Remove the agent definition. History stays in the event log, so the
+    workspace timeline/replay still show the agent's lifecycle."""
+    session_factory = request.app.state.session_factory
+
+    def _delete():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            agent = _require_agent(session, workspace_id, agent_id)
+            stored = service.delete_agent(session, workspace, agent)
+            session.commit()
+            return list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    stored, project_id = await run_in_threadpool(_delete)
+    await _broadcast(request, project_id, stored)

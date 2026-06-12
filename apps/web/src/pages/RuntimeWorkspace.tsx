@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { WorkspaceAgentsPanel } from "../components/runtime/WorkspaceAgentsPanel";
 import { WorkspaceStatusBadge } from "../components/runtime/WorkspaceStatusBadge";
 import { Card, ErrorNote, PageHeader, SectionLabel, Spinner } from "../components/ui";
 import { useFetch } from "../hooks/useFetch";
@@ -200,6 +201,13 @@ export function RuntimeWorkspacePage() {
               </button>
             ) : null}
           </Card>
+
+          {/* Agents (v1.1) */}
+          <WorkspaceAgentsPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
 
           {/* Project health placeholder */}
           <Card className="px-4 py-4">

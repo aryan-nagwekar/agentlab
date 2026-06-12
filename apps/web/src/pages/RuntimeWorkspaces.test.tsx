@@ -15,6 +15,7 @@ const workspace: RuntimeWorkspace = {
   activity_run_id: "ws-abc123-activity",
   metadata: {},
   artifact_count: 1,
+  agent_count: 0,
   created_at: "2026-06-12T10:00:00Z",
   updated_at: "2026-06-12T10:05:00Z",
 };
@@ -71,6 +72,9 @@ vi.mock("../lib/api", () => ({
     patchRuntimeWorkspace: (...args: unknown[]) => patchRuntimeWorkspace(...args),
     archiveRuntimeWorkspace: (...args: unknown[]) => archiveRuntimeWorkspace(...args),
     registerRuntimeArtifact: (...args: unknown[]) => registerRuntimeArtifact(...args),
+    // v1.1 agents panel — detail page renders it; default to no agents here.
+    workspaceAgents: () => Promise.resolve([]),
+    workspaceAgentTemplates: () => Promise.resolve([]),
   },
 }));
 

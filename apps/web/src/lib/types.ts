@@ -501,8 +501,97 @@ export interface RuntimeWorkspace {
   activity_run_id: string;
   metadata: Record<string, unknown>;
   artifact_count: number;
+  agent_count: number;
   created_at: string;
   updated_at: string;
+}
+
+// ------------------------------------------------- workspace agents (v1.1)
+
+export type WorkspaceAgentStatus =
+  | "ready"
+  | "running"
+  | "caution"
+  | "suspicious"
+  | "quarantined"
+  | "disabled";
+
+/** Canonical permission flags — mirrors AGENT_PERMISSION_KEYS in the API. */
+export const AGENT_PERMISSION_KEYS = [
+  "can_read_files",
+  "can_write_files",
+  "can_delete_files",
+  "can_run_commands",
+  "can_call_web",
+  "can_access_database",
+  "can_modify_auth",
+  "can_modify_payment",
+  "can_modify_deployment",
+  "can_send_to_agents",
+  "can_send_to_user",
+  "can_save_product_data",
+  "can_use_unverified_research",
+] as const;
+
+export type AgentPermissionKey = (typeof AGENT_PERMISSION_KEYS)[number];
+
+/** Permissions a future enforcement gateway will gate — surfaced with a warning. */
+export const RISKY_PERMISSION_KEYS: ReadonlySet<AgentPermissionKey> = new Set([
+  "can_write_files",
+  "can_delete_files",
+  "can_run_commands",
+  "can_access_database",
+  "can_modify_auth",
+  "can_modify_payment",
+  "can_modify_deployment",
+]);
+
+export type AgentPermissions = Record<AgentPermissionKey, boolean>;
+
+export interface WorkspaceAgent {
+  agent_id: string;
+  workspace_id: string;
+  name: string;
+  role: string;
+  description: string | null;
+  system_prompt: string | null;
+  model_provider: string;
+  model_name: string;
+  allowed_tools: string[];
+  denied_tools: string[];
+  permissions: AgentPermissions;
+  max_tokens_per_call: number;
+  max_calls_per_run: number;
+  max_tool_calls_per_run: number;
+  requires_verification: boolean;
+  trust_score: number;
+  risk_score: number;
+  status: WorkspaceAgentStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceAgentTemplate {
+  template_id: string;
+  name: string;
+  role: string;
+  description: string;
+  system_prompt: string;
+  model_provider: string;
+  model_name: string;
+  permissions: AgentPermissions;
+  allowed_tools: string[];
+  denied_tools: string[];
+  max_tokens_per_call: number;
+  max_calls_per_run: number;
+  max_tool_calls_per_run: number;
+  requires_verification: boolean;
+  trust_score: number;
+  risk_score: number;
+  status: WorkspaceAgentStatus;
+  risk_notes: string[];
+  future_approval_required: string[];
 }
 
 export interface RuntimeArtifact {

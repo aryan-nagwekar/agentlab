@@ -16,7 +16,13 @@ from sqlalchemy.orm import Session
 from .. import models as core_models
 from ..collector import process_events
 from ..schemas import EventIn
-from .models import Workspace, WorkspaceArtifact
+from .agent_templates import AgentTemplate
+from .models import (
+    Workspace,
+    WorkspaceAgent,
+    WorkspaceArtifact,
+    default_permissions,
+)
 
 # Workspace status → the projection status of its activity run. The stream
 # stays "running" while the workspace can still change.
@@ -178,3 +184,247 @@ def register_artifact(
         },
     )
     return artifact, stored
+
+
+# ----------------------------------------------------------- workspace agents (v1.1)
+
+
+def _full_permissions(partial: dict[str, bool] | None) -> dict[str, bool]:
+    """Overlay a partial permission dict onto the conservative defaults so the
+    stored profile always carries every canonical flag."""
+    profile = default_permissions()
+    profile.update(partial or {})
+    return profile
+
+
+def get_agent(
+    session: Session, workspace_id: str, agent_id: str
+) -> WorkspaceAgent | None:
+    return session.get(WorkspaceAgent, (workspace_id, agent_id))
+
+
+def list_agents(session: Session, workspace_id: str) -> list[WorkspaceAgent]:
+    return list(
+        session.execute(
+            select(WorkspaceAgent)
+            .where(WorkspaceAgent.workspace_id == workspace_id)
+            .order_by(WorkspaceAgent.created_at.asc(), WorkspaceAgent.id.asc())
+        ).scalars()
+    )
+
+
+def agent_count(session: Session, workspace_id: str) -> int:
+    return session.execute(
+        select(func.count(WorkspaceAgent.id)).where(
+            WorkspaceAgent.workspace_id == workspace_id
+        )
+    ).scalar_one()
+
+
+def _add_agent(
+    session: Session,
+    workspace: Workspace,
+    *,
+    name: str,
+    role: str,
+    description: str | None,
+    system_prompt: str | None,
+    model_provider: str,
+    model_name: str,
+    allowed_tools: list[str],
+    denied_tools: list[str],
+    permissions: dict[str, bool],
+    max_tokens_per_call: int,
+    max_calls_per_run: int,
+    max_tool_calls_per_run: int,
+    requires_verification: bool,
+    trust_score: float,
+    risk_score: float,
+    status: str,
+    metadata: dict[str, Any],
+) -> WorkspaceAgent:
+    agent = WorkspaceAgent(
+        workspace_id=workspace.id,
+        id=f"wsagent-{uuid.uuid4().hex[:10]}",
+        name=name,
+        role=role,
+        description=description,
+        system_prompt=system_prompt,
+        model_provider=model_provider,
+        model_name=model_name,
+        allowed_tools=list(allowed_tools),
+        denied_tools=list(denied_tools),
+        permissions=permissions,
+        max_tokens_per_call=max_tokens_per_call,
+        max_calls_per_run=max_calls_per_run,
+        max_tool_calls_per_run=max_tool_calls_per_run,
+        requires_verification=requires_verification,
+        trust_score=trust_score,
+        risk_score=risk_score,
+        status=status,
+        meta=metadata,
+    )
+    session.add(agent)
+    session.flush()
+    return agent
+
+
+def _agent_created_payload(agent: WorkspaceAgent) -> dict[str, Any]:
+    return {
+        "agent_id": agent.id,
+        "agent_name": agent.name,
+        "role": agent.role,
+        "status": agent.status,
+        "model_provider": agent.model_provider,
+        "model_name": agent.model_name,
+    }
+
+
+def create_agent(
+    session: Session, workspace: Workspace, **fields: Any
+) -> tuple[WorkspaceAgent, list[core_models.Event]]:
+    fields["permissions"] = _full_permissions(fields.get("permissions"))
+    agent = _add_agent(session, workspace, **fields)
+    stored = _emit(
+        session, workspace, "workspace_agent.created", _agent_created_payload(agent)
+    )
+    return agent, stored
+
+
+def create_agent_from_template(
+    session: Session,
+    workspace: Workspace,
+    template: AgentTemplate,
+    *,
+    name: str | None,
+) -> tuple[WorkspaceAgent, list[core_models.Event]]:
+    metadata: dict[str, Any] = {"template_id": template.template_id}
+    if template.risk_notes:
+        metadata["risk_notes"] = list(template.risk_notes)
+    if template.future_approval_required:
+        metadata["future_approval_required"] = list(template.future_approval_required)
+    agent = _add_agent(
+        session,
+        workspace,
+        name=name or template.name,
+        role=template.role,
+        description=template.description,
+        system_prompt=template.system_prompt,
+        model_provider=template.model_provider,
+        model_name=template.model_name,
+        allowed_tools=list(template.allowed_tools),
+        denied_tools=list(template.denied_tools),
+        permissions=dict(template.permissions),
+        max_tokens_per_call=template.max_tokens_per_call,
+        max_calls_per_run=template.max_calls_per_run,
+        max_tool_calls_per_run=template.max_tool_calls_per_run,
+        requires_verification=template.requires_verification,
+        trust_score=template.trust_score,
+        risk_score=template.risk_score,
+        status=template.status,
+        metadata=metadata,
+    )
+    stored = _emit(
+        session,
+        workspace,
+        "workspace_agent.template_instantiated",
+        {**_agent_created_payload(agent), "template_id": template.template_id},
+    )
+    return agent, stored
+
+
+# Fields that are a plain metadata edit (emit workspace_agent.updated).
+_AGENT_PLAIN_FIELDS = (
+    "name",
+    "role",
+    "description",
+    "system_prompt",
+    "model_provider",
+    "model_name",
+    "allowed_tools",
+    "denied_tools",
+    "max_tokens_per_call",
+    "max_calls_per_run",
+    "max_tool_calls_per_run",
+    "requires_verification",
+    "trust_score",
+    "risk_score",
+    "metadata",
+)
+
+
+def update_agent(
+    session: Session,
+    workspace: Workspace,
+    agent: WorkspaceAgent,
+    patch: dict[str, Any],
+) -> list[core_models.Event]:
+    """Apply a partial update. Permission and status changes get their own
+    event types; everything else rolls up into workspace_agent.updated."""
+    stored: list[core_models.Event] = []
+    changed_fields: list[str] = []
+
+    for field in _AGENT_PLAIN_FIELDS:
+        if field not in patch or patch[field] is None:
+            continue
+        attr = "meta" if field == "metadata" else field
+        if getattr(agent, attr) != patch[field]:
+            setattr(agent, attr, patch[field])
+            changed_fields.append(field)
+
+    if changed_fields:
+        stored += _emit(
+            session,
+            workspace,
+            "workspace_agent.updated",
+            {"agent_id": agent.id, "changed_fields": changed_fields},
+        )
+
+    if patch.get("permissions") is not None:
+        new_permissions = _full_permissions(patch["permissions"])
+        if new_permissions != (agent.permissions or {}):
+            previous = agent.permissions or {}
+            changed = sorted(
+                key
+                for key, value in new_permissions.items()
+                if previous.get(key) != value
+            )
+            agent.permissions = new_permissions
+            stored += _emit(
+                session,
+                workspace,
+                "workspace_agent.permission_changed",
+                {
+                    "agent_id": agent.id,
+                    "changed": changed,
+                    "permissions": new_permissions,
+                },
+            )
+
+    if patch.get("status") is not None and patch["status"] != agent.status:
+        previous = agent.status
+        agent.status = patch["status"]
+        stored += _emit(
+            session,
+            workspace,
+            "workspace_agent.status_changed",
+            {"agent_id": agent.id, "from_status": previous, "to_status": agent.status},
+        )
+
+    return stored
+
+
+def delete_agent(
+    session: Session, workspace: Workspace, agent: WorkspaceAgent
+) -> list[core_models.Event]:
+    """Remove the definition row. The event log keeps the history, so
+    timeline/replay still show the agent's lifecycle."""
+    agent_id, agent_name = agent.id, agent.name
+    session.delete(agent)
+    session.flush()
+    return _emit(
+        session,
+        workspace,
+        "workspace_agent.deleted",
+        {"agent_id": agent_id, "agent_name": agent_name},
+    )
