@@ -88,6 +88,8 @@ vi.mock("../lib/api", () => ({
     // v1.3 commands panel — uninitialized sandbox shows the hint only.
     sandboxAllowedCommands: () => Promise.resolve([]),
     sandboxCommandHistory: () => Promise.resolve([]),
+    // v1.4 workflows panel — default to no workflows here.
+    workspaceWorkflows: () => Promise.resolve([]),
   },
 }));
 

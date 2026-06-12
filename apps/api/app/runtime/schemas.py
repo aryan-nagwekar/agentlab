@@ -290,6 +290,114 @@ class AllowedCommandOut(BaseModel):
     examples: list[str] = Field(default_factory=list)
 
 
+# ------------------------------------------------------------ orchestration (v1.4)
+
+
+class WorkflowIn(BaseModel):
+    # Defaults to the workspace goal when omitted.
+    goal: str | None = Field(default=None, max_length=4000)
+    created_by: str = Field(default="user", min_length=1, max_length=255)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowOut(RuntimeModel):
+    workflow_id: str
+    workspace_id: str
+    goal: str
+    status: str
+    created_by: str
+    task_count: int = 0
+    completed_task_count: int = 0
+    has_plan: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class WorkflowPlanOut(RuntimeModel):
+    plan_id: str
+    workflow_id: str
+    summary: str
+    steps: list[dict[str, Any]] = Field(default_factory=list)
+    dependencies: dict[str, Any] = Field(default_factory=dict)
+    required_agents: list[str] = Field(default_factory=list)
+    risk_assessment: str | None = None
+    validation_requirements: list[str] = Field(default_factory=list)
+    approval_requirements: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+    @field_serializer("created_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class TaskResultOut(RuntimeModel):
+    result_id: str
+    task_id: str
+    agent_id: str | None = None
+    output: str
+    artifacts: list[str] = Field(default_factory=list)
+    validation_status: str
+    created_at: datetime
+
+    @field_serializer("created_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class TaskOut(RuntimeModel):
+    task_id: str
+    workflow_id: str
+    workspace_id: str
+    assigned_agent_id: str | None = None
+    assigned_agent_name: str | None = None
+    title: str
+    description: str | None = None
+    status: str
+    dependencies: list[str] = Field(default_factory=list)
+    expected_artifacts: list[str] = Field(default_factory=list)
+    risk_level: str
+    requires_validation: bool
+    requires_approval: bool
+    blocked_reason: str | None = None
+    latest_result: TaskResultOut | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class TaskPatch(BaseModel):
+    # v1.4 allows direct transitions to these statuses only; dependencies are
+    # planner-owned and not editable.
+    status: str | None = None
+    assigned_agent_id: str | None = Field(default=None, max_length=255)
+    reason: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("status")
+    @classmethod
+    def _status_known(cls, value: str | None) -> str | None:
+        allowed = {"running", "completed", "failed", "blocked"}
+        if value is not None and value not in allowed:
+            raise ValueError(
+                f"status {value!r} cannot be set directly in v1.4; "
+                f"allowed: {', '.join(sorted(allowed))}"
+            )
+        return value
+
+
+class TaskResultIn(BaseModel):
+    output: str = Field(min_length=1, max_length=4000)
+    artifacts: list[str] = Field(default_factory=list, max_length=20)
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

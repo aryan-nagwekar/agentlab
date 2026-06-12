@@ -628,6 +628,73 @@ export interface AllowedCommand {
   examples: string[];
 }
 
+// -------------------------------------------------- orchestration (v1.4)
+
+export interface RuntimeWorkflow {
+  workflow_id: string;
+  workspace_id: string;
+  goal: string;
+  status:
+    | "planned"
+    | "running"
+    | "paused"
+    | "blocked"
+    | "failed"
+    | "completed"
+    | "cancelled";
+  created_by: string;
+  task_count: number;
+  completed_task_count: number;
+  has_plan: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RuntimeWorkflowPlan {
+  plan_id: string;
+  workflow_id: string;
+  summary: string;
+  steps: Array<Record<string, unknown>>;
+  dependencies: Record<string, number[]>;
+  required_agents: string[];
+  risk_assessment: string | null;
+  validation_requirements: string[];
+  approval_requirements: string[];
+  created_at: string;
+}
+
+export interface RuntimeTaskResult {
+  result_id: string;
+  task_id: string;
+  agent_id: string | null;
+  output: string;
+  artifacts: string[];
+  validation_status: string;
+  created_at: string;
+}
+
+export interface RuntimeTask {
+  task_id: string;
+  workflow_id: string;
+  workspace_id: string;
+  assigned_agent_id: string | null;
+  assigned_agent_name: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  dependencies: string[];
+  expected_artifacts: string[];
+  risk_level: string;
+  requires_validation: boolean;
+  requires_approval: boolean;
+  blocked_reason: string | null;
+  latest_result: RuntimeTaskResult | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

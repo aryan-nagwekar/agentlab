@@ -18,6 +18,9 @@ import type {
   ProviderHealth,
   Run,
   RuntimeArtifact,
+  RuntimeTask,
+  RuntimeWorkflow,
+  RuntimeWorkflowPlan,
   RuntimeWorkspace,
   SandboxCommandResult,
   SandboxFileEntry,
@@ -267,6 +270,55 @@ export const api = {
   sandboxCommandHistory: (workspaceId: string, limit = 50) =>
     request<AgentLabEvent[]>(
       `/api/runtime/workspaces/${workspaceId}/commands/history${query({ limit })}`,
+    ),
+  workspaceWorkflows: (workspaceId: string) =>
+    request<RuntimeWorkflow[]>(`/api/runtime/workspaces/${workspaceId}/workflows`),
+  createWorkflow: (workspaceId: string, body: { goal?: string }) =>
+    request<RuntimeWorkflow>(`/api/runtime/workspaces/${workspaceId}/workflows`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  workflowPlan: (workspaceId: string, workflowId: string) =>
+    request<RuntimeWorkflowPlan>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/plan`,
+    ),
+  createWorkflowPlan: (workspaceId: string, workflowId: string) =>
+    request<RuntimeWorkflowPlan>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/plan`,
+      { method: "POST" },
+    ),
+  workflowAction: (
+    workspaceId: string,
+    workflowId: string,
+    action: "start" | "pause" | "resume" | "cancel",
+  ) =>
+    request<RuntimeWorkflow>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/${action}`,
+      { method: "POST" },
+    ),
+  workflowTasks: (workspaceId: string, workflowId: string) =>
+    request<RuntimeTask[]>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/tasks`,
+    ),
+  patchWorkflowTask: (
+    workspaceId: string,
+    workflowId: string,
+    taskId: string,
+    body: { status?: string; assigned_agent_id?: string; reason?: string },
+  ) =>
+    request<RuntimeTask>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/tasks/${taskId}`,
+      { method: "PATCH", body: JSON.stringify(body) },
+    ),
+  recordTaskResult: (
+    workspaceId: string,
+    workflowId: string,
+    taskId: string,
+    body: { output: string; artifacts?: string[] },
+  ) =>
+    request<RuntimeTask>(
+      `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/tasks/${taskId}/result`,
+      { method: "POST", body: JSON.stringify(body) },
     ),
   workspaceAgents: (workspaceId: string) =>
     request<WorkspaceAgent[]>(`/api/runtime/workspaces/${workspaceId}/agents`),

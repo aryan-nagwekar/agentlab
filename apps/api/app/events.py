@@ -64,6 +64,28 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "sandbox.command.completed",
         "sandbox.command.failed",
         "sandbox.command.timed_out",
+        # Orchestration engine (v1.4) — workflow/task lifecycle metadata.
+        # Status transitions only: no autonomous file/command/model execution
+        # stands behind these events in v1.4.
+        "runtime.workflow.created",
+        "runtime.workflow.plan_requested",
+        "runtime.workflow.plan_created",
+        "runtime.workflow.started",
+        "runtime.workflow.paused",
+        "runtime.workflow.resumed",
+        "runtime.workflow.cancelled",
+        "runtime.workflow.blocked",
+        "runtime.workflow.completed",
+        "runtime.workflow.failed",
+        "runtime.task.created",
+        "runtime.task.assigned",
+        "runtime.task.assignment_failed",
+        "runtime.task.started",
+        "runtime.task.completed",
+        "runtime.task.failed",
+        "runtime.task.blocked",
+        "runtime.task.rerouted",
+        "runtime.task.result_recorded",
     }
 )
 

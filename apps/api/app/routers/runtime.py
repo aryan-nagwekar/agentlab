@@ -15,9 +15,15 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import commands, sandbox, service
+from ..runtime import commands, orchestration, sandbox, service
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
-from ..runtime.models import Workspace, WorkspaceAgent
+from ..runtime.models import (
+    RuntimeTask,
+    RuntimeWorkflow,
+    RuntimeWorkflowPlan,
+    Workspace,
+    WorkspaceAgent,
+)
 from ..runtime.schemas import (
     AgentDefinitionIn,
     AgentDefinitionOut,
@@ -37,6 +43,13 @@ from ..runtime.schemas import (
     MkdirIn,
     MkdirOut,
     SandboxStatusOut,
+    TaskOut,
+    TaskPatch,
+    TaskResultIn,
+    TaskResultOut,
+    WorkflowIn,
+    WorkflowOut,
+    WorkflowPlanOut,
     WorkspaceIn,
     WorkspaceOut,
     WorkspacePatch,
@@ -483,6 +496,259 @@ def command_history(
         .all()
     )
     return [EventOut.model_validate(event) for event in events]
+
+
+# ------------------------------------------------------------ orchestration (v1.4)
+
+
+def _workflow_out(session: Session, workflow: RuntimeWorkflow) -> WorkflowOut:
+    tasks = orchestration.list_tasks(session, workflow.id)
+    return WorkflowOut(
+        workflow_id=workflow.id,
+        workspace_id=workflow.workspace_id,
+        goal=workflow.goal,
+        status=workflow.status,
+        created_by=workflow.created_by,
+        task_count=len(tasks),
+        completed_task_count=sum(1 for t in tasks if t.status == "completed"),
+        has_plan=orchestration.get_plan(session, workflow.id) is not None,
+        metadata=workflow.meta or {},
+        created_at=workflow.created_at,
+        updated_at=workflow.updated_at,
+    )
+
+
+def _plan_out(plan: RuntimeWorkflowPlan) -> WorkflowPlanOut:
+    return WorkflowPlanOut(
+        plan_id=plan.id,
+        workflow_id=plan.workflow_id,
+        summary=plan.summary,
+        steps=plan.steps or [],
+        dependencies=plan.dependencies or {},
+        required_agents=plan.required_agents or [],
+        risk_assessment=plan.risk_assessment,
+        validation_requirements=plan.validation_requirements or [],
+        approval_requirements=plan.approval_requirements or [],
+        created_at=plan.created_at,
+    )
+
+
+def _task_out(session: Session, task: RuntimeTask) -> TaskOut:
+    agent_name = None
+    if task.assigned_agent_id:
+        agent = session.get(
+            WorkspaceAgent, {"workspace_id": task.workspace_id, "id": task.assigned_agent_id}
+        )
+        agent_name = agent.name if agent else None
+    results = orchestration.list_results(session, task.id)
+    latest = results[0] if results else None
+    return TaskOut(
+        task_id=task.id,
+        workflow_id=task.workflow_id,
+        workspace_id=task.workspace_id,
+        assigned_agent_id=task.assigned_agent_id,
+        assigned_agent_name=agent_name,
+        title=task.title,
+        description=task.description,
+        status=task.status,
+        dependencies=task.dependencies or [],
+        expected_artifacts=task.expected_artifacts or [],
+        risk_level=task.risk_level,
+        requires_validation=task.requires_validation,
+        requires_approval=task.requires_approval,
+        blocked_reason=(task.meta or {}).get("blocked_reason"),
+        latest_result=(
+            TaskResultOut(
+                result_id=latest.id,
+                task_id=latest.task_id,
+                agent_id=latest.agent_id,
+                output=latest.output,
+                artifacts=latest.artifacts or [],
+                validation_status=latest.validation_status,
+                created_at=latest.created_at,
+            )
+            if latest
+            else None
+        ),
+        metadata={k: v for k, v in (task.meta or {}).items() if k != "blocked_reason"},
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
+
+
+def _require_workflow(
+    session: Session, workspace_id: str, workflow_id: str
+) -> RuntimeWorkflow:
+    workflow = orchestration.get_workflow(session, workspace_id, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    return workflow
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/workflows", response_model=list[WorkflowOut]
+)
+def list_workflows(
+    workspace_id: str, session: Session = Depends(get_session)
+) -> list[WorkflowOut]:
+    _require_workspace(session, workspace_id)
+    return [
+        _workflow_out(session, wf)
+        for wf in orchestration.list_workflows(session, workspace_id)
+    ]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/workflows",
+    response_model=WorkflowOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_workflow(
+    workspace_id: str, body: WorkflowIn, request: Request
+) -> WorkflowOut:
+    def _create(session: Session, workspace: Workspace):
+        workflow, stored = orchestration.create_workflow(
+            session, workspace, body.goal, body.created_by
+        )
+        if body.metadata:
+            workflow.meta = body.metadata
+        return _workflow_out(session, workflow), stored
+
+    return await _sandbox_call(request, workspace_id, _create)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}",
+    response_model=WorkflowOut,
+)
+def get_workflow(
+    workspace_id: str, workflow_id: str, session: Session = Depends(get_session)
+) -> WorkflowOut:
+    _require_workspace(session, workspace_id)
+    return _workflow_out(session, _require_workflow(session, workspace_id, workflow_id))
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}/plan",
+    response_model=WorkflowPlanOut,
+)
+def get_workflow_plan(
+    workspace_id: str, workflow_id: str, session: Session = Depends(get_session)
+) -> WorkflowPlanOut:
+    _require_workspace(session, workspace_id)
+    _require_workflow(session, workspace_id, workflow_id)
+    plan = orchestration.get_plan(session, workflow_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="workflow has no plan yet")
+    return _plan_out(plan)
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}/plan",
+    response_model=WorkflowPlanOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_workflow_plan(
+    workspace_id: str, workflow_id: str, request: Request
+) -> WorkflowPlanOut:
+    def _plan(session: Session, workspace: Workspace):
+        workflow = _require_workflow(session, workspace_id, workflow_id)
+        plan, _tasks, stored = orchestration.create_plan(session, workspace, workflow)
+        return _plan_out(plan), stored
+
+    return await _sandbox_call(request, workspace_id, _plan)
+
+
+def _lifecycle_route(action: str):
+    async def _handler(workspace_id: str, workflow_id: str, request: Request) -> WorkflowOut:
+        def _transition(session: Session, workspace: Workspace):
+            workflow = _require_workflow(session, workspace_id, workflow_id)
+            workflow, stored = orchestration.transition_workflow(
+                session, workspace, workflow, action
+            )
+            return _workflow_out(session, workflow), stored
+
+        return await _sandbox_call(request, workspace_id, _transition)
+
+    _handler.__name__ = f"{action}_workflow"
+    return _handler
+
+
+for _action in ("start", "pause", "resume", "cancel"):
+    router.add_api_route(
+        f"/runtime/workspaces/{{workspace_id}}/workflows/{{workflow_id}}/{_action}",
+        _lifecycle_route(_action),
+        methods=["POST"],
+        response_model=WorkflowOut,
+        dependencies=[Depends(require_api_key)],
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}/tasks",
+    response_model=list[TaskOut],
+)
+def list_workflow_tasks(
+    workspace_id: str, workflow_id: str, session: Session = Depends(get_session)
+) -> list[TaskOut]:
+    _require_workspace(session, workspace_id)
+    _require_workflow(session, workspace_id, workflow_id)
+    return [_task_out(session, t) for t in orchestration.list_tasks(session, workflow_id)]
+
+
+@router.patch(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}/tasks/{task_id}",
+    response_model=TaskOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def patch_workflow_task(
+    workspace_id: str, workflow_id: str, task_id: str, body: TaskPatch, request: Request
+) -> TaskOut:
+    def _patch(session: Session, workspace: Workspace):
+        workflow = _require_workflow(session, workspace_id, workflow_id)
+        task = orchestration.get_task(session, workflow_id, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        task, stored = orchestration.patch_task(
+            session,
+            workspace,
+            workflow,
+            task,
+            status=body.status,
+            assigned_agent_id=body.assigned_agent_id,
+            reason=body.reason,
+        )
+        return _task_out(session, task), stored
+
+    return await _sandbox_call(request, workspace_id, _patch)
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/workflows/{workflow_id}/tasks/{task_id}/result",
+    response_model=TaskOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def record_task_result(
+    workspace_id: str,
+    workflow_id: str,
+    task_id: str,
+    body: TaskResultIn,
+    request: Request,
+) -> TaskOut:
+    def _record(session: Session, workspace: Workspace):
+        workflow = _require_workflow(session, workspace_id, workflow_id)
+        task = orchestration.get_task(session, workflow_id, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        _result, stored = orchestration.record_result(
+            session, workspace, workflow, task, output=body.output, artifacts=body.artifacts
+        )
+        return _task_out(session, task), stored
+
+    return await _sandbox_call(request, workspace_id, _record)
 
 
 # ----------------------------------------------------------- workspace agents (v1.1)

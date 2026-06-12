@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
+import { WorkflowsPanel } from "../components/runtime/WorkflowsPanel";
 import { WorkspaceAgentsPanel } from "../components/runtime/WorkspaceAgentsPanel";
 import { WorkspaceStatusBadge } from "../components/runtime/WorkspaceStatusBadge";
 import { Card, ErrorNote, PageHeader, SectionLabel, Spinner } from "../components/ui";
@@ -206,6 +207,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Agents (v1.1) */}
           <WorkspaceAgentsPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Orchestration (v1.4) */}
+          <WorkflowsPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}

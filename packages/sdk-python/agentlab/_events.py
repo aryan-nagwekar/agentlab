@@ -95,6 +95,29 @@ SANDBOX_COMMAND_COMPLETED = "sandbox.command.completed"
 SANDBOX_COMMAND_FAILED = "sandbox.command.failed"
 SANDBOX_COMMAND_TIMED_OUT = "sandbox.command.timed_out"
 
+# Orchestration engine (v1.4) — workflow/task lifecycle metadata emitted by
+# the server's runtime orchestrator. Status transitions only: no autonomous
+# file/command/model execution stands behind these events in v1.4.
+RUNTIME_WORKFLOW_CREATED = "runtime.workflow.created"
+RUNTIME_WORKFLOW_PLAN_REQUESTED = "runtime.workflow.plan_requested"
+RUNTIME_WORKFLOW_PLAN_CREATED = "runtime.workflow.plan_created"
+RUNTIME_WORKFLOW_STARTED = "runtime.workflow.started"
+RUNTIME_WORKFLOW_PAUSED = "runtime.workflow.paused"
+RUNTIME_WORKFLOW_RESUMED = "runtime.workflow.resumed"
+RUNTIME_WORKFLOW_CANCELLED = "runtime.workflow.cancelled"
+RUNTIME_WORKFLOW_BLOCKED = "runtime.workflow.blocked"
+RUNTIME_WORKFLOW_COMPLETED = "runtime.workflow.completed"
+RUNTIME_WORKFLOW_FAILED = "runtime.workflow.failed"
+RUNTIME_TASK_CREATED = "runtime.task.created"
+RUNTIME_TASK_ASSIGNED = "runtime.task.assigned"
+RUNTIME_TASK_ASSIGNMENT_FAILED = "runtime.task.assignment_failed"
+RUNTIME_TASK_STARTED = "runtime.task.started"
+RUNTIME_TASK_COMPLETED = "runtime.task.completed"
+RUNTIME_TASK_FAILED = "runtime.task.failed"
+RUNTIME_TASK_BLOCKED = "runtime.task.blocked"
+RUNTIME_TASK_REROUTED = "runtime.task.rerouted"
+RUNTIME_TASK_RESULT_RECORDED = "runtime.task.result_recorded"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -148,6 +171,25 @@ EVENT_TYPES: frozenset[str] = frozenset(
         SANDBOX_COMMAND_COMPLETED,
         SANDBOX_COMMAND_FAILED,
         SANDBOX_COMMAND_TIMED_OUT,
+        RUNTIME_WORKFLOW_CREATED,
+        RUNTIME_WORKFLOW_PLAN_REQUESTED,
+        RUNTIME_WORKFLOW_PLAN_CREATED,
+        RUNTIME_WORKFLOW_STARTED,
+        RUNTIME_WORKFLOW_PAUSED,
+        RUNTIME_WORKFLOW_RESUMED,
+        RUNTIME_WORKFLOW_CANCELLED,
+        RUNTIME_WORKFLOW_BLOCKED,
+        RUNTIME_WORKFLOW_COMPLETED,
+        RUNTIME_WORKFLOW_FAILED,
+        RUNTIME_TASK_CREATED,
+        RUNTIME_TASK_ASSIGNED,
+        RUNTIME_TASK_ASSIGNMENT_FAILED,
+        RUNTIME_TASK_STARTED,
+        RUNTIME_TASK_COMPLETED,
+        RUNTIME_TASK_FAILED,
+        RUNTIME_TASK_BLOCKED,
+        RUNTIME_TASK_REROUTED,
+        RUNTIME_TASK_RESULT_RECORDED,
     }
 )
 
