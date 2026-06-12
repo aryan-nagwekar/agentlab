@@ -10,7 +10,7 @@ run metrics, a replay debugger that steps through any run like a packet
 capture, a fault-injection lab, a safe cyber range for simulating malicious
 agents, a deterministic trust/risk engine, a cost/token profiler, and a
 local-first model gateway with safe BYOK across mock / OpenAI / Anthropic /
-Ollama providers.
+Gemini / Ollama providers.
 
 `Python 3.12` · `FastAPI` · `PostgreSQL/SQLite` · `React 18 + TypeScript` · `React Flow` · `WebSockets` · `Docker Compose`
 
@@ -35,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.7)
+## What works today (v0.7.1)
 
 | Capability | Status |
 | --- | --- |
@@ -52,7 +52,7 @@ inspect, and (soon) replay.
 | Security Lab — 8 simulated malicious-agent attacks (prompt injection, mock exfiltration, fake capabilities, spam, trust poisoning, routing manipulation, unsafe tool request, rogue join); suspicious/quarantine markers, flagged edges, attack replay markers — all mock data, nothing real touched | ✅ |
 | Trust/risk engine — deterministic, event-derived, explainable scores: per-agent trust + risk, tier badges (trusted → high-risk), "why it changed" factors, score history, run risk summary, and scores that evolve step-by-step in replay | ✅ |
 | Cost/token profiler — deterministic local pricing; per-agent + per-model + per-run token and USD attribution; most-expensive / most-token-heavy / slowest / failed-call rankings; model-call inspector; cost that accumulates in replay | ✅ |
-| Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
+| Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Gemini + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + troubleshooting hints + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
 | Agent Builder Studio (create agents + assign models in-app) | 🔜 v0.8 |
 
 ## Architecture
@@ -203,7 +203,7 @@ local-first BYOK — keys are env-only and shown **only redacted** (`sk-...0XYZ`
 the mock provider needs no key, and a test call flows straight into telemetry
 and Cost & Tokens:
 
-![Model Gateway: provider cards (mock available, OpenAI configured with a redacted key, Anthropic not configured, Ollama unavailable) and a safe test-call panel](docs/screenshots/model-gateway.png)
+![Model Gateway: five provider cards (mock available, OpenAI and Gemini configured with redacted keys, Anthropic not configured with an env-var hint, Ollama unavailable with a troubleshooting hint) and a safe mock test call](docs/screenshots/model-gateway.png)
 
 | Fleet dashboard | Message inspector |
 | --- | --- |
@@ -311,25 +311,28 @@ Endpoints: `GET /api/runs/{id}/costs`, `/runs/{id}/token-summary`,
 `mock:gpt-4.1`, `mock:claude-sonnet`, `mock:gemini-pro`, `mock:local-ollama`
 (free). Connecting real providers (BYOK / model gateway) is v0.7.
 
-## Model Gateway / BYOK (v0.7)
+## Model Gateway / BYOK (v0.7, patched in v0.7.1)
 
 AgentLab calls models through one provider interface
 (`apps/api/app/model_gateway/`). The **mock** provider is the keyless default;
-**OpenAI-compatible**, **Anthropic**, and **Ollama** providers are included, and
-OpenRouter reuses the OpenAI-compatible path. A model call (from the SDK's
-`client.model_call(...)`, the test-call UI, or `POST /api/runs/{id}/model-call`)
-runs the provider and emits `model.called` + `model.completed`/`model.failed`
-through the normal collector — so it shows up in the graph, replay, inspector,
-metrics, and Cost & Tokens automatically.
+**OpenAI-compatible**, **Anthropic**, **Gemini** (added in v0.7.1), and
+**Ollama** providers are included, and OpenRouter reuses the OpenAI-compatible
+path. A model call (from the SDK's `client.model_call(...)`, the test-call UI,
+or `POST /api/runs/{id}/model-call`) runs the provider and emits
+`model.called` + `model.completed`/`model.failed` through the normal
+collector — so it shows up in the graph, replay, inspector, metrics, and Cost
+& Tokens automatically.
 
 **Key handling (local-first, safe by construction):**
 
 - Keys are read from the **server environment only** (`OPENAI_API_KEY`,
-  `ANTHROPIC_API_KEY`, `OLLAMA_BASE_URL`, `OPENROUTER_API_KEY`).
+  `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`/`GOOGLE_API_KEY` — GEMINI wins when
+  both are set — `OLLAMA_BASE_URL`, `OPENROUTER_API_KEY`).
 - They are **never** stored in the database, returned to the browser, written to
   logs, or included in error messages (HTTP errors strip request headers).
-- The UI shows **only a redacted hint** (`sk-...abcd`); an unconfigured provider
-  reads "not configured"; Ollama with no server reads "unavailable".
+- The UI shows **only a redacted hint** (`sk-...abcd` / `AIz...abcd`); an
+  unconfigured provider reads "not configured" with the env var to set; Ollama
+  with no server reads "unavailable" with a fix-it hint.
 - `.env` is git-ignored; `.env.example` ships placeholders only.
 
 Configure a provider by setting its key in `.env`, then open **Settings → Model
@@ -340,7 +343,18 @@ Seed a gateway-routed demo run with:
 python examples/basic_multi_agent/run_demo.py --scenario success --use-gateway
 ```
 
-## Known limitations (v0.1–v0.7)
+**Ollama troubleshooting.** If the Ollama card reads "unavailable":
+
+```bash
+curl http://localhost:11434/api/tags   # is the server up?
+ollama serve                           # start it
+ollama pull llama3.2                   # get a model
+```
+
+The card shows the `OLLAMA_BASE_URL` it tried. Running AgentLab in Docker
+against Ollama on the host? Set `OLLAMA_BASE_URL=http://host.docker.internal:11434`.
+
+## Known limitations (v0.1–v0.7.1)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage, no per-user key

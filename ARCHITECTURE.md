@@ -409,10 +409,18 @@ cost.
 
 **Providers.** `mock` (keyless default — deterministic output + token usage,
 configurable latency/failure, never networks), `openai` (OpenAI-compatible
-chat completions, reused for OpenRouter), `anthropic` (messages API), `ollama`
-(local `/api/generate`). Real providers call out with stdlib `urllib` on a
-worker thread (`asyncio.to_thread`) — no new dependency, event loop never
-blocked.
+chat completions, reused for OpenRouter), `anthropic` (messages API), `gemini`
+(generateContent API, added in v0.7.1 — `GEMINI_API_KEY`/`GOOGLE_API_KEY`,
+GEMINI preferred; key stays server-side and is redacted like every other
+provider), `ollama` (local `/api/generate`). Real providers call out with
+stdlib `urllib` on a worker thread (`asyncio.to_thread`) — no new dependency,
+event loop never blocked.
+
+**Troubleshooting hints (v0.7.1).** Each entry in the provider list carries a
+`message` (the health detail): an unconfigured provider says which env var to
+set, and an unreachable Ollama explains the configured `OLLAMA_BASE_URL`,
+`ollama serve`, and the Docker `host.docker.internal:11434` workaround. The
+dashboard renders the hint amber on unavailable/not-configured cards.
 
 **Telemetry bridge.** `telemetry.build_model_events` turns a gateway call into
 `model.called` + `model.completed`/`model.failed` `EventIn`s, run through the

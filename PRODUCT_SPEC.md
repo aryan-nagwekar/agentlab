@@ -111,8 +111,16 @@ a team already uses.
     stored/returned/logged, redacted in the UI; provider health + safe test-call;
     gateway calls flow into telemetry, replay, and Cost & Tokens.
 
+### Shipped in v0.7.1
+15. **Gateway patch: Gemini + troubleshooting** — Gemini provider
+    (`GEMINI_API_KEY`/`GOOGLE_API_KEY`, key server-side and redacted like every
+    other provider, never stored in the DB); provider cards surface a
+    troubleshooting hint (which env var to set; for an unreachable Ollama: the
+    configured `OLLAMA_BASE_URL`, `ollama serve`, and the Docker
+    `host.docker.internal` workaround).
+
 ### Next (gated, in order)
-15. **Agent Builder Studio (v0.8)** — define agents in-app and assign a
+16. **Agent Builder Studio (v0.8)** — define agents in-app and assign a
     provider/model to each, built on the gateway.
 
 ## Non-goals (v1)

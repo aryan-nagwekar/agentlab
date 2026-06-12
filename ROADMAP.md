@@ -117,6 +117,20 @@ Local-first model gateway: call providers through one interface, safely.
 - Demo `--use-gateway` routes model calls through the gateway (mock)
 - 13 pytest + 2 SDK + 4 vitest gateway tests
 - Deferred: hosted/cloud secret storage, per-user keys, real Gemini provider
+  (→ v0.7.1)
+
+## v0.7.1 — Model gateway patch: Gemini + Ollama troubleshooting ✅
+
+- `GeminiProvider` (generateContent API): `GEMINI_API_KEY` / `GOOGLE_API_KEY`
+  (GEMINI preferred), key server-side only and redacted in the UI like every
+  other provider; `GEMINI_BASE_URL` overridable for tests
+- Provider list now carries a `message` troubleshooting hint (mirrors health
+  detail); rendered amber on unavailable/not-configured cards
+- Ollama health check explains how to fix "unavailable": the configured
+  `OLLAMA_BASE_URL`, `ollama serve` / `ollama pull llama3.2`, and the Docker
+  `host.docker.internal:11434` hint
+- 17 pytest + 6 vitest gateway tests (planted-key leak grep extended to Gemini)
+- Still deferred: hosted/cloud secret storage, per-user keys
 
 ## v0.8 — Agent Builder Studio (pending approval)
 
