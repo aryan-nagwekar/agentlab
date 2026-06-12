@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import sandbox, service
+from ..runtime import commands, sandbox, service
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import Workspace, WorkspaceAgent
 from ..runtime.schemas import (
@@ -24,8 +24,11 @@ from ..runtime.schemas import (
     AgentDefinitionPatch,
     AgentFromTemplateIn,
     AgentTemplateOut,
+    AllowedCommandOut,
     ArtifactIn,
     ArtifactOut,
+    CommandRunIn,
+    CommandRunOut,
     FileDeleteOut,
     FileEntryOut,
     FileReadOut,
@@ -414,6 +417,72 @@ async def delete_file(workspace_id: str, request: Request, path: str) -> FileDel
     return await _sandbox_call(
         request, workspace_id, lambda s, w: sandbox.delete_path(s, w, root, path)
     )
+
+
+# ---------------------------------------------------------- sandbox commands (v1.3)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/commands/allowed",
+    response_model=list[AllowedCommandOut],
+)
+def list_allowed_commands(
+    workspace_id: str, session: Session = Depends(get_session)
+) -> list[AllowedCommandOut]:
+    _require_workspace(session, workspace_id)
+    return [AllowedCommandOut(**entry) for entry in commands.allowed_commands()]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/commands/run",
+    response_model=CommandRunOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def run_sandbox_command(
+    workspace_id: str, body: CommandRunIn, request: Request
+) -> CommandRunOut:
+    """Evaluate and (only if allowed) execute one allowlisted command inside
+    the workspace sandbox. Blocked commands return 400 after their audit
+    events are committed — nothing is ever executed for them."""
+    root = _workspaces_root(request)
+    return await _sandbox_call(
+        request,
+        workspace_id,
+        lambda s, w: commands.run_command(
+            s,
+            w,
+            root,
+            command=body.command,
+            args=body.args,
+            timeout_seconds=body.timeout_seconds,
+            working_subdir=body.working_subdir,
+        ),
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/commands/history",
+    response_model=list[EventOut],
+)
+def command_history(
+    workspace_id: str, session: Session = Depends(get_session), limit: int = 50
+) -> list[EventOut]:
+    """Command history is an event query — raw events stay the source of truth."""
+    workspace = _require_workspace(session, workspace_id)
+    events = (
+        session.execute(
+            select(core_models.Event)
+            .where(
+                core_models.Event.run_id == workspace.activity_run_id,
+                core_models.Event.event_type.like("sandbox.command.%"),
+            )
+            .order_by(core_models.Event.timestamp.desc(), core_models.Event.id.desc())
+            .limit(max(1, min(limit, 200)))
+        )
+        .scalars()
+        .all()
+    )
+    return [EventOut.model_validate(event) for event in events]
 
 
 # ----------------------------------------------------------- workspace agents (v1.1)

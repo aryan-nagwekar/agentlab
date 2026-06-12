@@ -252,6 +252,44 @@ class FileDeleteOut(BaseModel):
     kind: str  # "file" | "directory"
 
 
+# --------------------------------------------------------- sandbox commands (v1.3)
+
+
+class CommandRunIn(BaseModel):
+    # Structured argv — never a shell string. shell=False end to end.
+    command: str = Field(min_length=1, max_length=64)
+    args: list[str] = Field(default_factory=list, max_length=20)
+    timeout_seconds: int = Field(default=30, ge=1, le=120)
+    working_subdir: str = Field(default="", max_length=512)
+
+    @field_validator("args")
+    @classmethod
+    def _args_bounded(cls, value: list[str]) -> list[str]:
+        if any(len(arg) > 512 for arg in value):
+            raise ValueError("arguments are limited to 512 characters each")
+        return value
+
+
+class CommandRunOut(BaseModel):
+    command: str
+    argv: list[str]
+    # Logical workspace path ("." = sandbox root) — never a host path.
+    cwd: str
+    status: str  # completed | failed | timed_out
+    exit_code: int | None = None
+    duration_ms: int
+    stdout: str
+    stderr: str
+    stdout_truncated: bool = False
+    stderr_truncated: bool = False
+
+
+class AllowedCommandOut(BaseModel):
+    command: str
+    description: str
+    examples: list[str] = Field(default_factory=list)
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

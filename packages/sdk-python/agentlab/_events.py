@@ -84,6 +84,17 @@ SANDBOX_FILE_DELETED = "sandbox.file.deleted"
 SANDBOX_DIRECTORY_CREATED = "sandbox.directory.created"
 SANDBOX_FILE_BLOCKED = "sandbox.file.blocked"
 
+# Safe command runner (v1.3) — allowlisted, workspace-bounded commands emitted
+# by the server's sandbox command APIs. Deterministic safety decides before
+# any process spawns; payloads carry capped/redacted output summaries only.
+SANDBOX_COMMAND_PROPOSED = "sandbox.command.proposed"
+SANDBOX_COMMAND_ALLOWED = "sandbox.command.allowed"
+SANDBOX_COMMAND_BLOCKED = "sandbox.command.blocked"
+SANDBOX_COMMAND_STARTED = "sandbox.command.started"
+SANDBOX_COMMAND_COMPLETED = "sandbox.command.completed"
+SANDBOX_COMMAND_FAILED = "sandbox.command.failed"
+SANDBOX_COMMAND_TIMED_OUT = "sandbox.command.timed_out"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -130,6 +141,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         SANDBOX_FILE_DELETED,
         SANDBOX_DIRECTORY_CREATED,
         SANDBOX_FILE_BLOCKED,
+        SANDBOX_COMMAND_PROPOSED,
+        SANDBOX_COMMAND_ALLOWED,
+        SANDBOX_COMMAND_BLOCKED,
+        SANDBOX_COMMAND_STARTED,
+        SANDBOX_COMMAND_COMPLETED,
+        SANDBOX_COMMAND_FAILED,
+        SANDBOX_COMMAND_TIMED_OUT,
     }
 )
 

@@ -2,6 +2,7 @@ import type {
   Agent,
   AgentLabEvent,
   AgentScore,
+  AllowedCommand,
   AttackInjectRequest,
   AttackInjectResult,
   AttackTemplate,
@@ -18,6 +19,7 @@ import type {
   Run,
   RuntimeArtifact,
   RuntimeWorkspace,
+  SandboxCommandResult,
   SandboxFileEntry,
   SandboxFileRead,
   SandboxFileWriteResult,
@@ -244,6 +246,27 @@ export const api = {
     request<{ path: string; kind: string }>(
       `/api/runtime/workspaces/${workspaceId}/files${query({ path })}`,
       { method: "DELETE" },
+    ),
+  sandboxAllowedCommands: (workspaceId: string) =>
+    request<AllowedCommand[]>(
+      `/api/runtime/workspaces/${workspaceId}/commands/allowed`,
+    ),
+  sandboxRunCommand: (
+    workspaceId: string,
+    body: {
+      command: string;
+      args?: string[];
+      timeout_seconds?: number;
+      working_subdir?: string;
+    },
+  ) =>
+    request<SandboxCommandResult>(
+      `/api/runtime/workspaces/${workspaceId}/commands/run`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  sandboxCommandHistory: (workspaceId: string, limit = 50) =>
+    request<AgentLabEvent[]>(
+      `/api/runtime/workspaces/${workspaceId}/commands/history${query({ limit })}`,
     ),
   workspaceAgents: (workspaceId: string) =>
     request<WorkspaceAgent[]>(`/api/runtime/workspaces/${workspaceId}/agents`),

@@ -85,6 +85,9 @@ vi.mock("../lib/api", () => ({
         total_bytes: 0,
       }),
     sandboxTree: () => Promise.resolve([]),
+    // v1.3 commands panel — uninitialized sandbox shows the hint only.
+    sandboxAllowedCommands: () => Promise.resolve([]),
+    sandboxCommandHistory: () => Promise.resolve([]),
   },
 }));
 

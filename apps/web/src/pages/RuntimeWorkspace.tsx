@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
 import { WorkspaceAgentsPanel } from "../components/runtime/WorkspaceAgentsPanel";
 import { WorkspaceStatusBadge } from "../components/runtime/WorkspaceStatusBadge";
@@ -212,6 +213,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Sandboxed files (v1.2) */}
           <SandboxFilesPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Sandbox commands (v1.3) */}
+          <SandboxCommandsPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}

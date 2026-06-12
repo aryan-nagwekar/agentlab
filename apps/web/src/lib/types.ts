@@ -606,6 +606,28 @@ export interface SandboxFileWriteResult {
   created: boolean;
 }
 
+// ----------------------------------------------- sandbox commands (v1.3)
+
+export interface SandboxCommandResult {
+  command: string;
+  argv: string[];
+  /** Logical workspace path ("." = sandbox root) — never a host path. */
+  cwd: string;
+  status: "completed" | "failed" | "timed_out";
+  exit_code: number | null;
+  duration_ms: number;
+  stdout: string;
+  stderr: string;
+  stdout_truncated: boolean;
+  stderr_truncated: boolean;
+}
+
+export interface AllowedCommand {
+  command: string;
+  description: string;
+  examples: string[];
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

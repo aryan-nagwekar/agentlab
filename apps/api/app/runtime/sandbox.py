@@ -53,6 +53,17 @@ class SandboxBlocked(Exception):
         self.events: list[core_models.Event] = []
 
 
+class PathViolation(Exception):
+    """Pure path-safety rejection — no event attached. Callers that audit
+    differently (e.g. the v1.3 command runner emits sandbox.command.blocked
+    instead of sandbox.file.blocked) catch this and emit their own event."""
+
+    def __init__(self, reason: str, rule: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.rule = rule
+
+
 class SandboxError(Exception):
     """A non-security operational error (missing file, not utf-8, …)."""
 
@@ -100,6 +111,45 @@ def _blocked(
     return exc
 
 
+def check_path(root: Path, logical: str, *, allow_root: bool = False) -> Path:
+    """Pure deterministic path safety: map a logical workspace path to a real
+    path or raise PathViolation. No events, no disk writes — every rule runs
+    before any disk access."""
+    logical = (logical or "").strip()
+
+    if logical in ("", "."):
+        if allow_root:
+            return root
+        raise PathViolation("a file path is required", "empty_path")
+    if "\x00" in logical:
+        raise PathViolation("null bytes are not allowed in paths", "null_byte")
+    # Reject absolute paths in both POSIX and Windows spellings, plus ~.
+    if (
+        logical.startswith(("/", "\\", "~"))
+        or Path(logical).is_absolute()
+        or (len(logical) >= 2 and logical[1] == ":")
+    ):
+        raise PathViolation(
+            "absolute paths are not allowed; use a workspace-relative path",
+            "absolute_path",
+        )
+    if any(part == ".." for part in PurePosixPath(logical).parts):
+        raise PathViolation("path traversal ('..') is not allowed", "traversal")
+    if any(is_secret_name(part) for part in PurePosixPath(logical).parts):
+        raise PathViolation(
+            "secret-like files are blocked in the sandbox", "secret_file"
+        )
+
+    # Resolution follows symlinks, so a link pointing outside the root lands
+    # here as an outside-root rejection — the symlink-escape guard.
+    resolved = (root / logical).resolve()
+    if not resolved.is_relative_to(root.resolve()):
+        raise PathViolation(
+            "path resolves outside the workspace sandbox", "outside_root"
+        )
+    return resolved
+
+
 def resolve_path(
     session: Session,
     workspace: Workspace,
@@ -109,55 +159,19 @@ def resolve_path(
     operation: str,
     allow_root: bool = False,
 ) -> Path:
-    """Map a logical workspace path to a real path or raise SandboxBlocked.
-
-    Every rule here is deterministic and checked before any disk access.
-    """
-    logical = (logical or "").strip()
-
-    if logical in ("", "."):
-        if allow_root:
-            return root
+    """check_path, with rejections audited as sandbox.file.blocked events."""
+    try:
+        return check_path(root, logical, allow_root=allow_root)
+    except PathViolation as violation:
+        logical_path = "<null-byte>" if violation.rule == "null_byte" else (logical or "").strip()
         raise _blocked(
-            session, workspace, operation=operation, logical_path=logical,
-            reason="a file path is required", rule="empty_path",
+            session,
+            workspace,
+            operation=operation,
+            logical_path=logical_path,
+            reason=violation.reason,
+            rule=violation.rule,
         )
-    if "\x00" in logical:
-        raise _blocked(
-            session, workspace, operation=operation, logical_path="<null-byte>",
-            reason="null bytes are not allowed in paths", rule="null_byte",
-        )
-    # Reject absolute paths in both POSIX and Windows spellings, plus ~.
-    if (
-        logical.startswith(("/", "\\", "~"))
-        or Path(logical).is_absolute()
-        or (len(logical) >= 2 and logical[1] == ":")
-    ):
-        raise _blocked(
-            session, workspace, operation=operation, logical_path=logical,
-            reason="absolute paths are not allowed; use a workspace-relative path",
-            rule="absolute_path",
-        )
-    if any(part == ".." for part in PurePosixPath(logical).parts):
-        raise _blocked(
-            session, workspace, operation=operation, logical_path=logical,
-            reason="path traversal ('..') is not allowed", rule="traversal",
-        )
-    if any(is_secret_name(part) for part in PurePosixPath(logical).parts):
-        raise _blocked(
-            session, workspace, operation=operation, logical_path=logical,
-            reason="secret-like files are blocked in the sandbox", rule="secret_file",
-        )
-
-    # Resolution follows symlinks, so a link pointing outside the root lands
-    # here as an outside-root rejection — the symlink-escape guard.
-    resolved = (root / logical).resolve()
-    if not resolved.is_relative_to(root.resolve()):
-        raise _blocked(
-            session, workspace, operation=operation, logical_path=logical,
-            reason="path resolves outside the workspace sandbox", rule="outside_root",
-        )
-    return resolved
 
 
 def _logical(root: Path, real: Path) -> str:

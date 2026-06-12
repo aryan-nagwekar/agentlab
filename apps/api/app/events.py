@@ -54,6 +54,16 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "sandbox.file.deleted",
         "sandbox.directory.created",
         "sandbox.file.blocked",
+        # Safe command runner (v1.3) — allowlisted, workspace-bounded commands.
+        # Deterministic safety decides before any process spawns; payloads
+        # carry capped/redacted output summaries, never host paths or env.
+        "sandbox.command.proposed",
+        "sandbox.command.allowed",
+        "sandbox.command.blocked",
+        "sandbox.command.started",
+        "sandbox.command.completed",
+        "sandbox.command.failed",
+        "sandbox.command.timed_out",
     }
 )
 
