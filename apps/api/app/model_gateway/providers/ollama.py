@@ -88,7 +88,12 @@ class OllamaProvider(ModelProvider):
                 name=self.name,
                 status=HEALTH_UNAVAILABLE,
                 configured=True,
-                detail=f"No Ollama server at {self._base_url}.",
+                detail=(
+                    f"No Ollama server at {self._base_url}. "
+                    "Start it with `ollama serve` (then `ollama pull llama3.2`), "
+                    "or point OLLAMA_BASE_URL at your server — Docker users: "
+                    "http://host.docker.internal:11434."
+                ),
             )
         return ProviderHealth(
             name=self.name,

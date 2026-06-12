@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(
         default="", validation_alias=AliasChoices("ANTHROPIC_API_KEY", "AGENTLAB_ANTHROPIC_API_KEY")
     )
+    # GEMINI_API_KEY is preferred over GOOGLE_API_KEY when both are set
+    # (AliasChoices resolves left-to-right).
+    gemini_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "GEMINI_API_KEY", "GOOGLE_API_KEY", "AGENTLAB_GEMINI_API_KEY"
+        ),
+    )
+    gemini_base_url: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta",
+        validation_alias=AliasChoices("GEMINI_BASE_URL", "AGENTLAB_GEMINI_BASE_URL"),
+    )
     ollama_base_url: str = Field(
         default="http://localhost:11434",
         validation_alias=AliasChoices("OLLAMA_BASE_URL", "AGENTLAB_OLLAMA_BASE_URL"),

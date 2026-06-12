@@ -51,11 +51,13 @@ def test_no_raw_key_in_provider_list():
         cors_origins="",
         openai_api_key="sk-supersecret-REAL-key-1234",
         anthropic_api_key="sk-ant-anothersecret-5678",
+        gemini_api_key="AIzaSyFAKE-gemini-secret-key-9876",
     )
     with TestClient(create_app(settings)) as client:
         raw = client.get("/api/model-gateway/providers").text
         assert "sk-supersecret-REAL-key-1234" not in raw
         assert "sk-ant-anothersecret-5678" not in raw
+        assert "AIzaSyFAKE-gemini-secret-key-9876" not in raw
         by_name = {p["name"]: p for p in client.get("/api/model-gateway/providers").json()["providers"]}
         # only a redacted hint is exposed
         assert by_name["openai"]["configured"] is True
@@ -63,6 +65,8 @@ def test_no_raw_key_in_provider_list():
         assert by_name["openai"]["status"] == "available"
         # the redacted hint must not be the full key
         assert "supersecret" not in by_name["openai"]["key_redacted"]
+        assert by_name["gemini"]["key_redacted"] == "AIz...9876"
+        assert "gemini-secret" not in by_name["gemini"]["key_redacted"]
 
 
 # ----------------------------------------------------------------- test-call
@@ -201,3 +205,99 @@ def test_default_demo_works_without_any_keys(client):
     mock = next(p for p in data["providers"] if p["name"] == "mock")
     assert mock["requires_key"] is False
     assert mock["configured"] is True
+
+
+# ------------------------------------------------------------ gemini (v0.7.1)
+
+
+def test_gemini_in_registry_not_configured_without_key():
+    settings = Settings(
+        database_url="sqlite:///:memory:", api_keys="", cors_origins="", gemini_api_key=""
+    )
+    with TestClient(create_app(settings)) as client:
+        by_name = {
+            p["name"]: p for p in client.get("/api/model-gateway/providers").json()["providers"]
+        }
+        gemini = by_name["gemini"]
+        assert gemini["requires_key"] is True
+        assert gemini["configured"] is False
+        assert gemini["status"] == "not_configured"
+        assert "GEMINI_API_KEY" in gemini["message"]
+        assert "gemini-2.0-flash" in gemini["models"]
+
+
+def test_gemini_configured_with_key_is_redacted(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path}/gem.db",
+        api_keys="",
+        cors_origins="",
+        gemini_api_key="AIzaSyFAKE-configured-key-5432",
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/api/model-gateway/providers")
+        assert "AIzaSyFAKE-configured-key-5432" not in response.text
+        gemini = next(p for p in response.json()["providers"] if p["name"] == "gemini")
+        assert gemini["configured"] is True
+        assert gemini["status"] == "available"
+        assert gemini["key_redacted"] == "AIz...5432"
+        health = client.get("/api/model-gateway/providers/gemini/health")
+        assert "AIzaSyFAKE-configured-key-5432" not in health.text
+        assert health.json()["status"] == "available"
+
+
+def test_gemini_call_failure_is_captured_safely(tmp_path, event_factory):
+    # Port 9 (discard) refuses connections instantly — no real network traffic.
+    # The key travels as a URL query param, so this also proves a failed call
+    # never echoes the URL (and therefore the key) back to the client.
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path}/gemfail.db",
+        api_keys="",
+        cors_origins="",
+        gemini_api_key="AIzaSyFAKE-leaky-key-test-4321",
+        gemini_base_url="http://127.0.0.1:9/v1beta",
+    )
+    with TestClient(create_app(settings)) as client:
+        _seed_run(client, event_factory)
+        response = client.post(
+            "/api/model-gateway/test-call",
+            json={
+                "provider": "gemini",
+                "model_name": "gemini-2.0-flash",
+                "prompt": "hello",
+                "agent_id": "planner",
+                "project_id": "proj-1",
+                "run_id": "run-1",
+            },
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["status"] == "failed"
+        assert result["error_message"]
+        assert "AIzaSyFAKE-leaky-key-test-4321" not in response.text
+        events_response = client.get("/api/runs/run-1/events")
+        assert "AIzaSyFAKE-leaky-key-test-4321" not in events_response.text
+        types = [e["event_type"] for e in events_response.json()]
+        assert "model.failed" in types
+
+
+# ------------------------------------------- ollama troubleshooting (v0.7.1)
+
+
+def test_ollama_unavailable_returns_troubleshooting_message(tmp_path):
+    # Point at the discard port so the health check fails fast and predictably.
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path}/oll.db",
+        api_keys="",
+        cors_origins="",
+        ollama_base_url="http://127.0.0.1:9",
+    )
+    with TestClient(create_app(settings)) as client:
+        health = client.get("/api/model-gateway/providers/ollama/health").json()
+        assert health["status"] == "unavailable"
+        assert "http://127.0.0.1:9" in health["detail"]
+        assert "ollama serve" in health["detail"]
+        assert "host.docker.internal" in health["detail"]
+        # the providers list carries the same hint as `message`
+        providers = client.get("/api/model-gateway/providers").json()["providers"]
+        ollama = next(p for p in providers if p["name"] == "ollama")
+        assert ollama["message"] == health["detail"]

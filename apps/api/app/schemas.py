@@ -317,6 +317,8 @@ class ProviderOut(BaseModel):
     requires_key: bool
     models: list[str] = Field(default_factory=list)
     key_redacted: str | None = None
+    # Human-readable health/troubleshooting hint (mirrors ProviderHealthOut.detail).
+    message: str | None = None
 
 
 class ProviderListOut(BaseModel):

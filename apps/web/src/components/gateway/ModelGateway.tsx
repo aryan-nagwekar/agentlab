@@ -79,6 +79,18 @@ function ProviderCard({ provider }: { provider: Provider }) {
           <span className="px-1 text-[10px] text-zinc-600">+{provider.models.length - 4}</span>
         ) : null}
       </div>
+      {provider.message && provider.status !== "available" ? (
+        <div
+          className={clsx(
+            "mt-2 rounded-md border px-2 py-1.5 text-[11px] leading-5",
+            provider.status === "unavailable" || provider.status === "not_configured"
+              ? "border-amber-400/25 bg-amber-400/5 text-amber-200/90"
+              : "border-red-400/25 bg-red-400/5 text-red-300",
+          )}
+        >
+          {provider.message}
+        </div>
+      ) : null}
     </Card>
   );
 }

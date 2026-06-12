@@ -8,6 +8,7 @@ from __future__ import annotations
 from ..config import Settings
 from .base import ModelProvider
 from .providers.anthropic import AnthropicProvider
+from .providers.gemini import GeminiProvider
 from .providers.mock import MockProvider
 from .providers.ollama import OllamaProvider
 from .providers.openai_compatible import OpenAICompatibleProvider
@@ -36,6 +37,7 @@ def build_registry(settings: Settings) -> ProviderRegistry:
             name="openai",
         ),
         AnthropicProvider(settings.anthropic_api_key or None),
+        GeminiProvider(settings.gemini_api_key or None, base_url=settings.gemini_base_url),
         OllamaProvider(settings.ollama_base_url),
     ]
     # OpenRouter is just an OpenAI-compatible endpoint; expose it only if keyed.

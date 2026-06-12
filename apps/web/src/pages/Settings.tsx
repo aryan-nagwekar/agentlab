@@ -97,7 +97,8 @@ export function SettingsPage() {
           <div>AGENTLAB_API_KEYS &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># comma-separated; empty = open local mode</span></div>
           <div>OPENAI_API_KEY &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># model gateway BYOK (server-side only)</span></div>
           <div>ANTHROPIC_API_KEY &nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># model gateway BYOK (server-side only)</span></div>
-          <div>OLLAMA_BASE_URL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># default http://localhost:11434</span></div>
+          <div>GEMINI_API_KEY &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># model gateway BYOK (or GOOGLE_API_KEY)</span></div>
+          <div>OLLAMA_BASE_URL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># default http://localhost:11434; Docker: host.docker.internal</span></div>
           <div>AGENTLAB_DISABLED &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-600"># =1 turns the SDK into a no-op</span></div>
         </Card>
       </div>

@@ -319,6 +319,8 @@ export interface Provider {
   requires_key: boolean;
   models: string[];
   key_redacted: string | null;
+  // Health/troubleshooting hint from the server (never contains a key).
+  message?: string | null;
 }
 
 export interface ModelTestCallRequest {

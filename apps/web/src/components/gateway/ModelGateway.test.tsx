@@ -29,6 +29,25 @@ const providers: Provider[] = [
     models: ["claude-sonnet-4-6"],
     key_redacted: null,
   },
+  {
+    name: "gemini",
+    configured: true,
+    status: "available",
+    requires_key: true,
+    models: ["gemini-1.5-flash", "gemini-2.0-flash"],
+    key_redacted: "AIz...9876",
+    message: "Configured.",
+  },
+  {
+    name: "ollama",
+    configured: true,
+    status: "unavailable",
+    requires_key: false,
+    models: ["llama3.1"],
+    key_redacted: null,
+    message:
+      "No Ollama server at http://localhost:11434. Start it with `ollama serve` (then `ollama pull llama3.2`), or point OLLAMA_BASE_URL at your server — Docker users: http://host.docker.internal:11434.",
+  },
 ];
 
 const testCall = vi.fn();
@@ -85,6 +104,24 @@ describe("ModelGateway", () => {
     await waitFor(() => expect(screen.getByText("Hello from the mock provider")).toBeTruthy());
     expect(screen.getByText("completed")).toBeTruthy();
     expect(screen.getByText(/model-abc123/)).toBeTruthy();
+  });
+
+  it("renders the gemini card with a redacted key and no raw key", async () => {
+    render(<ModelGateway />);
+    expect(await screen.findByText("gemini", { selector: "span" })).toBeTruthy();
+    expect(screen.getByText("AIz...9876")).toBeTruthy();
+    expect(screen.getByText("gemini-2.0-flash")).toBeTruthy();
+    // a configured+available provider shows no troubleshooting hint
+    expect(screen.queryByText("Configured.")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/AIza[A-Za-z0-9_-]{8,}/);
+  });
+
+  it("shows the troubleshooting message on the unavailable ollama card", async () => {
+    render(<ModelGateway />);
+    const hint = await screen.findByText(/No Ollama server at http:\/\/localhost:11434/);
+    expect(hint.textContent).toContain("ollama serve");
+    expect(hint.textContent).toContain("host.docker.internal");
+    expect(screen.getByText("Unavailable")).toBeTruthy();
   });
 
   it("renders a failed test-call result with the error", async () => {

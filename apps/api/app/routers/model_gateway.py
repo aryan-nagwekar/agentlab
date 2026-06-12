@@ -44,6 +44,7 @@ async def list_providers(request: Request) -> ProviderListOut:
                 requires_key=provider.requires_key,
                 models=provider.models(),
                 key_redacted=provider.key_redacted(),
+                message=health.detail,
             )
         )
     return ProviderListOut(providers=out)
