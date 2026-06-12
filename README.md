@@ -61,7 +61,8 @@ inspect, and (soon) replay.
 | Sandboxed File Runtime (v1.2) — workspace-bounded file CRUD under `.agentlab-workspaces/{id}/` with deterministic path safety (absolute/traversal/symlink/secret blocked, audited via `sandbox.file.blocked`), `sandbox.*` events into the activity run, and a Files panel UI | ✅ |
 | Safe Command Runner (v1.3) — allowlisted, deterministic, sandbox-bounded commands (`shell=False`, scrubbed env, timeout, capped/redacted output) with pre-execution blocking audited via `sandbox.command.*` events and a Commands panel UI | ✅ |
 | Orchestration Engine (v1.4) — goal → deterministic plan → role-assigned tasks with dependencies and lifecycle (disabled/quarantined never assigned), manual text results, 19 `runtime.workflow.*`/`runtime.task.*` events with full replay, and a Workflows panel UI; zero autonomous execution | ✅ |
-| Runtime v1.5+ — action enforcement gateway, then approvals, validators, real quarantine | 🔜 gated |
+| Action Enforcement Gateway (v1.5) — every file/command/workflow action proposed and resolved by 22 deterministic policies before execution (allow/block/approval-required/reroute/retry/downgrade/quarantine-triggered), explainable decisions with matched rules + redacted evidence, 13 `action.*`/`policy.*`/`enforcement.*` events with full replay, and an Enforcement panel UI | ✅ |
+| Runtime v1.6+ — human approval system, then validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -611,7 +612,37 @@ failures, reroutes, and blocks.
 > validators, and real quarantine arrive in later Runtime versions per the
 > master plan.
 
-## Known limitations (v0.1–v1.4)
+## Action Enforcement Gateway (v1.5)
+
+Every important Runtime action is now represented as an **action proposal**,
+evaluated by a deterministic, priority-ordered policy registry, and resolved
+into an explainable **decision before anything executes**. A decision records
+every matched rule, a plain-English reason, redacted evidence, and the
+actor's trust/risk snapshot — and emits `action.*`, `policy.*`, and
+`enforcement.*` events through the normal pipeline, so the timeline and
+Replay reconstruct exactly what AgentLab allowed, blocked, or flagged and
+why.
+
+File writes/deletes/folders, sandbox commands, workflow starts, and task
+results all flow through the gateway; the v1.2 path safety and v1.3 command
+safety still run *after* an enforcement allow, as defense in depth. The
+default policies block disabled/quarantined actors, raw secrets in inputs,
+path escapes, secret files, and unsafe commands; they require human approval
+for auth/payment/deployment-sensitive file changes, protected domains
+(database migrations, package installs), and high-risk publishing; they
+reroute unverified research and high-risk actors to a verifier; and unknown
+action types are blocked by default. A generic proposal API (and a
+"Test an action" form in the Enforcement panel) evaluates any action without
+ever executing it.
+
+> v1.5 is **not** the human approval system: approval-required actions are
+> recorded and halted — there is no inbox, no approve/deny, no resume (v1.6).
+> `quarantine_triggered`, `rerouted`, `retry_required`, and
+> `permissions_downgraded` are single-action decisions recorded as events —
+> no real quarantine lifecycle (v1.7), no validators (v1.8), no autonomous
+> execution, no deployment, and no bottle demo.
+
+## Known limitations (v0.1–v1.5)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -683,6 +714,14 @@ Stated plainly so nobody discovers them the hard way:
   dependencies are planner-owned and not user-editable; `waiting_for_
   validation`/`waiting_for_approval` statuses are reserved for later
   versions.
+- **Enforcement decides but cannot yet resolve.** v1.5 approval-required
+  actions halt with an explainable decision and wait for the v1.6 approval
+  system — there is no way to approve/deny/resume them yet. Policy rules
+  are code-defined (not user-editable), sensitive-path detection is
+  token-based (e.g. any path segment containing "auth" or "deploy"
+  triggers approval — false positives are accepted as conservative), and
+  quarantine/downgrade/reroute decisions are recorded events, not runtime
+  restrictions.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

@@ -731,6 +731,54 @@ or model-driven file/command execution, browser automation/web research,
 dev servers, package installation, cost-budget enforcement, the
 bottle-selling demo.
 
+## Action Enforcement Gateway (v1.5 — shipped, decisions before execution)
+
+`app/runtime/enforcement.py` is the control point the master plan's
+Milestone 5 describes: **propose → evaluate → decide → (only then) execute**.
+An `ActionProposal` row captures who/what/target (stored redacted and
+bounded); a deterministic, priority-ordered registry of 22 `PolicyRule`s
+evaluates it (first match decides, *every* match is recorded); an
+`ActionDecision` row captures the verdict, matched rules, human-readable
+reason, redacted evidence, and the actor's trust/risk snapshot. Each step
+emits events — `action.proposed`, `policy.rule.matched` (per match),
+`policy.evaluated`, then the decision event — so replay reconstructs not
+just what agents did but what AgentLab allowed, blocked, or flagged.
+
+**Evaluation semantics.** Rules are pure functions over an `ActionContext`
+computed once per evaluation (actor agent row, task flags, path-safety
+verdict via the v1.2 `check_path`, command-safety verdict via the v1.3
+`evaluate`). Secrets are checked against the **raw** input while only the
+redacted form persists. Nine decision values map onto five outcomes:
+executable (`allow`, `allow_readonly`, `allow_sandbox_only`) versus halted
+(`block`, `require_human_approval`, `reroute_to_verifier`,
+`retry_with_constraints`, `downgrade_permissions`, `quarantine_agent`).
+Halted means halted: the integrated surfaces never run the underlying
+operation, and the generic proposal API never executes anything at all.
+Unknown action types — and any action no rule matched — are blocked by
+default.
+
+**Integration without weakening.** File write/delete/mkdir, command run,
+workflow start, and task-result recording route through
+`guarded_execute`: enforcement decides, `action.started` marks execution,
+the *existing* v1.2/v1.3 service runs (its own safety re-checks intact as
+defense in depth), and `action.completed` closes the arc. When enforcement
+refuses something the legacy layers would also have refused, it emits the
+matching `sandbox.file.blocked` / `sandbox.command.proposed+blocked`
+events too, so the v1.2/v1.3 audit streams remain complete and the HTTP
+contract (`400 blocked (<rule>): …`) is unchanged; approval-required
+refusals use `403 approval required (<rule>): …` instead. Manual user
+task-result recording stays allowed (a human is the approver-of-record for
+their own click); the same action proposed by an *agent* actor on a
+flagged task resolves to approval-required/reroute — recorded, not
+executed.
+
+**Explicit non-goals for v1.5** (later Runtime versions): the approval
+inbox and approve/deny/resume flow (v1.6 — `approval_required` proposals
+just wait), validator execution/evidence (v1.8), real quarantine lifecycle
+(v1.7 — `quarantine_agent` is a recorded decision), autonomous agent
+execution, browser automation, deployment, package installation,
+cost-budget enforcement beyond rule placeholders, the bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

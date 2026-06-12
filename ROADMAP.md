@@ -354,11 +354,50 @@ user-triggered and the orchestrator never invokes them).
   sandbox.file/sandbox.command/model.* events and never creates a sandbox
   directory) + 10 vitest
 
-## Runtime v1.5 — Action Enforcement Gateway (next, pending approval)
+## Runtime v1.5 — Action Enforcement Gateway ✅
 
-Spec to be provided by the owner. Later Runtime versions own: enforcement
-gateway, policy blocking, human approvals, validators, real quarantine, and
-the bottle-selling website demo. None of these are started.
+Every important Runtime action becomes an ActionProposal, is evaluated by a
+deterministic ordered policy registry, and resolves into an explainable
+ActionDecision **before anything executes** — with matched rules, a
+human-readable reason, redacted evidence, and a trust/risk snapshot.
+
+- `app/runtime/enforcement.py`: 22 deterministic policies (priority-ordered,
+  first match decides, every match recorded) covering: disabled/quarantined
+  actors blocked; raw secrets in inputs blocked (evaluated against raw,
+  stored redacted); path escapes + secret files blocked (reusing v1.2
+  `check_path`); unsafe commands blocked (reusing v1.3 `evaluate`);
+  missing-manifest commands → retry_with_constraints; protected domains
+  (auth/payment/deployment/db-migration/package-install) + sensitive file
+  paths + high-risk publishing → require_human_approval; unverified research
+  + high-risk actors + flagged agent task results → reroute_to_verifier;
+  extreme-risk actors → quarantine_agent; suspicious actors →
+  downgrade_permissions; caution actors → allow_readonly reads; safe
+  reads/writes/commands/metadata actions → allow; unknown/unmatched → block
+- Integration: file write/delete/mkdir, command run, workflow start, and
+  task-result recording all propose→evaluate→execute through the gateway;
+  v1.2/v1.3 safety still runs after an allow (defense in depth), and
+  refusals emit the legacy `sandbox.*.blocked` audit events for stream
+  parity; approval-required actions halt with a clear 403 (resolution is
+  v1.6 — no inbox exists)
+- Generic API (`/actions/propose|/actions|/actions/{id}|/actions/{id}/
+  evaluate`, `/runtime/policies`, `/enforcement/decisions`) records
+  decisions but **never executes**
+- 13 events (`action.proposed/started/completed/failed`,
+  `policy.evaluated`, `policy.rule.matched`, `enforcement.allowed/blocked/
+  approval_required/rerouted/retry_required/permissions_downgraded/
+  quarantine_triggered`) — shared registry, API + SDK; timeline/replay
+  reconstruct every decision
+- UI: Enforcement panel (policy count, decision cards with badges +
+  matched-rule chips + plain-English reasons, never-executes test form);
+  Files/Commands panels surface blocked/approval reasons
+- 22 pytest + 9 vitest; fixed a real redaction false-positive (`sk-`
+  matching inside `task-…` ids)
+
+## Runtime v1.6 — Human Approval System (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: approval
+resolution, validators, real quarantine, and the bottle-selling website
+demo. None of these are started.
 
 ## Later (unscheduled)
 

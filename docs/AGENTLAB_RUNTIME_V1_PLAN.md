@@ -24,12 +24,18 @@
 >   dependency-respecting lifecycle, manual text results, replayable
 >   runtime.workflow.*/runtime.task.* events; **status metadata only — no
 >   autonomous file/command/model execution**)
-> - **v1.5 Action Enforcement Gateway — next, gated on owner approval
->   (separate spec to be provided)**
-> - Milestones 5–12 remainder (enforcement gateway, real quarantine, human
->   approvals, deterministic validators, visual debugging, bottle-selling
->   demo, gateway/cost integration, full testing) — not started, gated on
->   owner approval
+> - v1.5 Action Enforcement Gateway — ✅ shipped (Milestone 5: ActionProposal
+>   → deterministic policy evaluation → explainable ActionDecision before
+>   execution; integrated into files/commands/workflows with v1.2/v1.3
+>   safety as defense in depth; approval_required/quarantine_triggered/
+>   rerouted/retry decisions are RECORDED EVENTS ONLY — no approval inbox,
+>   no validators, no real quarantine, no autonomous execution)
+> - **v1.6 Human Approval System — next, gated on owner approval (separate
+>   spec to be provided)**
+> - Milestones 6–12 remainder (real quarantine, human approvals,
+>   deterministic validators, visual debugging, bottle-selling demo,
+>   gateway/cost integration, full testing) — not started, gated on owner
+>   approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 
