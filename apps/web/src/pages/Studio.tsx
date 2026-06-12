@@ -57,14 +57,22 @@ export function StudioPage() {
         title="Agent Builder Studio"
         subtitle="Build multi-agent workflows, run them through the Model Gateway, and debug them with the full AgentLab toolchain"
         actions={
-          <button
-            type="button"
-            onClick={createWorkflow}
-            disabled={creating}
-            className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
-          >
-            {creating ? "Creating…" : "+ New Workflow"}
-          </button>
+          <>
+            <Link
+              to="/studio/templates"
+              className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+            >
+              Start from template
+            </Link>
+            <button
+              type="button"
+              onClick={createWorkflow}
+              disabled={creating}
+              className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
+            >
+              {creating ? "Creating…" : "+ New Workflow"}
+            </button>
+          </>
         }
       />
       {createError ? <ErrorNote message={createError} /> : null}

@@ -9,6 +9,8 @@ import { ProjectsPage } from "./pages/Projects";
 import { RunDetailPage } from "./pages/RunDetail";
 import { SettingsPage } from "./pages/Settings";
 import { StudioPage } from "./pages/Studio";
+import { StudioTemplatePage } from "./pages/StudioTemplate";
+import { StudioTemplatesPage } from "./pages/StudioTemplates";
 import { StudioWorkflowPage } from "./pages/StudioWorkflow";
 
 export function App() {
@@ -23,6 +25,8 @@ export function App() {
           <Route path="/runs/:runId" element={<RunDetailPage />} />
           <Route path="/agents/:agentId" element={<AgentDetailPage />} />
           <Route path="/studio" element={<StudioPage />} />
+          <Route path="/studio/templates" element={<StudioTemplatesPage />} />
+          <Route path="/studio/templates/:templateId" element={<StudioTemplatePage />} />
           <Route path="/studio/workflows" element={<Navigate to="/studio" replace />} />
           <Route path="/studio/workflows/:workflowId" element={<StudioWorkflowPage />} />
           <Route path="/lab" element={<LabPage />} />

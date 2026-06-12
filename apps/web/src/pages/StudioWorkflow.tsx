@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { AgentEditor } from "../components/studio/AgentEditor";
 import { EdgeEditor } from "../components/studio/EdgeEditor";
@@ -19,9 +19,17 @@ import type {
 export function StudioWorkflowPage() {
   const { workflowId } = useParams<{ workflowId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Workflows created from a template carry ?template=<id> so the run panel
+  // can start from the template's default input.
+  const templateId = searchParams.get("template");
   const workflowState = useFetch(() => api.studioWorkflow(workflowId!), [workflowId]);
   const providersState = useFetch(() => api.providers(), []);
   const runsState = useFetch(() => api.studioWorkflowRuns(workflowId!), [workflowId]);
+  const templateState = useFetch(
+    () => (templateId ? api.studioTemplate(templateId) : Promise.resolve(null)),
+    [templateId],
+  );
 
   // Local editable copy of the stored definition.
   const [name, setName] = useState("");
@@ -305,7 +313,9 @@ export function StudioWorkflowPage() {
           </Card>
           <Card className="px-4 py-4">
             <RunPanel
+              key={templateState.data?.default_input ?? "default"}
               workflowId={workflowId!}
+              defaultInput={templateState.data?.default_input}
               dirty={dirty}
               unconfiguredProviders={unconfiguredProviders}
               onRunComplete={() => runsState.refetch(true)}

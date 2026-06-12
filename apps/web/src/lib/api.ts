@@ -22,6 +22,9 @@ import type {
   RunRiskSummary,
   StudioRunRecord,
   StudioRunResult,
+  StudioTemplate,
+  StudioTemplateCreateResult,
+  StudioTemplateSummary,
   StudioValidation,
   StudioWorkflow,
   StudioWorkflowSave,
@@ -151,6 +154,17 @@ export const api = {
     }),
   studioWorkflowRuns: (workflowId: string) =>
     request<StudioRunRecord[]>(`/api/studio/workflows/${workflowId}/runs`),
+  studioTemplates: () => request<StudioTemplateSummary[]>("/api/studio/templates"),
+  studioTemplate: (templateId: string) =>
+    request<StudioTemplate>(`/api/studio/templates/${templateId}`),
+  createWorkflowFromTemplate: (
+    templateId: string,
+    body: { project_id?: string; name?: string },
+  ) =>
+    request<StudioTemplateCreateResult>(
+      `/api/studio/templates/${templateId}/create-workflow`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
 };
 
 export function wsUrl(path: string): string {

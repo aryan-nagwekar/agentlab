@@ -126,6 +126,58 @@ class WorkflowRunOut(BaseModel):
     open_run_url: str
 
 
+class TemplateAgentOut(BaseModel):
+    agent_id: str
+    name: str
+    role: str
+    description: str
+    system_prompt: str
+    provider: str
+    model_name: str
+    temperature: float
+    max_tokens: int
+    position_x: float
+    position_y: float
+
+
+class TemplateEdgeOut(BaseModel):
+    source_agent_name: str
+    target_agent_name: str
+    source_agent_id: str
+    target_agent_id: str
+    label: str
+
+
+class TemplateSummaryOut(BaseModel):
+    template_id: str
+    name: str
+    description: str
+    category: str
+    tags: list[str]
+    difficulty: str
+    use_case: str
+    agent_count: int
+
+
+class TemplateOut(TemplateSummaryOut):
+    default_input: str
+    agents: list[TemplateAgentOut]
+    edges: list[TemplateEdgeOut]
+    expected_outputs: list[str]
+    demo_notes: str
+
+
+class TemplateCreateIn(BaseModel):
+    project_id: str = Field(default="demo-project", min_length=1, max_length=255)
+    name: str | None = Field(default=None, max_length=255)
+
+
+class TemplateCreateOut(BaseModel):
+    workflow_id: str
+    template_id: str
+    open_url: str
+
+
 class WorkflowRunRecordOut(StudioModel):
     run_id: str
     workflow_id: str

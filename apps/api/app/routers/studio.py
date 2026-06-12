@@ -23,6 +23,10 @@ from ..studio.schemas import (
     AgentDefOut,
     EdgeDefIn,
     EdgeDefOut,
+    TemplateCreateIn,
+    TemplateCreateOut,
+    TemplateOut,
+    TemplateSummaryOut,
     ValidationOut,
     WorkflowIn,
     WorkflowOut,
@@ -30,7 +34,9 @@ from ..studio.schemas import (
     WorkflowRunOut,
     WorkflowRunRecordOut,
     WorkflowSummaryOut,
+    slugify,
 )
+from ..studio.templates import TEMPLATES, WorkflowTemplate, agent_position, build_workflow_in
 from ..studio.validation import validate_workflow
 
 router = APIRouter()
@@ -267,6 +273,99 @@ def delete_edge(
         raise HTTPException(status_code=404, detail="edge not found")
     session.delete(edge)
     session.commit()
+
+
+# ----------------------------------------------------------------- templates
+
+
+def _template_summary(template: WorkflowTemplate) -> TemplateSummaryOut:
+    return TemplateSummaryOut(
+        template_id=template.template_id,
+        name=template.name,
+        description=template.description,
+        category=template.category,
+        tags=list(template.tags),
+        difficulty=template.difficulty,
+        use_case=template.use_case,
+        agent_count=len(template.agents),
+    )
+
+
+def _template_out(template: WorkflowTemplate) -> TemplateOut:
+    slug_by_name = {agent.name: slugify(agent.name) for agent in template.agents}
+    agents = []
+    for index, agent in enumerate(template.agents):
+        x, y = agent_position(index)
+        agents.append(
+            {
+                "agent_id": slug_by_name[agent.name],
+                "name": agent.name,
+                "role": agent.role,
+                "description": agent.description,
+                "system_prompt": agent.system_prompt,
+                "provider": agent.provider,
+                "model_name": agent.model_name,
+                "temperature": agent.temperature,
+                "max_tokens": agent.max_tokens,
+                "position_x": x,
+                "position_y": y,
+            }
+        )
+    edges = [
+        {
+            "source_agent_name": edge.source_agent_name,
+            "target_agent_name": edge.target_agent_name,
+            "source_agent_id": slug_by_name[edge.source_agent_name],
+            "target_agent_id": slug_by_name[edge.target_agent_name],
+            "label": edge.label,
+        }
+        for edge in template.edges
+    ]
+    return TemplateOut(
+        **_template_summary(template).model_dump(),
+        default_input=template.default_input,
+        agents=agents,
+        edges=edges,
+        expected_outputs=list(template.expected_outputs),
+        demo_notes=template.demo_notes,
+    )
+
+
+def _require_template(template_id: str) -> WorkflowTemplate:
+    template = TEMPLATES.get(template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="template not found")
+    return template
+
+
+@router.get("/studio/templates", response_model=list[TemplateSummaryOut])
+def list_templates() -> list[TemplateSummaryOut]:
+    return [_template_summary(t) for t in TEMPLATES.values()]
+
+
+@router.get("/studio/templates/{template_id}", response_model=TemplateOut)
+def get_template(template_id: str) -> TemplateOut:
+    return _template_out(_require_template(template_id))
+
+
+@router.post(
+    "/studio/templates/{template_id}/create-workflow",
+    status_code=201,
+    response_model=TemplateCreateOut,
+    dependencies=[Depends(require_api_key)],
+)
+def create_workflow_from_template(
+    template_id: str, body: TemplateCreateIn, session: Session = Depends(get_session)
+) -> TemplateCreateOut:
+    template = _require_template(template_id)
+    workflow_in = build_workflow_in(template, project_id=body.project_id, name=body.name)
+    workflow = service.create_workflow(session, workflow_in)
+    session.commit()
+    return TemplateCreateOut(
+        workflow_id=workflow.id,
+        template_id=template.template_id,
+        open_url=f"/studio/workflows/{workflow.id}",
+    )
 
 
 # ------------------------------------------------------------ validate & run

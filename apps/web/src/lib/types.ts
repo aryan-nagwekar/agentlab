@@ -418,6 +418,53 @@ export interface StudioRunResult {
   open_run_url: string;
 }
 
+export interface StudioTemplateSummary {
+  template_id: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  difficulty: string;
+  use_case: string;
+  agent_count: number;
+}
+
+export interface StudioTemplateAgent {
+  agent_id: string;
+  name: string;
+  role: string;
+  description: string;
+  system_prompt: string;
+  provider: string;
+  model_name: string;
+  temperature: number;
+  max_tokens: number;
+  position_x: number;
+  position_y: number;
+}
+
+export interface StudioTemplateEdge {
+  source_agent_name: string;
+  target_agent_name: string;
+  source_agent_id: string;
+  target_agent_id: string;
+  label: string;
+}
+
+export interface StudioTemplate extends StudioTemplateSummary {
+  default_input: string;
+  agents: StudioTemplateAgent[];
+  edges: StudioTemplateEdge[];
+  expected_outputs: string[];
+  demo_notes: string;
+}
+
+export interface StudioTemplateCreateResult {
+  workflow_id: string;
+  template_id: string;
+  open_url: string;
+}
+
 export interface StudioRunRecord {
   run_id: string;
   workflow_id: string;
