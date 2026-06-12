@@ -134,8 +134,15 @@ a team already uses.
     Template-created workflows are ordinary Studio workflows — fully
     editable and observable in every existing view.
 
+### Shipped in v0.9.1
+18. **Chat Mode / Agent Mode + secure provider setup** — Studio mode switcher
+    (Chat = read-only Q&A about workflows/runs/costs/trust; Agent = actions);
+    `/connect <provider>` opens a secure password-field modal; keys are stored
+    only in a local gitignored file, never in chat/DB/logs/events; key-like
+    pastes into chat are blocked with a warning.
+
 ### Next (gated, in order)
-18. **Runtime v1.0 — Runtime Workspaces** — not started; requires explicit
+19. **Runtime v1.0 — Runtime Workspaces** — not started; requires explicit
     approval. (Workspaces, sandbox runtime, enforcement gateway, approvals,
     validators, real quarantine.)
 

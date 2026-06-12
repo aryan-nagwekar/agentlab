@@ -510,6 +510,26 @@ Deferred to Runtime v1 (not started): workspaces, sandboxed file runtime,
 command execution, enforcement gateway, human approvals, deterministic
 validators, real quarantine enforcement.
 
+## Chat Mode / Agent Mode + secure provider setup (v0.9.1 — shipped)
+
+**Modes.** A global Studio mode (zustand, default Agent) splits interaction:
+Chat Mode is conversational and read-only — Studio action buttons disable and
+the assistant refuses actions with "Switch to Agent Mode to perform this
+action."; Agent Mode performs project actions (run, edit, `/connect`,
+`/run`). The assistant is deliberately **deterministic and local**: rule-based
+answers built from existing read APIs (workflow structure, latest run,
+`run.failed` payloads, costs, risk summary) — there is no LLM behind the chat.
+
+**Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
+The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
+warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a
+secure modal — password-style input, optional base URL — which POSTs to
+`/model-gateway/providers/{p}/configure`. Secrets land in a local gitignored
+`.agentlab-secrets.json` (chmod 0600) that overlays the environment when the
+provider registry is rebuilt (most recent explicit user action wins;
+`/clear` falls back to the env). The key never touches the database, logs,
+events, or any response — only `redact_key`'s hint comes back.
+
 ## Testing
 
 - **SDK (22 tests):** transport against a real in-process HTTP server —

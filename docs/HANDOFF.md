@@ -16,10 +16,17 @@
 > soc-investigation-team, customer-support-team, data-analysis-team), `GET
 > /api/studio/templates[/{id}]` + `POST …/{id}/create-workflow` (materializes
 > a normal v0.8 workflow), gallery + preview UI at /studio/templates, default
-> input carried into the editor's run panel via `?template=`. Next gated
-> milestone: **Runtime v1.0 Runtime Workspaces** (requires explicit approval —
-> workspaces, sandbox runtime, enforcement gateway, approvals, validators,
-> real quarantine).
+> input carried into the editor's run panel via `?template=`.
+>
+> v0.9.1 Chat Mode / Agent Mode + secure provider setup shipped: Studio mode
+> switcher (Chat = read-only Q&A via a deterministic local assistant; Agent =
+> actions, `/connect <provider>`, `/run`); secure provider modal (password
+> field) backed by `POST /model-gateway/providers/{p}/configure|clear`;
+> secrets in gitignored `.agentlab-secrets.json` (0600, overlays env, never
+> DB/logs/events/responses); key-like chat pastes blocked with a warning.
+> Next gated milestone: **Runtime v1.0 Runtime Workspaces** (requires explicit
+> approval — workspaces, sandbox runtime, enforcement gateway, approvals,
+> validators, real quarantine).
 
 ## 1. One-paragraph product summary
 

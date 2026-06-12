@@ -35,7 +35,7 @@ AgentLab treats an agent system the way network engineers treat a network:
 agents are nodes, messages are packets, runs are captures you can open,
 inspect, and (soon) replay.
 
-## What works today (v0.9)
+## What works today (v0.9.1)
 
 | Capability | Status |
 | --- | --- |
@@ -55,6 +55,7 @@ inspect, and (soon) replay.
 | Model gateway / BYOK — one provider interface (mock + OpenAI-compatible + Anthropic + Gemini + Ollama); local-first keys (env-only, never stored/returned/logged, redacted in UI); provider health + troubleshooting hints + safe test-call UI; gateway calls flow into telemetry, replay, and Cost & Tokens | ✅ |
 | Agent Builder Studio — build multi-agent workflows in-app: visual DAG canvas, per-agent role/prompt/provider/model, validation, one-click run through the Model Gateway; Studio runs flow into the graph, replay, inspector, metrics, trust/risk, and Cost & Tokens unchanged; seeded "Code Review Agent Team" works with zero keys | ✅ |
 | Project templates — six prebuilt agent-team blueprints (code review, research, resume tailoring, SOC investigation, customer support, data analysis) with preview + one-click "create workflow"; template workflows are ordinary Studio workflows on keyless mock defaults | ✅ |
+| Chat Mode / Agent Mode — Studio mode switcher: Chat is read-only Q&A (workflow, runs, failures, cost, trust/risk), Agent performs actions; `/connect <provider>` opens a secure key-setup modal; key-like pastes into chat are blocked; keys live in a local gitignored file, redacted everywhere | ✅ |
 | Runtime v1 — workspaces, sandbox runtime, enforcement gateway, approvals, validators, real quarantine | 🔜 next |
 
 ## Architecture
@@ -430,12 +431,36 @@ the same graph/replay/inspector/metrics/trust-risk/Cost & Tokens views.
 > policies, human approval gates, deterministic validators, or real runtime
 > quarantine. Those begin in the Runtime v1 roadmap.
 
+### Chat Mode / Agent Mode + secure provider setup (v0.9.1)
+
+Studio pages carry a mode switcher:
+
+- **Chat Mode** — conversational and read-only. Ask the assistant to explain
+  the workflow, summarize what the agents did, explain why a run failed,
+  break down cost/token usage, or describe trust/risk. Action buttons
+  (Save/Validate/Run/+Agent/Delete) disable, and any action request gets
+  *"Switch to Agent Mode to perform this action."* The assistant is
+  deterministic and local (rule-based over AgentLab's own APIs — no LLM).
+- **Agent Mode** (default) — performs project actions: run workflows, edit
+  agents, `/run`, and `/connect <provider>`.
+
+**Connecting a provider safely.** Type `/connect gemini` (or `openai`,
+`anthropic`, `ollama`) in Agent Mode — or click **Configure** on a provider
+card in Settings → Model Gateway. Either way a **secure setup modal** opens
+with a password-style field: *never paste API keys into chat*. If a message
+looks like an API key, AgentLab blocks it with a warning and does not send or
+store it. Saved keys go to a local **gitignored** `.agentlab-secrets.json`
+(owner-only permissions) that overlays the environment — never the database,
+never logs, never events/replay, never API responses; the UI shows only the
+redacted hint (e.g. `Gemini configured: AIz...abcd`). `Remove saved key`
+clears the file entry and falls back to the env var if one is set.
+
 > v0.8 Agent Builder Studio supports simple DAG-style workflows and
 > local-first model execution through the existing Model Gateway. It does not
 > yet support templates, loops, hosted collaboration, arbitrary tools, cloud
 > key storage, or enterprise workflow governance.
 
-## Known limitations (v0.1–v0.9)
+## Known limitations (v0.1–v0.9.1)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key

@@ -178,6 +178,27 @@ Start from real agent-team blueprints instead of a blank canvas.
 - Deferred: Runtime v1 (workspaces, sandbox runtime, enforcement gateway,
   approvals, validators, real quarantine) — starts after v0.9 approval
 
+## v0.9.1 — Chat Mode / Agent Mode + secure provider setup ✅
+
+The Studio usability/safety patch before the Runtime v1 roadmap.
+
+- Mode switcher on Studio pages: **Chat Mode** (conversational, read-only —
+  action buttons disable, the assistant answers questions about the workflow,
+  runs, failures, cost/tokens, trust/risk) and **Agent Mode** (runs workflows,
+  edits, `/connect <provider>`, `/run`). Action requests in Chat Mode get
+  exactly "Switch to Agent Mode to perform this action."
+- `/connect gemini|openai|anthropic|ollama` opens a **secure setup modal**
+  (password field, optional base URL, Save locally / Test call / Remove saved
+  key) — raw keys never travel through chat; key-like text pasted into chat is
+  blocked with a warning and never sent or stored
+- Backend: `POST /model-gateway/providers/{p}/configure` + `/clear` store
+  secrets in a local **gitignored** `.agentlab-secrets.json` (chmod 0600,
+  overlays env, registry rebuilt immediately) — never the DB, never logged,
+  never in responses/events/replay; only the redacted hint is returned
+- Settings → Model Gateway cards gain a Configure button using the same modal
+- 8 pytest + 9 vitest; the assistant is deterministic/local (rule-based over
+  existing APIs — no LLM behind the chat)
+
 ## Runtime v1.0 — Runtime Workspaces (next, pending approval)
 
 The Runtime v1 roadmap begins after v0.9: workspaces, sandboxed runtime,
