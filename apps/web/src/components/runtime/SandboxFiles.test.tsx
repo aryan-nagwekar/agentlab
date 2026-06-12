@@ -175,6 +175,23 @@ describe("SandboxFilesPanel", () => {
     await waitFor(() => expect(sandboxDelete).toHaveBeenCalledWith("ws-abc123", "README.md"));
   });
 
+  it("surfaces the enforcement approval-required reason (v1.5)", async () => {
+    sandboxWrite.mockRejectedValue(
+      new Error(
+        "403 Forbidden — approval required (approval-sensitive-file): the file touches auth/payment/deployment-sensitive paths and needs human approval — approval resolution arrives in v1.6",
+      ),
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByText("+ New file"));
+    fireEvent.change(screen.getByPlaceholderText("src/index.html"), {
+      target: { value: "src/payment/checkout.ts" },
+    });
+    fireEvent.click(screen.getByText("Create"));
+    expect(
+      await screen.findByText(/approval required \(approval-sensitive-file\)/),
+    ).toBeTruthy();
+  });
+
   it("shows the safe error when a path is blocked", async () => {
     sandboxWrite.mockRejectedValue(
       new Error("400 Bad Request — blocked (traversal): path traversal ('..') is not allowed"),

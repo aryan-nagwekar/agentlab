@@ -695,6 +695,68 @@ export interface RuntimeTask {
   updated_at: string;
 }
 
+// --------------------------------------------------- enforcement (v1.5)
+
+export type EnforcementDecision =
+  | "allow"
+  | "block"
+  | "require_human_approval"
+  | "reroute_to_verifier"
+  | "retry_with_constraints"
+  | "quarantine_agent"
+  | "downgrade_permissions"
+  | "allow_readonly"
+  | "allow_sandbox_only";
+
+export interface EnforcementDecisionRecord {
+  decision_id: string;
+  action_id: string;
+  decision: EnforcementDecision;
+  matched_rules: Array<{ id: string; name: string }>;
+  trust_score_before: number | null;
+  risk_score_before: number | null;
+  reason: string;
+  evidence: Record<string, unknown>;
+  created_at: string;
+  action_type: string;
+  actor_type: string;
+  target: string;
+  action_status: string;
+}
+
+export interface RuntimePolicyRule {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  priority: number;
+  action_types: string[];
+  decision: EnforcementDecision;
+  reason: string;
+}
+
+export interface RuntimeActionProposal {
+  action_id: string;
+  workspace_id: string;
+  workflow_id: string | null;
+  task_id: string | null;
+  agent_id: string | null;
+  actor_type: string;
+  action_type: string;
+  target: string;
+  input_summary: string;
+  sensitivity_level: string;
+  expected_effect: string | null;
+  requires_approval_hint: boolean;
+  status: string;
+  decision: Omit<
+    EnforcementDecisionRecord,
+    "action_type" | "actor_type" | "target" | "action_status"
+  > | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

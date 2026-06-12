@@ -86,6 +86,23 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "runtime.task.blocked",
         "runtime.task.rerouted",
         "runtime.task.result_recorded",
+        # Action enforcement gateway (v1.5) — proposals, deterministic policy
+        # decisions, and execution markers. Approval RESOLUTION (v1.6), real
+        # quarantine (v1.7), and validators (v1.8) do not exist yet; their
+        # decisions are recorded here as explainable events only.
+        "action.proposed",
+        "policy.evaluated",
+        "policy.rule.matched",
+        "enforcement.allowed",
+        "enforcement.blocked",
+        "enforcement.approval_required",
+        "enforcement.rerouted",
+        "enforcement.retry_required",
+        "enforcement.permissions_downgraded",
+        "enforcement.quarantine_triggered",
+        "action.started",
+        "action.completed",
+        "action.failed",
     }
 )
 

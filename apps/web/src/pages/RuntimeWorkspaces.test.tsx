@@ -90,6 +90,9 @@ vi.mock("../lib/api", () => ({
     sandboxCommandHistory: () => Promise.resolve([]),
     // v1.4 workflows panel — default to no workflows here.
     workspaceWorkflows: () => Promise.resolve([]),
+    // v1.5 enforcement panel — default to no decisions here.
+    enforcementDecisions: () => Promise.resolve([]),
+    runtimePolicies: () => Promise.resolve([]),
   },
 }));
 

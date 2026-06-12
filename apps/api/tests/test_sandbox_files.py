@@ -312,13 +312,28 @@ def test_successful_operations_emit_events_in_order(sandbox_env):
     )
     client.delete(f"/api/runtime/workspaces/{wid}/files", params={"path": "src/app.py"})
 
+    # v1.5: mutations are wrapped by the enforcement gateway, so each one is
+    # bracketed by action/policy/enforcement events; reads are not wrapped.
+    _ENFORCED = [
+        "action.completed",
+        "{legacy}",
+        "action.started",
+        "enforcement.allowed",
+        "policy.evaluated",
+        "policy.rule.matched",
+        "action.proposed",
+    ]
+
+    def enforced(legacy: str) -> list[str]:
+        return [t.format(legacy=legacy) for t in _ENFORCED]
+
     types = _activity_types(client, wid)  # newest first
     assert types == [
-        "sandbox.file.deleted",
+        *enforced("sandbox.file.deleted"),
         "sandbox.file.read",
-        "sandbox.file.updated",
-        "sandbox.file.created",
-        "sandbox.directory.created",
+        *enforced("sandbox.file.updated"),
+        *enforced("sandbox.file.created"),
+        *enforced("sandbox.directory.created"),
         "sandbox.initialized",
         "workspace.created",
     ]
@@ -341,7 +356,18 @@ def test_sandbox_events_flow_into_timeline_and_replay(sandbox_env):
     )
 
     timeline = [e["event_type"] for e in client.get(f"/api/runs/{run_id}/events").json()]
-    assert timeline == ["workspace.created", "sandbox.initialized", "sandbox.file.created"]
+    assert timeline == [
+        "workspace.created",
+        "sandbox.initialized",
+        # v1.5 enforcement gateway wraps the write
+        "action.proposed",
+        "policy.rule.matched",
+        "policy.evaluated",
+        "enforcement.allowed",
+        "action.started",
+        "sandbox.file.created",
+        "action.completed",
+    ]
     replay = client.get(f"/api/runs/{run_id}/replay").json()
     assert [e["event_type"] for e in replay["events"]] == timeline
     for path in ("graph", "metrics", "scores"):

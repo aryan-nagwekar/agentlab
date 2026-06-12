@@ -16,8 +16,11 @@ import type {
   ModelTestCallRequest,
   Provider,
   ProviderHealth,
+  EnforcementDecisionRecord,
   Run,
+  RuntimeActionProposal,
   RuntimeArtifact,
+  RuntimePolicyRule,
   RuntimeTask,
   RuntimeWorkflow,
   RuntimeWorkflowPlan,
@@ -318,6 +321,27 @@ export const api = {
   ) =>
     request<RuntimeTask>(
       `/api/runtime/workspaces/${workspaceId}/workflows/${workflowId}/tasks/${taskId}/result`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  runtimePolicies: () => request<RuntimePolicyRule[]>("/api/runtime/policies"),
+  enforcementDecisions: (workspaceId: string, limit = 50) =>
+    request<EnforcementDecisionRecord[]>(
+      `/api/runtime/workspaces/${workspaceId}/enforcement/decisions${query({ limit })}`,
+    ),
+  proposeAction: (
+    workspaceId: string,
+    body: {
+      action_type: string;
+      target?: string;
+      actor_type?: string;
+      input_summary?: string;
+      sensitivity_level?: string;
+      agent_id?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) =>
+    request<RuntimeActionProposal>(
+      `/api/runtime/workspaces/${workspaceId}/actions/propose`,
       { method: "POST", body: JSON.stringify(body) },
     ),
   workspaceAgents: (workspaceId: string) =>

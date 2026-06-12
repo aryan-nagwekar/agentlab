@@ -54,8 +54,11 @@ EVENT_OUTPUT_CHARS = 2_000
 _METACHARACTERS = re.compile(r"[;&|<>`$\n\r]")
 
 # Obvious secret shapes scrubbed from captured output before it is stored or
-# returned. Conservative: API keys/tokens, not generic entropy.
+# returned. Conservative: API keys/tokens, not generic entropy. The leading
+# boundary stops false positives inside ordinary ids (e.g. "task-abc123"
+# must not match the sk- pattern).
 _SECRET_PATTERNS = re.compile(
+    r"(?<![A-Za-z0-9])"
     r"(sk-[A-Za-z0-9_-]{8,}|AIza[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}"
     r"|gho_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{12,}|xox[bap]-[A-Za-z0-9-]{10,})"
 )

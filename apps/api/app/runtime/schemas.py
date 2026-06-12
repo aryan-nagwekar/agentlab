@@ -398,6 +398,102 @@ class TaskResultIn(BaseModel):
     artifacts: list[str] = Field(default_factory=list, max_length=20)
 
 
+# -------------------------------------------------------------- enforcement (v1.5)
+
+
+class ActionProposalIn(BaseModel):
+    action_type: str = Field(min_length=1, max_length=64)
+    actor_type: str = Field(default="user")
+    target: str = Field(default="", max_length=512)
+    input_summary: str = Field(default="", max_length=2000)
+    sensitivity_level: str = Field(default="normal")
+    expected_effect: str | None = Field(default=None, max_length=500)
+    requires_approval_hint: bool = False
+    agent_id: str | None = Field(default=None, max_length=255)
+    workflow_id: str | None = Field(default=None, max_length=255)
+    task_id: str | None = Field(default=None, max_length=255)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    # The generic API only proposes/evaluates — it never executes anything.
+    evaluate: bool = True
+
+    @field_validator("actor_type")
+    @classmethod
+    def _actor_known(cls, value: str) -> str:
+        from .models import ACTOR_TYPES
+
+        if value not in ACTOR_TYPES:
+            raise ValueError(
+                f"unknown actor_type {value!r}; known: {', '.join(ACTOR_TYPES)}"
+            )
+        return value
+
+    @field_validator("sensitivity_level")
+    @classmethod
+    def _sensitivity_known(cls, value: str) -> str:
+        if value not in ("low", "normal", "high"):
+            raise ValueError("sensitivity_level must be low, normal, or high")
+        return value
+
+
+class ActionDecisionOut(RuntimeModel):
+    decision_id: str
+    action_id: str
+    decision: str
+    matched_rules: list[dict[str, str]] = Field(default_factory=list)
+    trust_score_before: float | None = None
+    risk_score_before: float | None = None
+    reason: str
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    @field_serializer("created_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class ActionProposalOut(RuntimeModel):
+    action_id: str
+    workspace_id: str
+    workflow_id: str | None = None
+    task_id: str | None = None
+    agent_id: str | None = None
+    actor_type: str
+    action_type: str
+    target: str
+    input_summary: str
+    sensitivity_level: str
+    expected_effect: str | None = None
+    requires_approval_hint: bool
+    status: str
+    decision: ActionDecisionOut | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    @field_serializer("created_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class DecisionRecordOut(ActionDecisionOut):
+    """A decision joined with its proposal's headline fields, for the panel."""
+
+    action_type: str
+    actor_type: str
+    target: str
+    action_status: str
+
+
+class PolicyRuleOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    enabled: bool
+    priority: int
+    action_types: list[str]
+    decision: str
+    reason: str
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

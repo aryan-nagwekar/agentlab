@@ -244,6 +244,92 @@ class RuntimeTaskResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+# Enforcement gateway (v1.5). Proposals/decisions are the explainable audit
+# record of what the gateway allowed, blocked, or flagged — approval
+# *resolution* (v1.6), validators (v1.8), and real quarantine (v1.7) are not
+# implemented; their decisions are recorded as events/metadata only.
+ACTION_STATUSES: tuple[str, ...] = (
+    "proposed",
+    "evaluated",
+    "allowed",
+    "blocked",
+    "approval_required",
+    "rerouted",
+    "failed",
+    "completed",
+)
+
+ACTOR_TYPES: tuple[str, ...] = ("user", "agent", "system", "workflow")
+
+DECISIONS: tuple[str, ...] = (
+    "allow",
+    "block",
+    "require_human_approval",
+    "reroute_to_verifier",
+    "retry_with_constraints",
+    "quarantine_agent",
+    "downgrade_permissions",
+    "allow_readonly",
+    "allow_sandbox_only",
+)
+
+# Decisions that permit execution to proceed (with existing v1.2/v1.3 safety
+# still running afterwards as defense in depth).
+EXECUTABLE_DECISIONS: frozenset[str] = frozenset(
+    {"allow", "allow_readonly", "allow_sandbox_only"}
+)
+
+
+class ActionProposal(Base):
+    """One proposed Runtime action, evaluated before anything executes."""
+
+    __tablename__ = "runtime_action_proposals"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("runtime_workspaces.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    workflow_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    agent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_type: Mapped[str] = mapped_column(String(32), default="user")
+    action_type: Mapped[str] = mapped_column(String(64))
+    # Stored redacted and bounded — raw inputs never persist.
+    target: Mapped[str] = mapped_column(String(512), default="")
+    input_summary: Mapped[str] = mapped_column(Text, default="")
+    sensitivity_level: Mapped[str] = mapped_column(String(16), default="normal")
+    expected_effect: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    requires_approval_hint: Mapped[bool] = mapped_column(default=False)
+    status: Mapped[str] = mapped_column(String(32), default="proposed")
+    meta: Mapped[dict] = mapped_column("metadata", JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class ActionDecision(Base):
+    """The deterministic, explainable verdict for one action proposal."""
+
+    __tablename__ = "runtime_action_decisions"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    action_id: Mapped[str] = mapped_column(
+        String(255),
+        ForeignKey("runtime_action_proposals.id", ondelete="CASCADE"),
+        unique=True,
+    )
+    workspace_id: Mapped[str] = mapped_column(String(255), index=True)
+    decision: Mapped[str] = mapped_column(String(32))
+    # [{"id": rule_id, "name": rule_name}, ...] — every rule that matched.
+    matched_rules: Mapped[list] = mapped_column(JSONType, default=list)
+    trust_score_before: Mapped[float | None] = mapped_column(nullable=True)
+    risk_score_before: Mapped[float | None] = mapped_column(nullable=True)
+    reason: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[dict] = mapped_column(JSONType, default=dict)
+    meta: Mapped[dict] = mapped_column("metadata", JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class WorkspaceAgent(Base):
     """An agent *definition* inside a workspace (v1.1).
 

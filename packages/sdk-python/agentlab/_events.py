@@ -118,6 +118,24 @@ RUNTIME_TASK_BLOCKED = "runtime.task.blocked"
 RUNTIME_TASK_REROUTED = "runtime.task.rerouted"
 RUNTIME_TASK_RESULT_RECORDED = "runtime.task.result_recorded"
 
+# Action enforcement gateway (v1.5) — proposals, deterministic policy
+# decisions, and execution markers emitted by the server's gateway. Approval
+# resolution (v1.6), real quarantine (v1.7), and validators (v1.8) do not
+# exist yet; their decisions are recorded as explainable events only.
+ACTION_PROPOSED = "action.proposed"
+POLICY_EVALUATED = "policy.evaluated"
+POLICY_RULE_MATCHED = "policy.rule.matched"
+ENFORCEMENT_ALLOWED = "enforcement.allowed"
+ENFORCEMENT_BLOCKED = "enforcement.blocked"
+ENFORCEMENT_APPROVAL_REQUIRED = "enforcement.approval_required"
+ENFORCEMENT_REROUTED = "enforcement.rerouted"
+ENFORCEMENT_RETRY_REQUIRED = "enforcement.retry_required"
+ENFORCEMENT_PERMISSIONS_DOWNGRADED = "enforcement.permissions_downgraded"
+ENFORCEMENT_QUARANTINE_TRIGGERED = "enforcement.quarantine_triggered"
+ACTION_STARTED = "action.started"
+ACTION_COMPLETED = "action.completed"
+ACTION_FAILED = "action.failed"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -190,6 +208,19 @@ EVENT_TYPES: frozenset[str] = frozenset(
         RUNTIME_TASK_BLOCKED,
         RUNTIME_TASK_REROUTED,
         RUNTIME_TASK_RESULT_RECORDED,
+        ACTION_PROPOSED,
+        POLICY_EVALUATED,
+        POLICY_RULE_MATCHED,
+        ENFORCEMENT_ALLOWED,
+        ENFORCEMENT_BLOCKED,
+        ENFORCEMENT_APPROVAL_REQUIRED,
+        ENFORCEMENT_REROUTED,
+        ENFORCEMENT_RETRY_REQUIRED,
+        ENFORCEMENT_PERMISSIONS_DOWNGRADED,
+        ENFORCEMENT_QUARANTINE_TRIGGERED,
+        ACTION_STARTED,
+        ACTION_COMPLETED,
+        ACTION_FAILED,
     }
 )
 

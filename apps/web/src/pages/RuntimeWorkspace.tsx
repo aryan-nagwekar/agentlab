@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { EnforcementPanel } from "../components/runtime/EnforcementPanel";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
 import { WorkflowsPanel } from "../components/runtime/WorkflowsPanel";
@@ -228,6 +229,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Sandbox commands (v1.3) */}
           <SandboxCommandsPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Enforcement gateway (v1.5) */}
+          <EnforcementPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}

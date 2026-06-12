@@ -247,8 +247,10 @@ def test_output_caps_and_truncation_flag(sandbox_env, monkeypatch):
 def test_secret_like_output_is_redacted(sandbox_env, monkeypatch):
     client, wid, _ = sandbox_env
     _allow_test_command(monkeypatch)
+    # The secret is constructed at runtime: a literal token in the *input*
+    # would be blocked by the v1.5 enforcement gateway before execution.
     result = _run(
-        client, wid, "python3", ["-c", "print('key: sk-abcdef1234567890XYZ')"]
+        client, wid, "python3", ["-c", "print('key: sk-' + 'abcdef1234567890XYZ')"]
     ).json()
     assert "sk-abcdef1234567890XYZ" not in result["stdout"]
     assert "[redacted]" in result["stdout"]
@@ -284,10 +286,22 @@ def test_command_events_flow_into_timeline_and_replay(sandbox_env):
     assert timeline == [
         "workspace.created",
         "sandbox.initialized",
+        # allowed pwd: enforcement decides, then the v1.3 runner executes
+        "action.proposed",
+        "policy.rule.matched",
+        "policy.evaluated",
+        "enforcement.allowed",
+        "action.started",
         "sandbox.command.proposed",
         "sandbox.command.allowed",
         "sandbox.command.started",
         "sandbox.command.completed",
+        "action.completed",
+        # blocked rm: enforcement refuses pre-execution; legacy audit parity
+        "action.proposed",
+        "policy.rule.matched",
+        "policy.evaluated",
+        "enforcement.blocked",
         "sandbox.command.proposed",
         "sandbox.command.blocked",
     ]

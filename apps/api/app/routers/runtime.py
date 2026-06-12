@@ -8,6 +8,8 @@ free via the workspace's activity run.
 """
 from __future__ import annotations
 
+import shlex
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,9 +17,11 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import commands, orchestration, sandbox, service
+from ..runtime import commands, enforcement, orchestration, sandbox, service
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import (
+    ActionDecision,
+    ActionProposal,
     RuntimeTask,
     RuntimeWorkflow,
     RuntimeWorkflowPlan,
@@ -25,6 +29,9 @@ from ..runtime.models import (
     WorkspaceAgent,
 )
 from ..runtime.schemas import (
+    ActionDecisionOut,
+    ActionProposalIn,
+    ActionProposalOut,
     AgentDefinitionIn,
     AgentDefinitionOut,
     AgentDefinitionPatch,
@@ -33,6 +40,8 @@ from ..runtime.schemas import (
     AllowedCommandOut,
     ArtifactIn,
     ArtifactOut,
+    DecisionRecordOut,
+    PolicyRuleOut,
     CommandRunIn,
     CommandRunOut,
     FileDeleteOut,
@@ -325,7 +334,14 @@ async def _sandbox_call(request: Request, workspace_id: str, fn):
     kind, payload, stored, project_id = await run_in_threadpool(_run)
     await _broadcast(request, project_id, stored)
     if kind == "blocked":
-        raise HTTPException(status_code=400, detail=f"blocked ({payload.rule}): {payload.reason}")
+        # EnforcementRefused (v1.5) may override presentation (e.g. 403
+        # "approval required (...)"); plain safety blocks keep the v1.2/v1.3
+        # format and status.
+        raise HTTPException(
+            status_code=getattr(payload, "http_status", 400),
+            detail=getattr(payload, "detail_override", None)
+            or f"blocked ({payload.rule}): {payload.reason}",
+        )
     if kind == "error":
         raise HTTPException(status_code=payload.status_code, detail=payload.detail)
     return payload
@@ -399,11 +415,21 @@ async def write_file(
     workspace_id: str, body: FileWriteIn, request: Request
 ) -> FileWriteOut:
     root = _workspaces_root(request)
-    return await _sandbox_call(
-        request,
-        workspace_id,
-        lambda s, w: sandbox.write_file(s, w, root, body.path, body.content),
-    )
+
+    def _write(session: Session, workspace: Workspace):
+        # v1.5: enforcement decides first; the v1.2 path safety inside
+        # write_file still runs after an allow (defense in depth).
+        return enforcement.guarded_execute(
+            session,
+            workspace,
+            root,
+            action_type="file.write",
+            target=body.path,
+            legacy_audit=enforcement.file_legacy_audit(session, workspace, "write", body.path),
+            execute=lambda: sandbox.write_file(session, workspace, root, body.path, body.content),
+        )
+
+    return await _sandbox_call(request, workspace_id, _write)
 
 
 @router.post(
@@ -415,9 +441,19 @@ async def make_directory(
     workspace_id: str, body: MkdirIn, request: Request
 ) -> MkdirOut:
     root = _workspaces_root(request)
-    return await _sandbox_call(
-        request, workspace_id, lambda s, w: sandbox.make_dir(s, w, root, body.path)
-    )
+
+    def _mkdir(session: Session, workspace: Workspace):
+        return enforcement.guarded_execute(
+            session,
+            workspace,
+            root,
+            action_type="directory.create",
+            target=body.path,
+            legacy_audit=enforcement.file_legacy_audit(session, workspace, "mkdir", body.path),
+            execute=lambda: sandbox.make_dir(session, workspace, root, body.path),
+        )
+
+    return await _sandbox_call(request, workspace_id, _mkdir)
 
 
 @router.delete(
@@ -427,9 +463,19 @@ async def make_directory(
 )
 async def delete_file(workspace_id: str, request: Request, path: str) -> FileDeleteOut:
     root = _workspaces_root(request)
-    return await _sandbox_call(
-        request, workspace_id, lambda s, w: sandbox.delete_path(s, w, root, path)
-    )
+
+    def _delete(session: Session, workspace: Workspace):
+        return enforcement.guarded_execute(
+            session,
+            workspace,
+            root,
+            action_type="file.delete",
+            target=path,
+            legacy_audit=enforcement.file_legacy_audit(session, workspace, "delete", path),
+            execute=lambda: sandbox.delete_path(session, workspace, root, path),
+        )
+
+    return await _sandbox_call(request, workspace_id, _delete)
 
 
 # ---------------------------------------------------------- sandbox commands (v1.3)
@@ -455,22 +501,34 @@ async def run_sandbox_command(
     workspace_id: str, body: CommandRunIn, request: Request
 ) -> CommandRunOut:
     """Evaluate and (only if allowed) execute one allowlisted command inside
-    the workspace sandbox. Blocked commands return 400 after their audit
-    events are committed — nothing is ever executed for them."""
+    the workspace sandbox. v1.5: the enforcement gateway decides first; the
+    v1.3 command safety inside run_command still runs after an allow
+    (defense in depth). Blocked commands never execute."""
     root = _workspaces_root(request)
-    return await _sandbox_call(
-        request,
-        workspace_id,
-        lambda s, w: commands.run_command(
-            s,
-            w,
+
+    def _run(session: Session, workspace: Workspace):
+        return enforcement.guarded_execute(
+            session,
+            workspace,
             root,
-            command=body.command,
-            args=body.args,
-            timeout_seconds=body.timeout_seconds,
-            working_subdir=body.working_subdir,
-        ),
-    )
+            action_type="command.run",
+            target=shlex.join([body.command, *body.args]),
+            metadata={"command": body.command, "args": body.args},
+            legacy_audit=enforcement.command_legacy_audit(
+                session, workspace, body.command, body.args
+            ),
+            execute=lambda: commands.run_command(
+                session,
+                workspace,
+                root,
+                command=body.command,
+                args=body.args,
+                timeout_seconds=body.timeout_seconds,
+                working_subdir=body.working_subdir,
+            ),
+        )
+
+    return await _sandbox_call(request, workspace_id, _run)
 
 
 @router.get(
@@ -496,6 +554,161 @@ def command_history(
         .all()
     )
     return [EventOut.model_validate(event) for event in events]
+
+
+# -------------------------------------------------------------- enforcement (v1.5)
+
+
+def _decision_out(decision: ActionDecision) -> ActionDecisionOut:
+    return ActionDecisionOut(
+        decision_id=decision.id,
+        action_id=decision.action_id,
+        decision=decision.decision,
+        matched_rules=decision.matched_rules or [],
+        trust_score_before=decision.trust_score_before,
+        risk_score_before=decision.risk_score_before,
+        reason=decision.reason,
+        evidence=decision.evidence or {},
+        created_at=decision.created_at,
+    )
+
+
+def _proposal_out(session: Session, proposal: ActionProposal) -> ActionProposalOut:
+    decision = enforcement.get_decision(session, proposal.id)
+    return ActionProposalOut(
+        action_id=proposal.id,
+        workspace_id=proposal.workspace_id,
+        workflow_id=proposal.workflow_id,
+        task_id=proposal.task_id,
+        agent_id=proposal.agent_id,
+        actor_type=proposal.actor_type,
+        action_type=proposal.action_type,
+        target=proposal.target,
+        input_summary=proposal.input_summary,
+        sensitivity_level=proposal.sensitivity_level,
+        expected_effect=proposal.expected_effect,
+        requires_approval_hint=proposal.requires_approval_hint,
+        status=proposal.status,
+        decision=_decision_out(decision) if decision else None,
+        metadata=proposal.meta or {},
+        created_at=proposal.created_at,
+    )
+
+
+@router.get("/runtime/policies", response_model=list[PolicyRuleOut])
+def list_policies() -> list[PolicyRuleOut]:
+    return [PolicyRuleOut(**entry) for entry in enforcement.policy_registry()]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/actions/propose",
+    response_model=ActionProposalOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def propose_action(
+    workspace_id: str, body: ActionProposalIn, request: Request
+) -> ActionProposalOut:
+    """Generic proposal/evaluation — records the explainable decision but
+    NEVER executes anything, whatever the outcome."""
+    root = _workspaces_root(request)
+
+    def _propose(session: Session, workspace: Workspace):
+        proposal, _decision, stored = enforcement.propose_action(
+            session,
+            workspace,
+            root,
+            actor_type=body.actor_type,
+            action_type=body.action_type,
+            target=body.target,
+            input_summary=body.input_summary,
+            sensitivity_level=body.sensitivity_level,
+            expected_effect=body.expected_effect,
+            requires_approval_hint=body.requires_approval_hint,
+            metadata=body.metadata,
+            agent_id=body.agent_id,
+            workflow_id=body.workflow_id,
+            task_id=body.task_id,
+            evaluate_now=body.evaluate,
+        )
+        return _proposal_out(session, proposal), stored
+
+    return await _sandbox_call(request, workspace_id, _propose)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/actions",
+    response_model=list[ActionProposalOut],
+)
+def list_actions(
+    workspace_id: str, session: Session = Depends(get_session), limit: int = 50
+) -> list[ActionProposalOut]:
+    _require_workspace(session, workspace_id)
+    return [
+        _proposal_out(session, p)
+        for p in enforcement.list_proposals(session, workspace_id, limit)
+    ]
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/actions/{action_id}",
+    response_model=ActionProposalOut,
+)
+def get_action(
+    workspace_id: str, action_id: str, session: Session = Depends(get_session)
+) -> ActionProposalOut:
+    _require_workspace(session, workspace_id)
+    proposal = enforcement.get_proposal(session, workspace_id, action_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="action not found")
+    return _proposal_out(session, proposal)
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/actions/{action_id}/evaluate",
+    response_model=ActionProposalOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def evaluate_action(
+    workspace_id: str, action_id: str, request: Request
+) -> ActionProposalOut:
+    root = _workspaces_root(request)
+
+    def _evaluate(session: Session, workspace: Workspace):
+        proposal = enforcement.get_proposal(session, workspace_id, action_id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail="action not found")
+        if proposal.status != "proposed":
+            raise sandbox.SandboxError(
+                f"action is already {proposal.status}", status_code=409
+            )
+        _decision, stored = enforcement.evaluate_action(session, workspace, root, proposal)
+        return _proposal_out(session, proposal), stored
+
+    return await _sandbox_call(request, workspace_id, _evaluate)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/enforcement/decisions",
+    response_model=list[DecisionRecordOut],
+)
+def list_enforcement_decisions(
+    workspace_id: str, session: Session = Depends(get_session), limit: int = 50
+) -> list[DecisionRecordOut]:
+    _require_workspace(session, workspace_id)
+    records = []
+    for decision in enforcement.list_decisions(session, workspace_id, limit):
+        proposal = session.get(ActionProposal, decision.action_id)
+        records.append(
+            DecisionRecordOut(
+                **_decision_out(decision).model_dump(),
+                action_type=proposal.action_type if proposal else "unknown",
+                actor_type=proposal.actor_type if proposal else "unknown",
+                target=proposal.target if proposal else "",
+                action_status=proposal.status if proposal else "unknown",
+            )
+        )
+    return records
 
 
 # ------------------------------------------------------------ orchestration (v1.4)
@@ -663,12 +876,29 @@ async def create_workflow_plan(
 
 def _lifecycle_route(action: str):
     async def _handler(workspace_id: str, workflow_id: str, request: Request) -> WorkflowOut:
+        root = _workspaces_root(request)
+
         def _transition(session: Session, workspace: Workspace):
             workflow = _require_workflow(session, workspace_id, workflow_id)
-            workflow, stored = orchestration.transition_workflow(
-                session, workspace, workflow, action
-            )
-            return _workflow_out(session, workflow), stored
+
+            def _do():
+                wf, stored = orchestration.transition_workflow(
+                    session, workspace, workflow, action
+                )
+                return _workflow_out(session, wf), stored
+
+            if action == "start":
+                # v1.5: starting a workflow is an enforced (metadata) action.
+                return enforcement.guarded_execute(
+                    session,
+                    workspace,
+                    root,
+                    action_type="workflow.start",
+                    target=workflow.id,
+                    workflow_id=workflow.id,
+                    execute=_do,
+                )
+            return _do()
 
         return await _sandbox_call(request, workspace_id, _transition)
 
@@ -738,15 +968,34 @@ async def record_task_result(
     body: TaskResultIn,
     request: Request,
 ) -> TaskOut:
+    root = _workspaces_root(request)
+
     def _record(session: Session, workspace: Workspace):
         workflow = _require_workflow(session, workspace_id, workflow_id)
         task = orchestration.get_task(session, workflow_id, task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
-        _result, stored = orchestration.record_result(
-            session, workspace, workflow, task, output=body.output, artifacts=body.artifacts
+
+        def _do():
+            _result, stored = orchestration.record_result(
+                session, workspace, workflow, task,
+                output=body.output, artifacts=body.artifacts,
+            )
+            return _task_out(session, task), stored
+
+        # v1.5: recording a result is an enforced (metadata) action. Manual
+        # user recording is allowed; agent-actor recording of flagged tasks
+        # is gated via the generic proposal API.
+        return enforcement.guarded_execute(
+            session,
+            workspace,
+            root,
+            action_type="task.result_record",
+            target=task.id,
+            workflow_id=workflow.id,
+            task_id=task.id,
+            execute=_do,
         )
-        return _task_out(session, task), stored
 
     return await _sandbox_call(request, workspace_id, _record)
 
