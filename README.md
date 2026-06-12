@@ -57,7 +57,8 @@ inspect, and (soon) replay.
 | Project templates — six prebuilt agent-team blueprints (code review, research, resume tailoring, SOC investigation, customer support, data analysis) with preview + one-click "create workflow"; template workflows are ordinary Studio workflows on keyless mock defaults | ✅ |
 | Chat Mode / Agent Mode — Studio mode switcher: Chat is read-only Q&A (workflow, runs, failures, cost, trust/risk), Agent performs actions; `/connect <provider>` opens a secure key-setup modal; key-like pastes into chat are blocked; keys live in a local gitignored file, redacted everywhere | ✅ |
 | Runtime Workspaces (v1.0 foundation) — workspace metadata, status lifecycle, artifact registry, and activity history as normal AgentLab events (timeline/replay work unchanged); list + detail UI with status banner, goal panel, activity feed, health placeholder | ✅ |
-| Runtime v1.1+ — workspace agent definitions/permissions, then sandbox runtime, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
+| Workspace Agent Definitions + Permissions (v1.1) — agents inside a workspace with role/prompt/model metadata, a 13-flag permission profile (risky flags warned), status lifecycle, 7 templates, and `workspace_agent.*` events into the activity run (timeline/replay work unchanged) | ✅ |
+| Runtime v1.2+ — sandboxed file runtime, then command runner, enforcement gateway, approvals, validators, real quarantine | 🔜 gated |
 
 ## Architecture
 
@@ -484,7 +485,36 @@ Chat Mode (v0.9.1) renders all Runtime pages read-only.
 > commands, edit files, sandbox code, enforce policies, or approve actions —
 > those arrive in later Runtime versions per the master plan.
 
-## Known limitations (v0.1–v1.0)
+## Workspace Agents (v1.1)
+
+A workspace can now contain **agent definitions** — Planner, UI, Backend
+Coder, Researcher, Marketing, Verifier, Safety Reviewer. Each agent carries a
+role, description, system prompt, a Model Gateway provider+model (keyless
+**mock** by default), a **permission profile** of 13 flags
+(`can_read_files`, `can_write_files`, `can_delete_files`, `can_run_commands`,
+`can_call_web`, `can_access_database`, `can_modify_auth`, `can_modify_payment`,
+`can_modify_deployment`, `can_send_to_agents`, `can_send_to_user`,
+`can_save_product_data`, `can_use_unverified_research`), budget ceilings, a
+`requires_verification` flag, trust/risk scores, and a status
+(`ready / running / caution / suspicious / quarantined / disabled`).
+
+In the **Agents** panel on a workspace, click **+ Add agent** to create one
+from a template, then **Edit** to adjust metadata, permissions, and status.
+Sensitive permissions (write/delete files, run commands, database, auth,
+payment, deployment) are flagged with a ⚠ badge and a "future enforcement
+gateway will gate these" note. Every change emits a `workspace_agent.*` event
+(`created`, `updated`, `permission_changed`, `status_changed`, `deleted`,
+`template_instantiated`) into the workspace activity run, so the activity
+feed, timeline, and Replay show the agent's lifecycle. Chat Mode disables all
+agent mutations.
+
+> v1.1 agents are **definitions and permissions only**. They do not execute,
+> run commands, write files, call tools, enforce policy, request approvals,
+> run validators, or quarantine at runtime — `quarantined`/`disabled` gate
+> *assignment* in the UI as metadata. Real execution and enforcement arrive in
+> later Runtime versions.
+
+## Known limitations (v0.1–v1.1)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key

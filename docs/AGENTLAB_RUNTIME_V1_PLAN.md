@@ -225,7 +225,38 @@ v1.0 is complete only if:
 - Tests pass
 - Docs are updated
 
+## v1.1 — Workspace Agent Definitions + Permissions ✅ (shipped)
+
+First-class agent definitions inside a workspace. **Metadata and permissions
+only** — agents do not execute, run commands, write files, call tools, enforce
+policy, request approvals, run validators, or quarantine at runtime.
+
+- **Model** `WorkspaceAgent` (`runtime_workspace_agents`, composite PK
+  `(workspace_id, id)`): name, role, description, system_prompt,
+  model_provider/model_name (Model Gateway vocabulary; keyless mock default),
+  allowed_tools/denied_tools, a 13-flag permission profile, budget ceilings
+  (max_tokens_per_call / max_calls_per_run / max_tool_calls_per_run),
+  requires_verification, trust_score/risk_score, status, metadata.
+- **Statuses** ready / running / caution / suspicious / quarantined /
+  disabled. quarantined & disabled gate *assignment* in the UI only.
+- **Permissions** can_read_files, can_write_files, can_delete_files,
+  can_run_commands, can_call_web, can_access_database, can_modify_auth,
+  can_modify_payment, can_modify_deployment, can_send_to_agents,
+  can_send_to_user, can_save_product_data, can_use_unverified_research.
+  Risky flags (write/delete files, run commands, database, auth, payment,
+  deployment) are warned in the UI; all are future-enforcement inputs.
+- **Templates** (data, not a runtime): Planner, UI, Backend Coder, Researcher,
+  Marketing, Verifier, Safety Reviewer.
+- **Events** workspace_agent.created / updated / permission_changed /
+  status_changed / deleted / template_instantiated — shared registry (API +
+  SDK), emitted into the workspace activity run so timeline/replay work.
+- **APIs** `/runtime/workspaces/{id}/agents` CRUD, `/runtime/agent-templates`,
+  `/runtime/workspaces/{id}/agents/from-template/{template_id}`.
+- **UI** Agents panel on workspace detail: template picker, agent cards
+  (role/model/status/trust/risk/permissions with risky flags warned), inline
+  editor, delete; quarantined/disabled dimmed; Chat Mode disables mutations.
+
 ## Next milestone (gated on explicit approval)
 
-**v1.1 — Workspace Agent Definitions + Permissions** (spec to be provided by
-the owner; do not start without approval).
+**v1.2 — Sandboxed File Runtime** (spec to be provided by the owner; do not
+start without approval).

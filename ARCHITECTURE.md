@@ -545,6 +545,47 @@ DELETE archives rather than destroys — append-only history discipline.
 shell, file writes/edits, sandboxing, orchestration, enforcement gateway,
 policy blocking, human approvals, validators, real quarantine.
 
+## Workspace Agent Definitions + Permissions (v1.1 — shipped, metadata only)
+
+A **WorkspaceAgent** (`runtime_workspace_agents`, composite PK
+`(workspace_id, id)`, CASCADE) is an agent *definition* inside a workspace:
+role, description, system prompt, Model Gateway `model_provider`/`model_name`
+(keyless mock defaults — the v0.7 gateway vocabulary is reused, not forked),
+`allowed_tools`/`denied_tools`, a **permission profile**, budget ceilings
+(`max_tokens_per_call`/`max_calls_per_run`/`max_tool_calls_per_run`),
+`requires_verification`, `trust_score`/`risk_score`, and a `status`
+(`ready / running / caution / suspicious / quarantined / disabled`). The row
+is metadata: nothing executes, writes files, calls tools, meters budgets, or
+enforces a permission. `quarantined`/`disabled` gate *assignment* in the UI
+only — there is no real runtime quarantine.
+
+**Permission profile.** Thirteen canonical boolean flags
+(`AGENT_PERMISSION_KEYS`) stored as one JSON dict; a partial update is overlaid
+onto the conservative default (read + agent/user messaging) so every stored
+profile carries the full key set. `RISKY_PERMISSION_KEYS` (write/delete files,
+run commands, database, auth, payment, deployment) drives the ⚠ warning badges
+and "a future enforcement gateway will gate these" copy — these are
+future-enforcement inputs, not live gates.
+
+**Templates are data.** `app/runtime/agent_templates.py` holds seven
+blueprints (Planner, UI, Backend Coder, Researcher, Marketing, Verifier,
+Safety Reviewer). Instantiating one materializes a normal WorkspaceAgent (no
+special run format); per-role `risk_notes` and `future_approval_required`
+ride along as agent metadata.
+
+**Events, same pipeline.** Create / update / permission_changed /
+status_changed / deleted / template_instantiated each emit a
+`workspace_agent.*` event (added to the shared registry in API **and** SDK)
+through `collector.process_events` into the workspace's activity run — so the
+activity feed, timeline, and Replay reconstruct the agent lifecycle with zero
+special-casing. A field-only edit rolls up to `workspace_agent.updated`;
+permission and status changes get their own event types. Deleting an agent
+removes the definition row but the event log keeps the history.
+
+**Explicit non-goals for v1.1** (later Runtime versions): agent execution,
+command runner, shell, real file writes, orchestration, enforcement gateway,
+approvals, validators, real runtime quarantine, the bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

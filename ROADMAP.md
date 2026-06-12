@@ -222,12 +222,41 @@ run commands, write files, sandbox code, enforce policy, or approve actions.
   Chat Mode renders it all read-only
 - 11 pytest + 9 vitest
 
-## Runtime v1.1 — Workspace Agent Definitions + Permissions (next, pending approval)
+## Runtime v1.1 — Workspace Agent Definitions + Permissions ✅
+
+First-class **agent definitions inside a workspace**. **Metadata only** — an
+agent here describes what a future Runtime version will be allowed to run; it
+does not execute, write files, call tools, or enforce anything.
+
+- `app/runtime/`: WorkspaceAgent model (own table; events log stays the source
+  of truth) with role / description / system prompt, Model Gateway
+  provider+model metadata, a 13-flag permission profile, budget ceilings
+  (max tokens/calls/tool-calls), `requires_verification`, trust/risk fields,
+  and a status lifecycle (ready / running / caution / suspicious /
+  quarantined / disabled — quarantined & disabled gate *assignment* only, no
+  real runtime quarantine)
+- `app/runtime/agent_templates.py`: seven blueprints (Planner, UI, Backend
+  Coder, Researcher, Marketing, Verifier, Safety Reviewer) — data, not a
+  runtime; instantiating one materializes a normal WorkspaceAgent. Keyless
+  mock defaults; risk notes + future-approval flags carried as metadata
+- Every action emits a `workspace_agent.*` event (created / updated /
+  permission_changed / status_changed / deleted / template_instantiated —
+  added to the shared registry, API + SDK) into the workspace's activity run,
+  so activity / timeline / replay work through the normal pipeline
+- Endpoints: `/runtime/workspaces/{id}/agents` CRUD, `/agent-templates`,
+  `/agents/from-template/{template_id}`
+- UI: Agents panel on the workspace detail page — template picker, agent
+  cards (role, model/provider, status badge, trust/risk, permission badges
+  with risky ones flagged), inline editor (metadata + permission toggles +
+  status), delete; quarantined/disabled dimmed; Chat Mode disables mutations
+- 18 pytest + 6 vitest
+
+## Runtime v1.2 — Sandboxed File Runtime (next, pending approval)
 
 Spec to be provided by the owner. Later Runtime versions own: sandbox
-execution, command runner, file writes, orchestration, enforcement gateway,
-policy blocking, human approvals, validators, real quarantine, and the
-bottle-selling website demo. None of these are started.
+execution, command runner, real file writes, orchestration, enforcement
+gateway, policy blocking, human approvals, validators, real quarantine, and
+the bottle-selling website demo. None of these are started.
 
 ## Later (unscheduled)
 
