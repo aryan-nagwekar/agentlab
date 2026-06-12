@@ -6,6 +6,7 @@ import { api } from "../../lib/api";
 import { fmtCost, fmtMs, fmtNum } from "../../lib/format";
 import type { ModelCallResult, Provider } from "../../lib/types";
 import { Badge, Card, ErrorNote, SectionLabel, Spinner, StatusDot } from "../ui";
+import { ProviderSetupModal, isConfigurableProvider } from "./ProviderSetupModal";
 
 const STATUS_STYLE: Record<string, { dot: string; label: string; badge: string }> = {
   available: { dot: "bg-emerald-400", label: "Available", badge: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" },
@@ -16,6 +17,7 @@ const STATUS_STYLE: Record<string, { dot: string; label: string; badge: string }
 
 export function ModelGateway() {
   const { data, loading, error, refetch } = useFetch(() => api.providers(), []);
+  const [configuring, setConfiguring] = useState<string | null>(null);
 
   if (loading) return <Spinner label="Checking providers…" />;
   if (error) return <ErrorNote message={error} />;
@@ -24,10 +26,11 @@ export function ModelGateway() {
   return (
     <div className="space-y-6">
       <Card className="border-indigo-400/20 bg-indigo-500/5 px-4 py-3 text-[12.5px] leading-6 text-zinc-400">
-        <span className="font-medium text-indigo-300">Local-first BYOK.</span> Provider keys are
-        read from the server's environment (<code className="font-mono text-[11.5px]">.env</code>),
-        held only in memory, and <span className="text-zinc-300">never stored, returned to the
-        browser, or logged</span> — only a redacted hint is shown. The{" "}
+        <span className="font-medium text-indigo-300">Local-first BYOK.</span> Provider keys come
+        from the server's environment (<code className="font-mono text-[11.5px]">.env</code>) or
+        the secure setup below (stored in a local gitignored file), are held only in memory, and{" "}
+        <span className="text-zinc-300">never stored in the database, returned to the browser, or
+        logged</span> — only a redacted hint is shown. Never paste a key into chat; the{" "}
         <span className="font-mono text-[11.5px]">mock</span> provider needs no key.
       </Card>
 
@@ -35,24 +38,48 @@ export function ModelGateway() {
         <SectionLabel>Providers</SectionLabel>
         <div className="grid gap-3 sm:grid-cols-2">
           {providers.map((p) => (
-            <ProviderCard key={p.name} provider={p} />
+            <ProviderCard key={p.name} provider={p} onConfigure={() => setConfiguring(p.name)} />
           ))}
         </div>
       </div>
 
       <TestCall providers={providers} onResult={() => refetch(true)} />
+      {configuring ? (
+        <ProviderSetupModal
+          provider={configuring}
+          onClose={() => setConfiguring(null)}
+          onSaved={() => refetch(true)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function ProviderCard({ provider }: { provider: Provider }) {
+function ProviderCard({
+  provider,
+  onConfigure,
+}: {
+  provider: Provider;
+  onConfigure: () => void;
+}) {
   const style = STATUS_STYLE[provider.status] ?? STATUS_STYLE.error;
   return (
     <Card className="px-4 py-3.5">
       <div className="flex items-center gap-2">
         <StatusDot className={style.dot} />
         <span className="text-[14px] font-semibold capitalize text-zinc-100">{provider.name}</span>
-        <Badge className={clsx("ml-auto", style.badge)}>{style.label}</Badge>
+        <div className="ml-auto flex items-center gap-1.5">
+          {isConfigurableProvider(provider.name) ? (
+            <button
+              type="button"
+              onClick={onConfigure}
+              className="rounded-md border border-edge bg-surface-2 px-2 py-0.5 text-[10.5px] font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+            >
+              Configure
+            </button>
+          ) : null}
+          <Badge className={style.badge}>{style.label}</Badge>
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-zinc-500">
         <span>{provider.configured ? "configured" : "not configured"}</span>

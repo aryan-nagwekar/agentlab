@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { Badge, Card, EmptyState, ErrorNote, PageHeader, Spinner } from "../components/ui";
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/format";
+import { useAppStore } from "../store/app";
 
 const RUN_BADGE: Record<string, string> = {
   completed: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
@@ -16,6 +18,7 @@ export function StudioPage() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const chatMode = useAppStore((s) => s.studioMode) === "chat";
 
   const createWorkflow = async () => {
     setCreating(true);
@@ -58,6 +61,7 @@ export function StudioPage() {
         subtitle="Build multi-agent workflows, run them through the Model Gateway, and debug them with the full AgentLab toolchain"
         actions={
           <>
+            <ModeSwitcher />
             <Link
               to="/studio/templates"
               className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
@@ -67,7 +71,8 @@ export function StudioPage() {
             <button
               type="button"
               onClick={createWorkflow}
-              disabled={creating}
+              disabled={creating || chatMode}
+              title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
               className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
             >
               {creating ? "Creating…" : "+ New Workflow"}

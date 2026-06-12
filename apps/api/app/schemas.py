@@ -325,6 +325,14 @@ class ProviderListOut(BaseModel):
     providers: list[ProviderOut]
 
 
+class ProviderConfigureIn(BaseModel):
+    # The secret enters the system only here, from the secure setup modal —
+    # never through chat messages or event payloads. It is stored in the local
+    # gitignored secrets file and is never echoed back.
+    api_key: str | None = Field(default=None, min_length=1, max_length=512)
+    base_url: str | None = Field(default=None, min_length=1, max_length=512)
+
+
 class ModelTestCallIn(BaseModel):
     provider: str
     model_name: str

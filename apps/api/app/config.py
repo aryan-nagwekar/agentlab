@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str = Field(
         default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "AGENTLAB_OPENROUTER_API_KEY")
     )
+    # Local-first provider secrets configured through the UI (v0.9.1).
+    # Gitignored JSON file, chmod 0600; values overlay the env vars above.
+    secrets_file: str = ".agentlab-secrets.json"
 
     @property
     def api_key_list(self) -> list[str]:

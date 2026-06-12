@@ -14,6 +14,7 @@ import type {
   ModelCallResult,
   ModelTestCallRequest,
   Provider,
+  ProviderHealth,
   Run,
   RunCost,
   RunGraph,
@@ -119,6 +120,17 @@ export const api = {
     request<RunRiskSummary>(`/api/runs/${runId}/risk-summary`),
   runCosts: (runId: string) => request<RunCost>(`/api/runs/${runId}/costs`),
   providers: () => request<{ providers: Provider[] }>("/api/model-gateway/providers"),
+  // The api_key travels only from the secure setup modal to this endpoint —
+  // never through chat messages — and the response is redacted.
+  configureProvider: (provider: string, body: { api_key?: string; base_url?: string }) =>
+    request<ProviderHealth>(`/api/model-gateway/providers/${provider}/configure`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  clearProvider: (provider: string) =>
+    request<ProviderHealth>(`/api/model-gateway/providers/${provider}/clear`, {
+      method: "POST",
+    }),
   testCall: (body: ModelTestCallRequest) =>
     request<ModelCallResult>("/api/model-gateway/test-call", {
       method: "POST",

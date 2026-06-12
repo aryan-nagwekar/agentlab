@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
+import { AssistantPanel } from "../components/assistant/AssistantPanel";
+import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { AgentEditor } from "../components/studio/AgentEditor";
 import { EdgeEditor } from "../components/studio/EdgeEditor";
 import { RunPanel } from "../components/studio/RunPanel";
@@ -9,6 +11,7 @@ import { Badge, Card, ErrorNote, SectionLabel, Spinner } from "../components/ui"
 import { useFetch } from "../hooks/useFetch";
 import { api } from "../lib/api";
 import { timeAgo } from "../lib/format";
+import { useAppStore } from "../store/app";
 import type {
   StudioAgent,
   StudioEdge,
@@ -30,6 +33,9 @@ export function StudioWorkflowPage() {
     () => (templateId ? api.studioTemplate(templateId) : Promise.resolve(null)),
     [templateId],
   );
+  // Chat Mode (v0.9.1) renders the editor read-only: action buttons disable
+  // and the assistant answers questions instead of performing actions.
+  const chatMode = useAppStore((s) => s.studioMode) === "chat";
 
   // Local editable copy of the stored definition.
   const [name, setName] = useState("");
@@ -183,6 +189,7 @@ export function StudioWorkflowPage() {
           aria-label="Workflow name"
         />
         {dirty ? <Badge className="border-amber-400/30 bg-amber-400/10 text-amber-300">unsaved</Badge> : null}
+        <ModeSwitcher />
         <div className="ml-auto flex items-center gap-2">
           {lastRun ? (
             <Link
@@ -195,7 +202,8 @@ export function StudioWorkflowPage() {
           <button
             type="button"
             onClick={save}
-            disabled={busy !== null || !dirty}
+            disabled={chatMode || busy !== null || !dirty}
+            title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
             className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
           >
             {busy === "save" ? "Saving…" : "Save"}
@@ -203,7 +211,8 @@ export function StudioWorkflowPage() {
           <button
             type="button"
             onClick={validate}
-            disabled={busy !== null}
+            disabled={chatMode || busy !== null}
+            title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
             className="rounded-lg border border-edge bg-surface-1 px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-surface-2 disabled:opacity-40"
           >
             {busy === "validate" ? "Validating…" : "Validate"}
@@ -211,14 +220,17 @@ export function StudioWorkflowPage() {
           <button
             type="button"
             onClick={addAgent}
-            className="rounded-lg border border-edge bg-surface-1 px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-surface-2"
+            disabled={chatMode}
+            title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
+            className="rounded-lg border border-edge bg-surface-1 px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-surface-2 disabled:opacity-40"
           >
             + Agent
           </button>
           <button
             type="button"
             onClick={remove}
-            disabled={busy !== null}
+            disabled={chatMode || busy !== null}
+            title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
             className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-[12px] text-red-300 transition-colors hover:bg-red-400/20 disabled:opacity-40"
           >
             Delete
@@ -319,6 +331,15 @@ export function StudioWorkflowPage() {
               dirty={dirty}
               unconfiguredProviders={unconfiguredProviders}
               onRunComplete={() => runsState.refetch(true)}
+              disabled={chatMode}
+            />
+          </Card>
+          <Card className="px-4 py-4">
+            <AssistantPanel
+              workflowId={workflowId}
+              workflowName={name}
+              agents={agents}
+              edges={edges}
             />
           </Card>
           {runsState.data && runsState.data.length > 0 ? (

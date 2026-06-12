@@ -12,6 +12,8 @@ interface RunPanelProps {
   dirty: boolean;
   unconfiguredProviders: string[];
   onRunComplete: (result: StudioRunResult) => void;
+  /** Chat Mode (v0.9.1) renders the panel read-only. */
+  disabled?: boolean;
 }
 
 export function RunPanel({
@@ -20,6 +22,7 @@ export function RunPanel({
   dirty,
   unconfiguredProviders,
   onRunComplete,
+  disabled = false,
 }: RunPanelProps) {
   const [input, setInput] = useState(
     defaultInput ??
@@ -73,11 +76,17 @@ export function RunPanel({
       <button
         type="button"
         onClick={run}
-        disabled={busy || !input.trim()}
+        disabled={disabled || busy || !input.trim()}
+        title={disabled ? "Switch to Agent Mode to perform this action." : undefined}
         className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {busy ? "Running…" : "▶ Run Workflow"}
       </button>
+      {disabled ? (
+        <div className="text-[11px] text-zinc-500">
+          Chat Mode is read-only — switch to Agent Mode to run this workflow.
+        </div>
+      ) : null}
 
       {error ? <ErrorNote message={error} /> : null}
       {result ? (

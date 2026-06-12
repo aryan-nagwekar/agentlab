@@ -347,6 +347,14 @@ export interface ModelCallResult {
   event_id: string | null;
 }
 
+export interface ProviderHealth {
+  name: string;
+  status: string;
+  configured: boolean;
+  detail: string | null;
+  key_redacted: string | null;
+}
+
 // ------------------------------------------------------------ studio (v0.8)
 
 export interface StudioAgent {

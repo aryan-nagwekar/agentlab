@@ -26,6 +26,9 @@ agentlab.db
 .env.local
 .env.*.local
 
+# Local-first provider secrets (configured via the UI, never committed)
+.agentlab-secrets.json
+
 # OS / editor
 .DS_Store
 .idea/

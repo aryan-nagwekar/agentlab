@@ -12,11 +12,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from ..collector import process_events
 from ..deps import require_api_key
 from ..model_gateway import ModelRequest, build_model_events
-from ..model_gateway.registry import ProviderRegistry
+from ..model_gateway.registry import ProviderRegistry, build_registry
+from ..model_gateway.secrets_store import (
+    CONFIGURABLE_FIELDS,
+    clear_provider_secret,
+    set_provider_secret,
+)
 from ..schemas import (
     EventOut,
     ModelCallOut,
     ModelTestCallIn,
+    ProviderConfigureIn,
     ProviderHealthOut,
     ProviderListOut,
     ProviderOut,
@@ -63,6 +69,69 @@ async def provider_health(provider: str, request: Request) -> ProviderHealthOut:
         detail=health.detail,
         key_redacted=health.key_redacted,
     )
+
+
+async def _provider_health_out(request: Request, provider_name: str) -> ProviderHealthOut:
+    provider = _registry(request).get(provider_name)
+    health = await provider.health_check()
+    return ProviderHealthOut(
+        name=health.name,
+        status=health.status,
+        configured=health.configured,
+        detail=health.detail,
+        key_redacted=health.key_redacted,
+    )
+
+
+@router.post(
+    "/model-gateway/providers/{provider}/configure",
+    response_model=ProviderHealthOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def configure_provider(
+    provider: str, body: ProviderConfigureIn, request: Request
+) -> ProviderHealthOut:
+    """Store a provider secret in the local gitignored secrets file (v0.9.1).
+
+    The key never touches the database, the response, the logs, or the event
+    stream — only a redacted hint is ever returned.
+    """
+    fields = CONFIGURABLE_FIELDS.get(provider)
+    if fields is None:
+        if _registry(request).get(provider) is not None:
+            raise HTTPException(
+                status_code=422, detail=f"provider {provider!r} needs no configuration"
+            )
+        raise HTTPException(status_code=404, detail="unknown provider")
+    values = {k: v for k, v in (("api_key", body.api_key), ("base_url", body.base_url)) if v}
+    unsupported = sorted(set(values) - set(fields))
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"provider {provider!r} does not accept: {', '.join(unsupported)}",
+        )
+    if not values:
+        raise HTTPException(status_code=422, detail="nothing to configure")
+
+    settings = request.app.state.settings
+    set_provider_secret(settings.secrets_file, provider, values)
+    # Rebuild so the new key takes effect immediately, then report health.
+    request.app.state.provider_registry = build_registry(settings)
+    return await _provider_health_out(request, provider)
+
+
+@router.post(
+    "/model-gateway/providers/{provider}/clear",
+    response_model=ProviderHealthOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def clear_provider(provider: str, request: Request) -> ProviderHealthOut:
+    if provider not in CONFIGURABLE_FIELDS:
+        raise HTTPException(status_code=404, detail="unknown provider")
+    settings = request.app.state.settings
+    clear_provider_secret(settings.secrets_file, provider)
+    request.app.state.provider_registry = build_registry(settings)
+    return await _provider_health_out(request, provider)
 
 
 async def _run_model_call(

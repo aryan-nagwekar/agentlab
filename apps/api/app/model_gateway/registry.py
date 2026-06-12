@@ -1,7 +1,8 @@
 """Provider registry — builds the available providers from Settings.
 
-Keys are read from the environment (via Settings) once and kept in memory.
-Construction never logs or echoes a key.
+Keys come from the environment (via Settings), optionally overlaid by the
+local gitignored secrets file (v0.9.1 — the most recent explicit user action
+wins). They are kept in memory only; construction never logs or echoes a key.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from .providers.gemini import GeminiProvider
 from .providers.mock import MockProvider
 from .providers.ollama import OllamaProvider
 from .providers.openai_compatible import OpenAICompatibleProvider
+from .secrets_store import load_secrets
 
 
 class ProviderRegistry:
@@ -29,16 +31,24 @@ class ProviderRegistry:
 
 
 def build_registry(settings: Settings) -> ProviderRegistry:
+    secrets = load_secrets(settings.secrets_file)
+
+    def value(provider: str, key: str, env_default: str) -> str:
+        return secrets.get(provider, {}).get(key) or env_default
+
     providers: list[ModelProvider] = [
         MockProvider(),
         OpenAICompatibleProvider(
-            settings.openai_api_key or None,
-            base_url=settings.openai_base_url,
+            value("openai", "api_key", settings.openai_api_key) or None,
+            base_url=value("openai", "base_url", settings.openai_base_url),
             name="openai",
         ),
-        AnthropicProvider(settings.anthropic_api_key or None),
-        GeminiProvider(settings.gemini_api_key or None, base_url=settings.gemini_base_url),
-        OllamaProvider(settings.ollama_base_url),
+        AnthropicProvider(value("anthropic", "api_key", settings.anthropic_api_key) or None),
+        GeminiProvider(
+            value("gemini", "api_key", settings.gemini_api_key) or None,
+            base_url=value("gemini", "base_url", settings.gemini_base_url),
+        ),
+        OllamaProvider(value("ollama", "base_url", settings.ollama_base_url)),
     ]
     # OpenRouter is just an OpenAI-compatible endpoint; expose it only if keyed.
     if settings.openrouter_api_key:
