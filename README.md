@@ -62,7 +62,8 @@ inspect, and (soon) replay.
 | Safe Command Runner (v1.3) — allowlisted, deterministic, sandbox-bounded commands (`shell=False`, scrubbed env, timeout, capped/redacted output) with pre-execution blocking audited via `sandbox.command.*` events and a Commands panel UI | ✅ |
 | Orchestration Engine (v1.4) — goal → deterministic plan → role-assigned tasks with dependencies and lifecycle (disabled/quarantined never assigned), manual text results, 19 `runtime.workflow.*`/`runtime.task.*` events with full replay, and a Workflows panel UI; zero autonomous execution | ✅ |
 | Action Enforcement Gateway (v1.5) — every file/command/workflow action proposed and resolved by 22 deterministic policies before execution (allow/block/approval-required/reroute/retry/downgrade/quarantine-triggered), explainable decisions with matched rules + redacted evidence, 13 `action.*`/`policy.*`/`enforcement.*` events with full replay, and an Enforcement panel UI | ✅ |
-| Runtime v1.6+ — human approval system, then validators, real quarantine | 🔜 gated |
+| Human Approval System (v1.6) — `require_human_approval` decisions create pending approval requests; approve resumes the exact stored action through the v1.2/v1.3 safe executors, deny blocks, reroute/quarantine record decisions only; 10 `approval.*` events with full replay, and an Approvals inbox UI | ✅ |
+| Runtime v1.7+ — real runtime quarantine, then validators, visual debugger | 🔜 gated |
 
 ## Architecture
 
@@ -636,13 +637,39 @@ action types are blocked by default. A generic proposal API (and a
 ever executing it.
 
 > v1.5 is **not** the human approval system: approval-required actions are
-> recorded and halted — there is no inbox, no approve/deny, no resume (v1.6).
-> `quarantine_triggered`, `rerouted`, `retry_required`, and
+> recorded and halted — there is no inbox, no approve/deny, no resume (v1.6
+> adds these). `quarantine_triggered`, `rerouted`, `retry_required`, and
 > `permissions_downgraded` are single-action decisions recorded as events —
 > no real quarantine lifecycle (v1.7), no validators (v1.8), no autonomous
 > execution, no deployment, and no bottle demo.
 
-## Known limitations (v0.1–v1.5)
+## Human Approval System (v1.6)
+
+When the enforcement gateway returns `require_human_approval`, the action
+halts and a pending **approval request** is created (deduplicated per
+unresolved action), carrying a plain-English summary, the matched policy
+rules, a risk level, a recommended decision, and the allowed options. The
+**Approvals** panel is the inbox: each card shows what needs approval, why,
+which rule caused it, and — once resolved — who decided and what happened.
+
+Resolutions: **Approve** (or approve-once) re-runs the *exact stored action*
+through the existing safe executors — the v1.2 file service or the v1.3
+command runner, whose own safety re-runs, so a command that no longer passes
+is refused even after approval. **Deny** keeps it blocked. **Approve
+read-only** runs only a safe read-only path (otherwise records a skip with a
+reason). **Reroute** and **Quarantine** are recorded as decisions and events
+only. The stored action payload is never editable through the approval API
+and never appears in events. Every transition emits `approval.*` events, so
+the timeline and Replay reconstruct the full request → resolution → resume
+trail.
+
+> v1.6 does **not** implement deterministic validators, real runtime
+> quarantine restrictions (a quarantine resolution records the decision but
+> does **not** restrict the agent — that is v1.7), unquarantine, autonomous
+> agent/file/command execution, browser automation, web research,
+> deployment, package installation, or the bottle demo.
+
+## Known limitations (v0.1–v1.6)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -714,14 +741,17 @@ Stated plainly so nobody discovers them the hard way:
   dependencies are planner-owned and not user-editable; `waiting_for_
   validation`/`waiting_for_approval` statuses are reserved for later
   versions.
-- **Enforcement decides but cannot yet resolve.** v1.5 approval-required
-  actions halt with an explainable decision and wait for the v1.6 approval
-  system — there is no way to approve/deny/resume them yet. Policy rules
-  are code-defined (not user-editable), sensitive-path detection is
-  token-based (e.g. any path segment containing "auth" or "deploy"
-  triggers approval — false positives are accepted as conservative), and
-  quarantine/downgrade/reroute decisions are recorded events, not runtime
-  restrictions.
+- **Enforcement decides; approvals resolve, but quarantine/reroute don't
+  act.** Policy rules are code-defined (not user-editable), sensitive-path
+  detection is token-based (e.g. any path segment containing "auth" or
+  "deploy" triggers approval — false positives are accepted as
+  conservative). v1.6 approvals can approve (resume the exact stored
+  action), deny, or approve-read-only; **reroute and quarantine
+  resolutions are recorded as decisions/events only** — a quarantine
+  resolution does not restrict the agent and there is no reassignment loop
+  (real runtime quarantine is v1.7). Approvals have no auto-expiry, and the
+  `permissions_downgraded`/`retry_with_constraints` enforcement decisions
+  are still recorded events rather than enforced restrictions.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

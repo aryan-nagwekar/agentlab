@@ -779,6 +779,55 @@ just wait), validator execution/evidence (v1.8), real quarantine lifecycle
 execution, browser automation, deployment, package installation,
 cost-budget enforcement beyond rule placeholders, the bottle-selling demo.
 
+## Human Approval System (v1.6 — shipped, resolves enforcement halts)
+
+`app/runtime/approvals.py` is Milestone 7: it turns the gateway's
+`require_human_approval` verdict into a resolvable inbox item without
+adding any autonomy. When `evaluate_action` returns that decision,
+`ensure_approval` creates a pending `ApprovalRequest` (deduplicated per
+unresolved action by action-type + target) and the proposal's metadata and
+the 403 detail both carry the new approval ID. The request stores a
+plain-English summary, a technical summary, the matched rules, a risk level
+and recommended decision derived from the deciding rule, and — crucially —
+the **exact stored execution payload** under `metadata.execution` (file
+content, command argv, …). That payload is set only by the integrated
+surfaces via `guarded_execute(approval_payload=…)`; it is never settable or
+editable through the approval API and never appears in any event.
+
+**Resolution semantics** (`approvals.resolve`): `approve`/`approve_once`
+replay the stored action through the *existing* safe executors —
+`sandbox.write_file/delete_path/make_dir` or `commands.run_command` — so
+the v1.2 path checks and v1.3 command safety **re-run**; a command that no
+longer passes is refused (`execution_failed`) even though a human approved
+it. `deny` marks the proposal blocked and never executes. `approve_readonly`
+executes only a genuinely read-only path (`file.read`) or records a
+`skipped` execution with an explanation. `reroute` and `quarantine` set the
+request status and emit `approval.override_used` + the specific
+`approval.reroute_requested` / `approval.quarantine_requested` events;
+quarantine additionally emits `enforcement.quarantine_triggered` — but the
+agent definition is **not** modified, because real runtime quarantine is
+v1.7. Each resolution emits `approval.approved/denied/cancelled`, the
+`action.started/completed/failed` execution bracket where it resumes, and an
+`approval.execution_resumed/failed/skipped` outcome event, so replay
+reconstructs the entire request → decision → resume arc.
+
+**Integration:** file write/delete/mkdir and command run already flow
+through `guarded_execute`, so they pass an `approval_payload` and need no
+further wiring — an approval-required halt automatically produces a
+resumable approval. A new `approval-sensitive-command` policy rule (priority
+34, above `approval-protected-action`) catches allowlisted commands whose
+arguments touch sensitive paths. Workflow start / task-result recording
+remain enforced metadata actions; they don't currently produce
+approval-required halts for user actors, so no approval payload is attached
+(future agent-actor flows can opt in).
+
+**Explicit non-goals for v1.6** (later Runtime versions): deterministic
+validators and their evidence (v1.8), real runtime quarantine restrictions
+and unquarantine (v1.7 — quarantine is recorded only), autonomous
+agent/file/command execution, browser automation, web research, deployment,
+package installation, cost-budget enforcement, the visual project debugger,
+and the bottle-selling demo.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

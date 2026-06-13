@@ -393,11 +393,45 @@ human-readable reason, redacted evidence, and a trust/risk snapshot.
 - 22 pytest + 9 vitest; fixed a real redaction false-positive (`sk-`
   matching inside `task-…` ids)
 
-## Runtime v1.6 — Human Approval System (next, pending approval)
+## Runtime v1.6 — Human Approval System ✅
 
-Spec to be provided by the owner. Later Runtime versions own: approval
-resolution, validators, real quarantine, and the bottle-selling website
-demo. None of these are started.
+Resolves the v1.5 gateway's `require_human_approval` decisions. A halted
+action now creates a pending **ApprovalRequest** (deduplicated per
+unresolved action) carrying a plain-English summary, matched rules, risk
+level, recommended decision, and — for file/command surfaces — the exact
+stored payload to resume the action verbatim (payload never mutable, never
+in events).
+
+- `app/runtime/approvals.py`: approval lifecycle + safe-executor resume.
+  Resolutions: **approve/approve_once** re-run the stored action through the
+  existing v1.2 file service / v1.3 command runner (whose own safety
+  re-runs — a command that no longer passes is refused even after approval);
+  **deny** blocks it and marks the proposal blocked; **approve_readonly**
+  runs only a safe read-only path or records a skip; **reroute** and
+  **quarantine** are recorded as events/metadata only (a quarantine
+  resolution emits `enforcement.quarantine_triggered` but does **not**
+  restrict the agent — real quarantine is v1.7)
+- Enforcement integration: `require_human_approval` decisions auto-create
+  the approval and thread the approval ID into the 403 detail + proposal
+  metadata; a new `approval-sensitive-command` rule (priority 34) halts
+  allowlisted commands whose args touch auth/payment/deploy paths
+- 10 events `approval.requested/approved/denied/cancelled/override_used/
+  execution_resumed/execution_failed/execution_skipped/reroute_requested/
+  quarantine_requested` (shared registry, API + SDK) into the workspace
+  activity run; timeline/replay reconstruct request → resolution → resume
+- Routes: `GET …/approvals[/pending-count|/{id}]`, `POST …/approvals/{id}/
+  {approve|deny|approve-readonly|reroute|quarantine|cancel}` (writes gated)
+- UI: Approvals panel (pending badge, cards with plain-English summary,
+  matched-rule chips, expandable technical details, resolution buttons,
+  resolved-status + execution outcome); Files/Commands surface the waiting
+  approval ID in halted-action errors
+- 17 pytest + 10 vitest
+
+## Runtime v1.7 — Real Runtime Quarantine (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: real runtime
+quarantine restrictions, validators, and the bottle-selling website demo.
+None of these are started.
 
 ## Later (unscheduled)
 

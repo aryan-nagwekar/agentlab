@@ -30,12 +30,17 @@
 >   safety as defense in depth; approval_required/quarantine_triggered/
 >   rerouted/retry decisions are RECORDED EVENTS ONLY — no approval inbox,
 >   no validators, no real quarantine, no autonomous execution)
-> - **v1.6 Human Approval System — next, gated on owner approval (separate
+> - v1.6 Human Approval System — ✅ shipped (Milestone 7: approval_required
+>   decisions create pending ApprovalRequests; approve resumes the EXACT
+>   stored action through the v1.2/v1.3 safe executors (their safety
+>   re-runs), deny blocks, approve_readonly runs/skips a read-only path,
+>   reroute/quarantine RECORD events/metadata only — no real quarantine
+>   restriction, no validators, no autonomous execution)
+> - **v1.7 Real Runtime Quarantine — next, gated on owner approval (separate
 >   spec to be provided)**
-> - Milestones 6–12 remainder (real quarantine, human approvals,
->   deterministic validators, visual debugging, bottle-selling demo,
->   gateway/cost integration, full testing) — not started, gated on owner
->   approval
+> - Milestones 6/8–12 remainder (real quarantine, deterministic validators,
+>   visual debugging, bottle-selling demo, gateway/cost integration, full
+>   testing) — not started, gated on owner approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 
