@@ -838,6 +838,103 @@ export interface RuntimeValidatorResult {
   created_at: string;
 }
 
+// --------------------------------------- project debugging (v1.9)
+
+export interface DebugHealth {
+  state: string;
+  label: string;
+  severity: "high" | "medium" | "ok" | "none";
+  active_labels: string[];
+}
+
+export interface DebugAction {
+  action: string;
+  label: string;
+  link: string;
+}
+
+export interface DebugSummary {
+  workspace_id: string;
+  workspace_status: string;
+  health: DebugHealth;
+  recommended_actions: DebugAction[];
+  counts: Record<string, number>;
+  agents_overview: {
+    total: number;
+    by_status: Record<
+      string,
+      Array<{
+        agent_id: string;
+        name: string;
+        role: string;
+        trust_score: number;
+        risk_score: number;
+        current_assignment: string | null;
+        restricted: boolean;
+      }>
+    >;
+  };
+  workflow_progress: {
+    workflow_count: number;
+    active_workflows: Array<{ workflow_id: string; goal: string; status: string }>;
+    task_status_counts: Record<string, number>;
+    blocked_tasks: Array<{ task_id: string; title: string; reason: string }>;
+  };
+  validation_summary: {
+    total: number;
+    failed: number;
+    recent: Array<{
+      result_id: string;
+      validator_type: string;
+      passed: boolean;
+      target_ref: string;
+      explanation: string;
+      suggested_action: string | null;
+    }>;
+  };
+  enforcement_summary: {
+    pending_approvals: number;
+    recent_decisions: Array<{
+      decision_id: string;
+      decision: string;
+      action_type: string | null;
+      reason: string;
+      matched_rule: string;
+    }>;
+  };
+  recent_changes: Array<{
+    category: string;
+    label: string;
+    detail: string;
+    event_type: string;
+    timestamp: string | null;
+    event_id: string;
+  }>;
+}
+
+export interface DebugIssue {
+  severity: "high" | "medium" | "low";
+  kind: string;
+  title: string;
+  detail: string;
+  suggested_action: string | null;
+  link: string;
+  ref: string;
+}
+
+export interface DebugMapNode {
+  id: string;
+  type: string;
+  label: string;
+  status: string | null;
+  sublabel: string | null;
+}
+
+export interface DebugMap {
+  nodes: DebugMapNode[];
+  edges: Array<{ from: string; to: string; label: string | null }>;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

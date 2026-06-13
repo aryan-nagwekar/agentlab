@@ -607,6 +607,60 @@ class ValidatorInfoOut(BaseModel):
     inputs: list[str] = Field(default_factory=list)
 
 
+# ------------------------------------------------ visual project debugging (v1.9)
+
+
+class DebugHealthOut(BaseModel):
+    state: str
+    label: str
+    severity: str
+    active_labels: list[str] = Field(default_factory=list)
+
+
+class DebugSummaryOut(BaseModel):
+    workspace_id: str
+    workspace_status: str
+    health: DebugHealthOut
+    recommended_actions: list[dict[str, str]] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+    agents_overview: dict[str, Any] = Field(default_factory=dict)
+    workflow_progress: dict[str, Any] = Field(default_factory=dict)
+    validation_summary: dict[str, Any] = Field(default_factory=dict)
+    enforcement_summary: dict[str, Any] = Field(default_factory=dict)
+    recent_changes: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DebugIssueOut(BaseModel):
+    severity: str
+    kind: str
+    title: str
+    detail: str = ""
+    suggested_action: str | None = None
+    link: str = ""
+    ref: str = ""
+
+
+class DebugMapNodeOut(BaseModel):
+    id: str
+    type: str
+    label: str
+    status: str | None = None
+    sublabel: str | None = None
+
+
+class DebugMapEdgeOut(BaseModel):
+    from_: str = Field(alias="from")
+    to: str
+    label: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DebugMapOut(BaseModel):
+    nodes: list[DebugMapNodeOut] = Field(default_factory=list)
+    edges: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

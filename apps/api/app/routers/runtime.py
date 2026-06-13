@@ -20,6 +20,7 @@ from ..deps import get_session, require_api_key
 from ..runtime import (
     approvals,
     commands,
+    debug,
     enforcement,
     orchestration,
     quarantine,
@@ -68,6 +69,9 @@ from ..runtime.schemas import (
     FileWriteOut,
     MkdirIn,
     MkdirOut,
+    DebugIssueOut,
+    DebugMapOut,
+    DebugSummaryOut,
     SandboxStatusOut,
     TaskOut,
     TaskPatch,
@@ -594,6 +598,42 @@ def command_history(
         .all()
     )
     return [EventOut.model_validate(event) for event in events]
+
+
+# ---------------------------------------------------- project debugging (v1.9)
+# Read-only deterministic aggregations over existing models/events. These
+# endpoints never mutate state and emit no events.
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/debug/summary", response_model=DebugSummaryOut
+)
+def debug_summary(
+    workspace_id: str, request: Request, session: Session = Depends(get_session)
+) -> DebugSummaryOut:
+    workspace = _require_workspace(session, workspace_id)
+    return DebugSummaryOut(**debug.summary(session, workspace, _workspaces_root(request)))
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/debug/issues",
+    response_model=list[DebugIssueOut],
+)
+def debug_issues(
+    workspace_id: str, request: Request, session: Session = Depends(get_session)
+) -> list[DebugIssueOut]:
+    workspace = _require_workspace(session, workspace_id)
+    return [DebugIssueOut(**i) for i in debug.issues(session, workspace, _workspaces_root(request))]
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/debug/project-map", response_model=DebugMapOut
+)
+def debug_project_map(
+    workspace_id: str, request: Request, session: Session = Depends(get_session)
+) -> DebugMapOut:
+    workspace = _require_workspace(session, workspace_id)
+    return DebugMapOut(**debug.project_map(session, workspace, _workspaces_root(request)))
 
 
 # --------------------------------------------------------------- validators (v1.8)

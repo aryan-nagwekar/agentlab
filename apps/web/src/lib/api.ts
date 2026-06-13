@@ -6,6 +6,9 @@ import type {
   AttackInjectRequest,
   AttackInjectResult,
   AttackTemplate,
+  DebugIssue,
+  DebugMap,
+  DebugSummary,
   FaultInjectRequest,
   FaultInjectResult,
   FaultTemplate,
@@ -365,6 +368,12 @@ export const api = {
       `/api/runtime/workspaces/${workspaceId}/approvals/${approvalId}/${action}`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+  debugSummary: (workspaceId: string) =>
+    request<DebugSummary>(`/api/runtime/workspaces/${workspaceId}/debug/summary`),
+  debugIssues: (workspaceId: string) =>
+    request<DebugIssue[]>(`/api/runtime/workspaces/${workspaceId}/debug/issues`),
+  debugProjectMap: (workspaceId: string) =>
+    request<DebugMap>(`/api/runtime/workspaces/${workspaceId}/debug/project-map`),
   runtimeValidators: () => request<RuntimeValidatorInfo[]>("/api/runtime/validators"),
   validatorResults: (workspaceId: string, limit = 50) =>
     request<RuntimeValidatorResult[]>(

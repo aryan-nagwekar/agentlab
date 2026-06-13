@@ -98,6 +98,22 @@ vi.mock("../lib/api", () => ({
     // v1.8 validators panel — default to empty registry/results here.
     runtimeValidators: () => Promise.resolve([]),
     validatorResults: () => Promise.resolve([]),
+    // v1.9 project debugging — default to a no-signals summary here.
+    debugSummary: () =>
+      Promise.resolve({
+        workspace_id: "ws-abc123",
+        workspace_status: "draft",
+        health: { state: "no_signals", label: "No signals yet", severity: "none", active_labels: ["No signals yet"] },
+        recommended_actions: [{ action: "init_sandbox", label: "Initialize the workspace sandbox", link: "files" }],
+        counts: {},
+        agents_overview: { total: 0, by_status: {} },
+        workflow_progress: { workflow_count: 0, active_workflows: [], task_status_counts: {}, blocked_tasks: [] },
+        validation_summary: { total: 0, failed: 0, recent: [] },
+        enforcement_summary: { pending_approvals: 0, recent_decisions: [] },
+        recent_changes: [],
+      }),
+    debugIssues: () => Promise.resolve([]),
+    debugProjectMap: () => Promise.resolve({ nodes: [], edges: [] }),
   },
 }));
 

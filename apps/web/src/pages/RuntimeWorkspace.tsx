@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
+import { ProjectDebugPanel } from "../components/runtime/ProjectDebugPanel";
 import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
 import { EnforcementPanel } from "../components/runtime/EnforcementPanel";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
@@ -207,6 +208,12 @@ export function RuntimeWorkspacePage() {
               </button>
             ) : null}
           </Card>
+
+          {/* Project debugging — beginner-first Workspace Home (v1.9) */}
+          <ProjectDebugPanel
+            workspaceId={workspace.workspace_id}
+            activityRunId={workspace.activity_run_id}
+          />
 
           {/* Agents (v1.1) */}
           <WorkspaceAgentsPanel
