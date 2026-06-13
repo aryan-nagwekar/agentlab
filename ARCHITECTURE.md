@@ -917,6 +917,42 @@ analyzer or full type-checker, autonomous execution, deployment, package
 installation, the visual project debugger (v1.9), and the bottle-selling
 demo (v2.0).
 
+## Visual Project Debugging (v1.9 — shipped, read-only comprehension layer)
+
+`app/runtime/debug.py` is Milestone 9: a beginner-friendly Workspace Home
+built **entirely from existing data**. It is a pure, deterministic
+aggregation — it mutates nothing, emits no events, and adds no runtime
+behavior; a test proves the activity-event count is stable across repeated
+debug calls. A single `_collect` pass reads agents, workflows/tasks,
+enforcement decisions, pending approvals, validator results, sandbox status,
+and the most recent ~200 activity events; `_signals` distills them, and the
+public `summary` / `issues` / `project_map` builders shape three read-only
+endpoints (all open in local mode — they expose nothing a panel couldn't
+already fetch).
+
+**Deterministic health.** `_health` checks signals in a fixed severity order
+(agent_restricted > approval_needed > validation_failed > blocked >
+build_test_failed > action_blocked > risky_change), takes the highest as the
+primary state, and surfaces all active states as labels. "Meaningful"
+activity deliberately excludes bare `workspace.*` lifecycle events, so a
+freshly created workspace reads "No signals yet" rather than a false
+"healthy". Recommended actions and issues are likewise rule-derived (no LLM)
+and carry plain-English titles plus a target-panel hint and a row/event ref.
+
+**Grounded, redacted by construction.** Every field is sourced from
+already-redacted/bounded inputs — events exclude host paths, validator
+evidence is pre-redacted — and the aggregator only re-surfaces logical paths
+and short summaries; a test plants a live-looking secret and greps the
+summary, issues, and project map for it and for the host root. The project
+map is generic (goal → workflow → task → agent → artifact, plus data-flow/
+claim validation nodes) with de-duplicated node ids — no demo-specific
+hardcoding, future-proofed for v2.0.
+
+**Explicit non-goals for v1.9** (later Runtime versions): the
+bottle-selling demo (v2.0), autonomous execution, browser automation, web
+research, deployment, a routed graph editor, live push updates, and any new
+validator/enforcement/approval/quarantine engine.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

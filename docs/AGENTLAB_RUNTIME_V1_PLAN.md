@@ -48,11 +48,16 @@
 >   metadata; risk/trust deltas are scoring SIGNALS only — the v0.5 fold is
 >   NOT modified; no web browsing, no live URL fetch, no code execution, no
 >   autonomous execution)
-> - **v1.9 Visual Project Debugging UI — next, gated on owner approval
->   (separate spec to be provided)**
-> - Milestones 9–12 remainder (visual debugging, bottle-selling demo,
->   gateway/cost integration, full testing) — not started, gated on owner
->   approval
+> - v1.9 Visual Project Debugging UI — ✅ shipped (Milestone 9: read-only,
+>   deterministic Workspace Home — health summary, recommended actions,
+>   plain-English issues, recent changes, agent/workflow/validation/
+>   enforcement summaries, and a goal→workflow→task→agent project map;
+>   aggregation only — NO new runtime behavior, mutates nothing, emits no
+>   events, no demo hardcoding)
+> - **v2.0 Bottle-Selling Website End-to-End Demo — next, gated on owner
+>   approval (separate spec to be provided)**
+> - Milestones 10–12 remainder (bottle-selling demo, gateway/cost
+>   integration, full testing) — not started, gated on owner approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

@@ -65,7 +65,8 @@ inspect, and (soon) replay.
 | Human Approval System (v1.6) — `require_human_approval` decisions create pending approval requests; approve resumes the exact stored action through the v1.2/v1.3 safe executors, deny blocks, reroute/quarantine record decisions only; 10 `approval.*` events with full replay, and an Approvals inbox UI | ✅ |
 | Real Runtime Quarantine (v1.7) — quarantine enforces restrictions: agent-attributed file/command/task actions refused before execution (disk untouched), no task assignment, existing tasks blocked; apply/lift lifecycle, 7 `agent.quarantine.*` events with full replay, and quarantine controls on agent cards | ✅ |
 | Deterministic Validators (v1.8) — six evidence-based validators (secret-exposure, code-syntax, command-result, research-claim, data-flow, business-risk) with bounded redacted evidence, risk/trust signals, a `block-failed-validation` enforcement rule, 12 `validator.*`/`validation.*` events with full replay, and a Validators panel UI; no code execution, no web fetch | ✅ |
-| Runtime v1.9+ — visual project debugger, then bottle demo | 🔜 gated |
+| Visual Project Debugging UI (v1.9) — read-only deterministic Workspace Home: project-health summary, recommended next actions, plain-English issues, recent changes, agent/workflow/validation/enforcement summaries, and a goal→workflow→task→agent project map; progressive disclosure, links to replay/activity; no new runtime behavior | ✅ |
+| Runtime v2.0 — bottle-selling website end-to-end demo | 🔜 gated |
 
 ## Architecture
 
@@ -735,7 +736,44 @@ task records the task's `validation_status` metadata.
 > no bottle demo. The v0.5 trust/risk fold is not modified — validator deltas
 > are scoring *signals* recorded on results and events.
 
-## Known limitations (v0.1–v1.8)
+## Visual Project Debugging (v1.9)
+
+A workspace can be a lot to take in, so the **Project debugging** panel at the
+top of the workspace page turns every Runtime system into a single
+beginner-friendly Workspace Home — entirely **read-only and deterministic**,
+grounded in the events and rows that already exist. It answers, at a glance:
+
+- **Is the project healthy?** One banner with a beginner-friendly state —
+  *Safe to continue*, *Needs approval*, *Verification failed*, *Agent
+  restricted*, *Blocked*, *Build/test failed*, *Action blocked*, *Risky
+  change*, or *No signals yet*. The most severe active state wins; the rest
+  show as chips.
+- **What should I do next?** A deterministic recommended-actions list
+  (review a pending approval, fix a validation failure, inspect/unquarantine
+  an agent, reroute a blocked task, fix a failing command, initialize the
+  sandbox, create a workflow, or "no action needed").
+- **What needs attention?** Plain-English issues — failed validators,
+  quarantined agents, pending approvals, blocked/failed tasks and workflows,
+  blocked enforcement decisions, and failed commands — each with a suggested
+  action and a pointer to the relevant panel.
+- **What changed recently?** A friendly-labelled feed of files, commands,
+  workflow/task changes, enforcement decisions, approvals, validations, and
+  quarantine events.
+
+"Advanced diagnostics" (progressive disclosure) reveals per-section summaries
+(agents by status, task-status counts, recent validations, recent
+enforcement decisions) and a lite **project map** — goal → workflows → tasks
+→ agents → artifacts, plus data-flow/claim validation nodes — built from real
+rows with no demo hardcoding. Every issue and the panel header link out to
+the Replay tab and activity run.
+
+> v1.9 is a **read-only comprehension layer**. It creates no new runtime
+> behavior, mutates nothing, and emits no events — the debug endpoints are
+> deterministic aggregations over existing data. It does **not** implement
+> the bottle-selling demo, autonomous execution, browser automation,
+> deployment, or any new validator/enforcement/approval/quarantine engine.
+
+## Known limitations (v0.1–v1.9)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -833,6 +871,13 @@ Stated plainly so nobody discovers them the hard way:
   them — and the enforcement tie-in is one rule that blocks actions a caller
   explicitly tags `validation_failed` (validators don't auto-block unrelated
   future actions).
+- **Project debugging is a read-only snapshot, not live.** v1.9 health,
+  issues, and the project map are deterministic aggregations computed on
+  request over the most recent ~200 activity events (and current rows); they
+  do not push live updates, the project map is a column layout rather than a
+  routed graph, and the in-page panel links are labels/anchors (Replay and
+  the activity run are the only deep links). Health is a fixed severity
+  ordering, not a learned or weighted score.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

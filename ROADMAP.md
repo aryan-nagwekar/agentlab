@@ -496,11 +496,45 @@ evidence plus risk/trust scoring signals.
   risk deltas, plain-English explanations)
 - 25 pytest + 10 vitest
 
-## Runtime v1.9 — Visual Project Debugging UI (next, pending approval)
+## Runtime v1.9 — Visual Project Debugging UI ✅
 
-Spec to be provided by the owner. Later Runtime versions own: the visual
-project debugger and the bottle-selling website demo. None of these are
-started.
+A beginner-friendly comprehension layer over every existing Runtime system —
+a **read-only, deterministic** aggregation, not a new engine. Makes a
+workspace understandable at a glance while keeping deep diagnostics one click
+away.
+
+- `app/runtime/debug.py`: pure aggregation over workspaces, agents,
+  workflows/tasks, enforcement decisions, approvals, validators, quarantine
+  state, sandbox status, and activity events. Mutates nothing, emits no
+  events, creates no new behavior.
+- **Health** (deterministic, severity-ordered, highest wins, all active
+  surfaced): agent_restricted > approval_needed > validation_failed >
+  blocked > build_test_failed > action_blocked > risky_change >
+  safe_to_continue > no_signals (a freshly created workspace with only
+  lifecycle events reads "No signals yet").
+- **Recommended next actions** (deterministic): review approval, fix
+  validation, inspect/unquarantine agent, reroute blocked task, fix command,
+  initialize sandbox, create workflow, or "No action needed".
+- **Issues** list (plain-English, severity-sorted, panel + ref links) from
+  failed validators, quarantined agents, pending approvals, blocked/failed
+  tasks & workflows, blocked enforcement decisions, and failed/timed-out
+  commands.
+- **Project map lite**: goal → workflows → tasks → agents → artifacts (+
+  data-flow/claim validation nodes) derived from real rows, deduplicated —
+  generic nodes, no demo hardcoding.
+- Routes: `GET …/debug/summary`, `…/debug/issues`, `…/debug/project-map`
+  (read-only, open in local mode).
+- UI: **Project debugging** panel at the top of the workspace page — health
+  banner, recommended actions, needs-attention issues, recent changes,
+  activity/replay links, and a progressive-disclosure "Advanced diagnostics"
+  toggle (agent/workflow/validation/enforcement summaries + project map).
+- 15 pytest (incl. a read-only proof: activity count stable across repeated
+  calls, and a no-secret/no-host-path proof) + 10 vitest.
+
+## Runtime v2.0 — Bottle-Selling Website End-to-End Demo (next, pending approval)
+
+Spec to be provided by the owner. The bottle-selling website demo is the
+only remaining gated milestone. Not started.
 
 ## Later (unscheduled)
 
