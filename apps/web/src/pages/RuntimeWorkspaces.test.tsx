@@ -95,6 +95,9 @@ vi.mock("../lib/api", () => ({
     runtimePolicies: () => Promise.resolve([]),
     // v1.6 approvals panel — default to no approvals here.
     workspaceApprovals: () => Promise.resolve([]),
+    // v1.8 validators panel — default to empty registry/results here.
+    runtimeValidators: () => Promise.resolve([]),
+    validatorResults: () => Promise.resolve([]),
   },
 }));
 

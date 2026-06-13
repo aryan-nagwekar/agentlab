@@ -330,6 +330,52 @@ class ActionDecision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+# Deterministic validators (v1.8). Evidence-based checks over files, command
+# results, and structured claim/data-flow/business metadata. Results carry
+# bounded, redacted evidence and risk/trust deltas (scoring SIGNALS — the
+# v0.5 engine is not modified). No browsing, no live external fetch.
+VALIDATOR_TYPES: tuple[str, ...] = (
+    "secret_exposure",
+    "code_syntax",
+    "command_result",
+    "research_claim",
+    "data_flow",
+    "business_risk",
+)
+
+
+class ValidatorResult(Base):
+    """One deterministic validation outcome with bounded, redacted evidence."""
+
+    __tablename__ = "runtime_validator_results"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("runtime_workspaces.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    workflow_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    agent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    validator_type: Mapped[str] = mapped_column(String(64))
+    # e.g. "file" | "command_run" | "claim" | "data_flow" | "change"
+    target_type: Mapped[str] = mapped_column(String(32))
+    # A safe logical reference (workspace path, run id, claim label) — never
+    # a host path.
+    target_ref: Mapped[str] = mapped_column(String(512), default="")
+    passed: Mapped[bool] = mapped_column(default=False)
+    confidence: Mapped[float] = mapped_column(default=1.0)
+    # Bounded + redacted; never raw secrets/content/host paths.
+    evidence: Mapped[dict] = mapped_column(JSONType, default=dict)
+    failures: Mapped[list] = mapped_column(JSONType, default=list)
+    suggested_action: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Scoring SIGNALS only — the deterministic v0.5 engine is not modified.
+    risk_delta: Mapped[float] = mapped_column(default=0.0)
+    trust_delta: Mapped[float] = mapped_column(default=0.0)
+    meta: Mapped[dict] = mapped_column("metadata", JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 # Human approval system (v1.6). Approval requests resolve enforcement's
 # require_human_approval decisions. Quarantine/reroute resolutions are
 # recorded as events/metadata only — real quarantine arrives in v1.7,

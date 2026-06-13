@@ -127,6 +127,21 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "agent.unquarantine.requested",
         "agent.unquarantined",
         "agent.permissions.restored",
+        # Deterministic validators (v1.8) — evidence-based checks. Payloads
+        # carry redacted evidence summaries, plain-English explanations, and
+        # risk/trust scoring signals; never raw secrets/content/host paths.
+        "validator.started",
+        "validator.completed",
+        "validator.failed",
+        "validation.passed",
+        "validation.failed",
+        "claim.verified",
+        "claim.rejected",
+        "schema.mismatch.detected",
+        "runtime.error.detected",
+        "app.error.translated",
+        "risky.file_change.detected",
+        "secret.exposure.detected",
     }
 )
 

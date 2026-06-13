@@ -25,6 +25,7 @@ from ..runtime import (
     quarantine,
     sandbox,
     service,
+    validators,
 )
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import (
@@ -34,6 +35,7 @@ from ..runtime.models import (
     RuntimeTask,
     RuntimeWorkflow,
     RuntimeWorkflowPlan,
+    ValidatorResult,
     Workspace,
     WorkspaceAgent,
 )
@@ -71,6 +73,9 @@ from ..runtime.schemas import (
     TaskPatch,
     TaskResultIn,
     TaskResultOut,
+    ValidatorInfoOut,
+    ValidatorResultOut,
+    ValidatorRunIn,
     WorkflowIn,
     WorkflowOut,
     WorkflowPlanOut,
@@ -589,6 +594,92 @@ def command_history(
         .all()
     )
     return [EventOut.model_validate(event) for event in events]
+
+
+# --------------------------------------------------------------- validators (v1.8)
+
+
+def _validator_result_out(result: ValidatorResult) -> ValidatorResultOut:
+    return ValidatorResultOut(
+        result_id=result.id,
+        workspace_id=result.workspace_id,
+        workflow_id=result.workflow_id,
+        task_id=result.task_id,
+        agent_id=result.agent_id,
+        validator_type=result.validator_type,
+        target_type=result.target_type,
+        target_ref=result.target_ref,
+        passed=result.passed,
+        confidence=result.confidence,
+        evidence=result.evidence or {},
+        failures=result.failures or [],
+        suggested_action=result.suggested_action,
+        risk_delta=result.risk_delta,
+        trust_delta=result.trust_delta,
+        explanation=(result.meta or {}).get("explanation", ""),
+        created_at=result.created_at,
+    )
+
+
+@router.get("/runtime/validators", response_model=list[ValidatorInfoOut])
+def list_validators() -> list[ValidatorInfoOut]:
+    return [ValidatorInfoOut(**entry) for entry in validators.validator_registry()]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/validators/run",
+    response_model=ValidatorResultOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def run_validator(
+    workspace_id: str, body: ValidatorRunIn, request: Request
+) -> ValidatorResultOut:
+    root = _workspaces_root(request)
+
+    def _run(session: Session, workspace: Workspace):
+        result, stored = validators.run_validator(
+            session,
+            workspace,
+            root,
+            validator_type=body.validator_type,
+            target_ref=body.target_ref,
+            payload=body.payload,
+            workflow_id=body.workflow_id,
+            task_id=body.task_id,
+            agent_id=body.agent_id,
+        )
+        return _validator_result_out(result), stored
+
+    return await _sandbox_call(request, workspace_id, _run)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/validators/results",
+    response_model=list[ValidatorResultOut],
+)
+def list_validator_results(
+    workspace_id: str, session: Session = Depends(get_session), limit: int = 50
+) -> list[ValidatorResultOut]:
+    _require_workspace(session, workspace_id)
+    return [
+        _validator_result_out(r)
+        for r in validators.list_results(session, workspace_id, limit)
+    ]
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/validators/results/{result_id}",
+    response_model=ValidatorResultOut,
+)
+def get_validator_result(
+    workspace_id: str, result_id: str, session: Session = Depends(get_session)
+) -> ValidatorResultOut:
+    _require_workspace(session, workspace_id)
+    result = validators.get_result(session, workspace_id, result_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="validator result not found")
+    return _validator_result_out(result)
 
 
 # -------------------------------------------------------------- enforcement (v1.5)

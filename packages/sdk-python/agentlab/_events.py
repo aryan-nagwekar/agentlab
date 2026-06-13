@@ -161,6 +161,22 @@ AGENT_UNQUARANTINE_REQUESTED = "agent.unquarantine.requested"
 AGENT_UNQUARANTINED = "agent.unquarantined"
 AGENT_PERMISSIONS_RESTORED = "agent.permissions.restored"
 
+# Deterministic validators (v1.8) — evidence-based checks emitted by the
+# server's validator service. Payloads carry redacted evidence summaries and
+# risk/trust scoring signals; never raw secrets/content/host paths.
+VALIDATOR_STARTED = "validator.started"
+VALIDATOR_COMPLETED = "validator.completed"
+VALIDATOR_FAILED = "validator.failed"
+VALIDATION_PASSED = "validation.passed"
+VALIDATION_FAILED = "validation.failed"
+CLAIM_VERIFIED = "claim.verified"
+CLAIM_REJECTED = "claim.rejected"
+SCHEMA_MISMATCH_DETECTED = "schema.mismatch.detected"
+RUNTIME_ERROR_DETECTED = "runtime.error.detected"
+APP_ERROR_TRANSLATED = "app.error.translated"
+RISKY_FILE_CHANGE_DETECTED = "risky.file_change.detected"
+SECRET_EXPOSURE_DETECTED = "secret.exposure.detected"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -263,6 +279,18 @@ EVENT_TYPES: frozenset[str] = frozenset(
         AGENT_UNQUARANTINE_REQUESTED,
         AGENT_UNQUARANTINED,
         AGENT_PERMISSIONS_RESTORED,
+        VALIDATOR_STARTED,
+        VALIDATOR_COMPLETED,
+        VALIDATOR_FAILED,
+        VALIDATION_PASSED,
+        VALIDATION_FAILED,
+        CLAIM_VERIFIED,
+        CLAIM_REJECTED,
+        SCHEMA_MISMATCH_DETECTED,
+        RUNTIME_ERROR_DETECTED,
+        APP_ERROR_TRANSLATED,
+        RISKY_FILE_CHANGE_DETECTED,
+        SECRET_EXPOSURE_DETECTED,
     }
 )
 

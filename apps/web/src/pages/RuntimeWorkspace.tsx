@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
+import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
 import { EnforcementPanel } from "../components/runtime/EnforcementPanel";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
@@ -244,6 +245,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Human approvals (v1.6) */}
           <ApprovalsPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Deterministic validators (v1.8) */}
+          <ValidatorsPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}

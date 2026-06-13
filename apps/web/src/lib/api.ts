@@ -21,6 +21,8 @@ import type {
   RuntimeActionProposal,
   RuntimeApproval,
   RuntimeArtifact,
+  RuntimeValidatorInfo,
+  RuntimeValidatorResult,
   RuntimePolicyRule,
   RuntimeTask,
   RuntimeWorkflow,
@@ -361,6 +363,23 @@ export const api = {
   ) =>
     request<RuntimeApproval>(
       `/api/runtime/workspaces/${workspaceId}/approvals/${approvalId}/${action}`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  runtimeValidators: () => request<RuntimeValidatorInfo[]>("/api/runtime/validators"),
+  validatorResults: (workspaceId: string, limit = 50) =>
+    request<RuntimeValidatorResult[]>(
+      `/api/runtime/workspaces/${workspaceId}/validators/results${query({ limit })}`,
+    ),
+  runValidator: (
+    workspaceId: string,
+    body: {
+      validator_type: string;
+      target_ref?: string;
+      payload?: Record<string, unknown>;
+    },
+  ) =>
+    request<RuntimeValidatorResult>(
+      `/api/runtime/workspaces/${workspaceId}/validators/run`,
       { method: "POST", body: JSON.stringify(body) },
     ),
   workspaceAgents: (workspaceId: string) =>

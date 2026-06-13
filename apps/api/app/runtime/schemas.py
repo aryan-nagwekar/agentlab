@@ -564,6 +564,49 @@ class QuarantineStatusOut(BaseModel):
     quarantine: dict[str, Any] | None = None
 
 
+# -------------------------------------------------------------- validators (v1.8)
+
+
+class ValidatorRunIn(BaseModel):
+    validator_type: str = Field(min_length=1, max_length=64)
+    target_ref: str = Field(default="", max_length=512)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    workflow_id: str | None = Field(default=None, max_length=255)
+    task_id: str | None = Field(default=None, max_length=255)
+    agent_id: str | None = Field(default=None, max_length=255)
+
+
+class ValidatorResultOut(RuntimeModel):
+    result_id: str
+    workspace_id: str
+    workflow_id: str | None = None
+    task_id: str | None = None
+    agent_id: str | None = None
+    validator_type: str
+    target_type: str
+    target_ref: str
+    passed: bool
+    confidence: float
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    failures: list[str] = Field(default_factory=list)
+    suggested_action: str | None = None
+    risk_delta: float
+    trust_delta: float
+    explanation: str = ""
+    created_at: datetime
+
+    @field_serializer("created_at", when_used="json")
+    def _ser_dt(self, value: datetime) -> str | None:
+        return isoz(value)
+
+
+class ValidatorInfoOut(BaseModel):
+    type: str
+    description: str
+    target_type: str
+    inputs: list[str] = Field(default_factory=list)
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

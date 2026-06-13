@@ -262,6 +262,18 @@ def _rule_secret_in_input(ctx: ActionContext) -> dict | None:
     return None
 
 
+def _rule_failed_validation(ctx: ActionContext) -> dict | None:
+    """v1.8: an action a deterministic validator already failed is blocked.
+    Callers tag the proposal with metadata.validation_failed (and optionally
+    validator_result_id) when a referenced validator result did not pass."""
+    if ctx.metadata.get("validation_failed"):
+        evidence: dict[str, Any] = {"detail": "a deterministic validator failed for this action"}
+        if ctx.metadata.get("validator_result_id"):
+            evidence["validator_result_id"] = ctx.metadata["validator_result_id"]
+        return evidence
+    return None
+
+
 def _rule_path_escape(ctx: ActionContext) -> dict | None:
     if ctx.path_violation is not None and ctx.path_violation.rule != "secret_file":
         return {
@@ -461,6 +473,13 @@ POLICY_RULES: list[PolicyRule] = sorted(
             15, "block",
             "the proposal input appears to contain a raw secret",
             _rule_secret_in_input,
+        ),
+        PolicyRule(
+            "block-failed-validation", "Block validator-failed actions",
+            "Actions a deterministic validator (v1.8) already failed are blocked.",
+            16, "block",
+            "a deterministic validator failed for this action",
+            _rule_failed_validation,
         ),
         PolicyRule(
             "block-path-escape", "Block path escapes",

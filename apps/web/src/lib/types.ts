@@ -809,6 +809,35 @@ export interface RuntimeApproval {
   created_at: string;
 }
 
+// ----------------------------------------------------- validators (v1.8)
+
+export interface RuntimeValidatorInfo {
+  type: string;
+  description: string;
+  target_type: string;
+  inputs: string[];
+}
+
+export interface RuntimeValidatorResult {
+  result_id: string;
+  workspace_id: string;
+  workflow_id: string | null;
+  task_id: string | null;
+  agent_id: string | null;
+  validator_type: string;
+  target_type: string;
+  target_ref: string;
+  passed: boolean;
+  confidence: number;
+  evidence: Record<string, unknown>;
+  failures: string[];
+  suggested_action: string | null;
+  risk_delta: number;
+  trust_delta: number;
+  explanation: string;
+  created_at: string;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;
