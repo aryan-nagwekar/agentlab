@@ -21,6 +21,7 @@ from ..runtime import (
     approvals,
     commands,
     debug,
+    demo_bottle_shop,
     enforcement,
     orchestration,
     quarantine,
@@ -72,6 +73,7 @@ from ..runtime.schemas import (
     DebugIssueOut,
     DebugMapOut,
     DebugSummaryOut,
+    DemoSeedOut,
     SandboxStatusOut,
     TaskOut,
     TaskPatch,
@@ -598,6 +600,37 @@ def command_history(
         .all()
     )
     return [EventOut.model_validate(event) for event in events]
+
+
+# ------------------------------------------------------ bottle shop demo (v2.0)
+
+
+@router.post(
+    "/runtime/demo/bottle-shop",
+    response_model=DemoSeedOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_bottle_shop_demo(request: Request) -> DemoSeedOut:
+    """Deterministically seed the end-to-end Bottle Shop demo, reusing the
+    existing runtime services and emitting their normal events. Returns a
+    summary including the new workspace id and the pending governance approval."""
+    root = _workspaces_root(request)
+    session_factory = request.app.state.session_factory
+
+    def _seed():
+        session = session_factory()
+        try:
+            summary, stored = demo_bottle_shop.seed(session, root)
+            session.commit()
+            workspace = service.get_workspace(session, summary["workspace_id"])
+            return summary, list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    summary, stored, project_id = await run_in_threadpool(_seed)
+    await _broadcast(request, project_id, stored)
+    return DemoSeedOut(**summary)
 
 
 # ---------------------------------------------------- project debugging (v1.9)

@@ -19,6 +19,9 @@ export function RuntimeWorkspacesPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+
   const create = async () => {
     setCreating(true);
     setCreateError(null);
@@ -31,6 +34,18 @@ export function RuntimeWorkspacesPage() {
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : String(e));
       setCreating(false);
+    }
+  };
+
+  const createDemo = async () => {
+    setSeeding(true);
+    setSeedError(null);
+    try {
+      const result = await api.createBottleShopDemo();
+      navigate(`/runtime/workspaces/${result.workspace_id}`);
+    } catch (e) {
+      setSeedError(e instanceof Error ? e.message : String(e));
+      setSeeding(false);
     }
   };
 
@@ -105,6 +120,38 @@ export function RuntimeWorkspacesPage() {
           {createError ? <div className="mt-2"><ErrorNote message={createError} /></div> : null}
         </Card>
       ) : null}
+
+      {/* Bottle Shop end-to-end demo (v2.0) */}
+      <Card className="mb-4 border-indigo-400/25 bg-indigo-500/[0.06] px-4 py-4">
+        <div data-testid="bottle-shop-demo-card" className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md border border-indigo-400/30 bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-medium text-indigo-200">
+                demo
+              </span>
+              <span className="text-[14px] font-semibold text-zinc-100">
+                Bottle Shop — end-to-end runtime demo
+              </span>
+            </div>
+            <p className="mt-1.5 text-[12.5px] leading-5 text-zinc-400">
+              Watch AgentLab build a small bottle-selling website inside a real sandbox:
+              six agents, a planned workflow, governed file writes, safe commands,
+              deterministic validators, and one payment change held for your approval.
+              The Project debugging panel sums it all up.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={createDemo}
+            disabled={chatMode || seeding}
+            title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
+            className="rounded-lg border border-indigo-400/40 bg-indigo-500/20 px-3.5 py-2 text-[12.5px] font-medium text-indigo-100 transition-colors hover:bg-indigo-500/30 disabled:opacity-40"
+          >
+            {seeding ? "Building demo…" : "Create Bottle Shop Demo"}
+          </button>
+        </div>
+        {seedError ? <div className="mt-2"><ErrorNote message={seedError} /></div> : null}
+      </Card>
 
       {!workspaces || workspaces.length === 0 ? (
         <EmptyState title="No workspaces yet">

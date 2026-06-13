@@ -838,6 +838,19 @@ export interface RuntimeValidatorResult {
   created_at: string;
 }
 
+// ----------------------------------------- bottle shop demo (v2.0)
+
+export interface DemoSeedResult {
+  workspace_id: string;
+  workflow_id: string;
+  agent_count: number;
+  file_count: number;
+  command_count: number;
+  validator_result_ids: string[];
+  pending_approval_id: string | null;
+  goal: string;
+}
+
 // --------------------------------------- project debugging (v1.9)
 
 export interface DebugHealth {

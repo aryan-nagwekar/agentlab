@@ -661,6 +661,20 @@ class DebugMapOut(BaseModel):
     edges: list[dict[str, Any]] = Field(default_factory=list)
 
 
+# -------------------------------------------------------- bottle shop demo (v2.0)
+
+
+class DemoSeedOut(BaseModel):
+    workspace_id: str
+    workflow_id: str
+    agent_count: int
+    file_count: int
+    command_count: int
+    validator_result_ids: list[str] = Field(default_factory=list)
+    pending_approval_id: str | None = None
+    goal: str
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

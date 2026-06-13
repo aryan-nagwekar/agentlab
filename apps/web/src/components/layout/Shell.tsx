@@ -78,7 +78,7 @@ export function Shell() {
         </nav>
         <ConnectionPill />
         <div className="border-t border-edge px-4 py-3 text-[10px] text-zinc-600">
-          v1.9.0 · local mode
+          v2.0.0 · local mode
         </div>
       </aside>
       <main className="min-w-0 flex-1 overflow-y-auto">

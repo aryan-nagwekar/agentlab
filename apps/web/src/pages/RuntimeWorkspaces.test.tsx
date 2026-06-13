@@ -62,6 +62,7 @@ const createRuntimeWorkspace = vi.fn();
 const patchRuntimeWorkspace = vi.fn();
 const archiveRuntimeWorkspace = vi.fn();
 const registerRuntimeArtifact = vi.fn();
+const createBottleShopDemo = vi.fn();
 vi.mock("../lib/api", () => ({
   api: {
     runtimeWorkspaces: () => Promise.resolve([workspace]),
@@ -69,6 +70,7 @@ vi.mock("../lib/api", () => ({
     runtimeWorkspaceActivity: () => Promise.resolve(activity),
     runtimeWorkspaceArtifacts: () => Promise.resolve(artifacts),
     createRuntimeWorkspace: (...args: unknown[]) => createRuntimeWorkspace(...args),
+    createBottleShopDemo: (...args: unknown[]) => createBottleShopDemo(...args),
     patchRuntimeWorkspace: (...args: unknown[]) => patchRuntimeWorkspace(...args),
     archiveRuntimeWorkspace: (...args: unknown[]) => archiveRuntimeWorkspace(...args),
     registerRuntimeArtifact: (...args: unknown[]) => registerRuntimeArtifact(...args),
@@ -185,6 +187,44 @@ describe("RuntimeWorkspacesPage", () => {
     const button = (await screen.findByText("+ New Workspace")) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.title).toBe("Switch to Agent Mode to perform this action.");
+  });
+
+  it("renders the Bottle Shop demo entry card", async () => {
+    render(
+      <MemoryRouter>
+        <RuntimeWorkspacesPage />
+      </MemoryRouter>,
+    );
+    const card = await screen.findByTestId("bottle-shop-demo-card");
+    expect(card.textContent).toContain("Bottle Shop");
+    expect(screen.getByText("Create Bottle Shop Demo")).toBeTruthy();
+  });
+
+  it("creates the demo and navigates to the new workspace", async () => {
+    createBottleShopDemo.mockResolvedValue({
+      workspace_id: "ws-demo",
+      workflow_id: "wf-demo",
+      agent_count: 6,
+      file_count: 7,
+      command_count: 2,
+      validator_result_ids: ["v1"],
+      pending_approval_id: "apr-1",
+      goal: "Build a bottle shop.",
+    });
+    render(
+      <MemoryRouter initialEntries={["/runtime"]}>
+        <Routes>
+          <Route path="/runtime" element={<RuntimeWorkspacesPage />} />
+          <Route
+            path="/runtime/workspaces/:workspaceId"
+            element={<div data-testid="detail">detail</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByText("Create Bottle Shop Demo"));
+    await waitFor(() => expect(screen.getByTestId("detail")).toBeTruthy());
+    expect(createBottleShopDemo).toHaveBeenCalled();
   });
 });
 

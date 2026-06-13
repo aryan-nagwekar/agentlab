@@ -209,6 +209,23 @@ export function RuntimeWorkspacePage() {
             ) : null}
           </Card>
 
+          {/* Bottle Shop demo banner (v2.0) */}
+          {workspace.metadata?.demo === "bottle_shop" ? (
+            <div
+              data-testid="demo-banner"
+              className="rounded-lg border border-indigo-400/25 bg-indigo-500/[0.06] px-4 py-3 text-[12.5px] text-zinc-300"
+            >
+              <span className="font-semibold text-indigo-200">Bottle Shop demo.</span>{" "}
+              AgentLab built this storefront end-to-end. Inspect the{" "}
+              <span className="text-zinc-200">Files</span>,{" "}
+              <span className="text-zinc-200">Commands</span>,{" "}
+              <span className="text-zinc-200">Workflows</span>,{" "}
+              <span className="text-zinc-200">Validators</span>, and{" "}
+              <span className="text-zinc-200">Approvals</span> panels below — and
+              resolve the pending payment approval to see a governed action resume.
+            </div>
+          ) : null}
+
           {/* Project debugging — beginner-first Workspace Home (v1.9) */}
           <ProjectDebugPanel
             workspaceId={workspace.workspace_id}

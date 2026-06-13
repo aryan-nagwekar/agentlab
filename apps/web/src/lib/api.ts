@@ -9,6 +9,7 @@ import type {
   DebugIssue,
   DebugMap,
   DebugSummary,
+  DemoSeedResult,
   FaultInjectRequest,
   FaultInjectResult,
   FaultTemplate,
@@ -368,6 +369,8 @@ export const api = {
       `/api/runtime/workspaces/${workspaceId}/approvals/${approvalId}/${action}`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+  createBottleShopDemo: () =>
+    request<DemoSeedResult>("/api/runtime/demo/bottle-shop", { method: "POST" }),
   debugSummary: (workspaceId: string) =>
     request<DebugSummary>(`/api/runtime/workspaces/${workspaceId}/debug/summary`),
   debugIssues: (workspaceId: string) =>
