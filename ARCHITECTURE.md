@@ -822,11 +822,59 @@ approval-required halts for user actors, so no approval payload is attached
 (future agent-actor flows can opt in).
 
 **Explicit non-goals for v1.6** (later Runtime versions): deterministic
-validators and their evidence (v1.8), real runtime quarantine restrictions
-and unquarantine (v1.7 — quarantine is recorded only), autonomous
-agent/file/command execution, browser automation, web research, deployment,
-package installation, cost-budget enforcement, the visual project debugger,
-and the bottle-selling demo.
+validators and their evidence (v1.8), autonomous agent/file/command
+execution, browser automation, web research, deployment, package
+installation, cost-budget enforcement, the visual project debugger, and the
+bottle-selling demo. (v1.7 turns the recorded quarantine resolution into a
+real restriction.)
+
+## Real Runtime Quarantine (v1.7 — shipped, enforced restriction)
+
+`app/runtime/quarantine.py` is Milestone 6: it makes a quarantined agent
+*actually* unable to act, rather than just wearing a status badge. The key
+realization is that the enforcement gateway already had the choke point —
+the v1.5 `block-unassignable-actor` rule (priority 10) refuses any action
+whose actor agent is `quarantined`/`disabled` before execution. v1.7 builds
+the lifecycle around it and routes real actors through it.
+
+**Bookkeeping without migration.** Quarantine details (reason, requested_by,
+timestamps, source action/approval, prior status, lift fields) live in
+`agent.meta["quarantine"]` — a JSON column that already exists — so v1.7
+adds **no new columns** and works on databases created by earlier versions.
+`service.update_agent` preserves that reserved key across a user metadata
+PATCH, and `_agent_out` surfaces it as a dedicated `quarantine` field while
+stripping it from the public `metadata`. `quarantine_agent` /
+`unquarantine_agent` set the status, write the bookkeeping, and emit
+`agent.quarantine.requested` → `agent.quarantined` → `agent.quarantine.
+enforced` (and the inverse trio on lift, ending with
+`agent.permissions.restored`).
+
+**Real-actor enforcement.** The Files and Commands routes gained an optional
+`agent_id`; when present, `guarded_execute` proposes the action with
+`actor_type="agent"`, so a quarantined agent's write/delete/mkdir/command is
+refused before execution (disk untouched) and the gateway emits the
+quarantine-specific `agent.quarantine.blocked_action` alongside
+`enforcement.blocked`. The v1.2/v1.3 safety layers are unchanged and still
+run beneath. The v1.5 extreme-risk `quarantine_agent` decision now applies
+real quarantine deterministically during evaluation, and the v1.6 approval
+`quarantine` resolution quarantines the linked agent for real — and because
+the quarantine rule outranks the approval rules, a quarantined agent's
+sensitive action is blocked outright rather than creating a bypassable
+approval.
+
+**Workflow integration.** Assignment already excluded quarantined agents
+(v1.4 `UNASSIGNABLE_AGENT_STATUSES`); quarantine now also blocks an agent's
+existing pending/running tasks (`runtime.task.blocked`), and
+`record_result` refuses a result attributed to a quarantined agent (raised
+as `SandboxBlocked` so the audit event commits). User-actor recording for
+non-quarantined agents is unaffected.
+
+**Explicit non-goals for v1.7** (later Runtime versions): deterministic
+validators (v1.8), the visual project debugger (v1.9), the bottle-selling
+demo (v2.0), autonomous agent execution, browser automation, web research,
+deployment, package installation, and a full agent-to-agent message system
+(so the "quarantined agent may still message a Verifier/Human" allowance is
+not built — quarantine restricts the existing action surfaces only).
 
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a

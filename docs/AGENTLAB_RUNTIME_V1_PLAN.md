@@ -34,13 +34,18 @@
 >   decisions create pending ApprovalRequests; approve resumes the EXACT
 >   stored action through the v1.2/v1.3 safe executors (their safety
 >   re-runs), deny blocks, approve_readonly runs/skips a read-only path,
->   reroute/quarantine RECORD events/metadata only — no real quarantine
->   restriction, no validators, no autonomous execution)
-> - **v1.7 Real Runtime Quarantine — next, gated on owner approval (separate
+>   reroute/quarantine recorded — v1.7 turns the quarantine resolution real)
+> - v1.7 Real Runtime Quarantine — ✅ shipped (Milestone 6: quarantine is an
+>   ENFORCED restriction — agent-attributed file/command/task actions refused
+>   before execution via the v1.5 block-unassignable-actor choke point,
+>   apply/lift lifecycle, existing tasks blocked, approval/extreme-risk
+>   decisions apply real quarantine; no agent-to-agent message system, no
+>   validators, no autonomous execution)
+> - **v1.8 Deterministic Validators — next, gated on owner approval (separate
 >   spec to be provided)**
-> - Milestones 6/8–12 remainder (real quarantine, deterministic validators,
->   visual debugging, bottle-selling demo, gateway/cost integration, full
->   testing) — not started, gated on owner approval
+> - Milestones 8–12 remainder (deterministic validators, visual debugging,
+>   bottle-selling demo, gateway/cost integration, full testing) — not
+>   started, gated on owner approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

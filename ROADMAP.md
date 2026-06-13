@@ -427,10 +427,43 @@ in events).
   approval ID in halted-action errors
 - 17 pytest + 10 vitest
 
-## Runtime v1.7 — Real Runtime Quarantine (next, pending approval)
+## Runtime v1.7 — Real Runtime Quarantine ✅
 
-Spec to be provided by the owner. Later Runtime versions own: real runtime
-quarantine restrictions, validators, and the bottle-selling website demo.
+Upgrades quarantine from a status marker into an enforced restriction. A
+quarantined agent's mutating runtime actions are refused before execution,
+it is never assigned tasks, and its existing tasks are blocked.
+
+- `app/runtime/quarantine.py`: lifecycle service (apply/lift) storing
+  bookkeeping in `agent.meta["quarantine"]` (no column migration — works on
+  existing DBs; preserved across metadata PATCHes, surfaced as a dedicated
+  `quarantine` field). Quarantine blocks existing pending/running tasks and
+  emits `runtime.task.blocked`; unquarantine restores the pre-quarantine
+  status.
+- Enforcement: the v1.5 `block-unassignable-actor` rule already refuses any
+  quarantined actor's action before execution; v1.7 emits the
+  quarantine-specific `agent.quarantine.blocked_action` alongside it, and the
+  extreme-risk `quarantine_agent` decision now applies **real** quarantine.
+  Files/Commands routes accept an `agent_id` so an agent-attributed mutating
+  action is refused (disk untouched) — v1.2/v1.3 safety is unchanged.
+- Approval: the v1.6 `quarantine` resolution now **really** quarantines the
+  linked agent; approval cannot bypass quarantine (the quarantine rule
+  outranks the approval rules — no approval is even created).
+- Workflows: quarantined agents are never assigned tasks (v1.4 rule), and
+  recording a result for a task assigned to a quarantined agent is blocked.
+- 7 events `agent.quarantine.requested/enforced/blocked_action`,
+  `agent.quarantined`, `agent.unquarantine.requested`, `agent.unquarantined`,
+  `agent.permissions.restored` (shared registry, API + SDK) into the activity
+  run; timeline/replay reconstruct the full quarantine → block → lift arc.
+- Routes: `POST agents/{id}/quarantine|unquarantine`, `GET agents/{id}/
+  quarantine`, `GET quarantine/events` (writes gated).
+- UI: agent cards show the real quarantined state, reason, and a
+  Quarantine/Unquarantine button; the block reason surfaces on halts.
+- 17 pytest + 4 vitest.
+
+## Runtime v1.8 — Deterministic Validators (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: deterministic
+validators, the visual project debugger, and the bottle-selling website demo.
 None of these are started.
 
 ## Later (unscheduled)

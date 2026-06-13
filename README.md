@@ -63,7 +63,8 @@ inspect, and (soon) replay.
 | Orchestration Engine (v1.4) — goal → deterministic plan → role-assigned tasks with dependencies and lifecycle (disabled/quarantined never assigned), manual text results, 19 `runtime.workflow.*`/`runtime.task.*` events with full replay, and a Workflows panel UI; zero autonomous execution | ✅ |
 | Action Enforcement Gateway (v1.5) — every file/command/workflow action proposed and resolved by 22 deterministic policies before execution (allow/block/approval-required/reroute/retry/downgrade/quarantine-triggered), explainable decisions with matched rules + redacted evidence, 13 `action.*`/`policy.*`/`enforcement.*` events with full replay, and an Enforcement panel UI | ✅ |
 | Human Approval System (v1.6) — `require_human_approval` decisions create pending approval requests; approve resumes the exact stored action through the v1.2/v1.3 safe executors, deny blocks, reroute/quarantine record decisions only; 10 `approval.*` events with full replay, and an Approvals inbox UI | ✅ |
-| Runtime v1.7+ — real runtime quarantine, then validators, visual debugger | 🔜 gated |
+| Real Runtime Quarantine (v1.7) — quarantine enforces restrictions: agent-attributed file/command/task actions refused before execution (disk untouched), no task assignment, existing tasks blocked; apply/lift lifecycle, 7 `agent.quarantine.*` events with full replay, and quarantine controls on agent cards | ✅ |
+| Runtime v1.8+ — deterministic validators, then visual debugger, bottle demo | 🔜 gated |
 
 ## Architecture
 
@@ -663,13 +664,39 @@ and never appears in events. Every transition emits `approval.*` events, so
 the timeline and Replay reconstruct the full request → resolution → resume
 trail.
 
-> v1.6 does **not** implement deterministic validators, real runtime
-> quarantine restrictions (a quarantine resolution records the decision but
-> does **not** restrict the agent — that is v1.7), unquarantine, autonomous
+> v1.6 does **not** implement deterministic validators or autonomous
 > agent/file/command execution, browser automation, web research,
-> deployment, package installation, or the bottle demo.
+> deployment, package installation, or the bottle demo. (As of v1.7 a
+> quarantine resolution does apply real restriction — see below.)
 
-## Known limitations (v0.1–v1.6)
+## Real Runtime Quarantine (v1.7)
+
+Quarantine is now an **enforced restriction**, not just a status marker.
+Quarantine an agent from its card (or via approval/extreme-risk decisions),
+and that agent can no longer perform mutating runtime actions: any
+agent-attributed file write/delete/folder-create or command run is refused by
+the enforcement gateway **before execution** (the disk is never touched), the
+orchestrator never assigns it tasks, its existing pending/running tasks are
+blocked, and recording a result for a task assigned to it is refused. The
+agent may still be inspected, and read-only/user actions are unaffected.
+Unquarantine is an explicit action that restores the agent's prior status.
+
+Every transition emits `agent.quarantine.requested/enforced/blocked_action`,
+`agent.quarantined`, `agent.unquarantine.requested`, `agent.unquarantined`,
+and `agent.permissions.restored` into the activity run, so the timeline and
+Replay reconstruct the full quarantine → blocked-action → lift arc. Quarantine
+bookkeeping (reason, who, source action/approval, prior status) is stored on
+the agent and shown on its card; it never weakens the v1.2 path safety or v1.3
+command safety that still run underneath.
+
+> v1.7 does **not** implement deterministic validators (v1.8), the visual
+> project debugger (v1.9), autonomous agent execution, browser automation,
+> web research, deployment, package installation, or the bottle demo. There
+> is no agent-to-agent message system yet, so the "quarantined agents may
+> still talk to a Verifier/Human" allowance is not built — quarantine
+> restricts the existing action surfaces only.
+
+## Known limitations (v0.1–v1.7)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -741,17 +768,23 @@ Stated plainly so nobody discovers them the hard way:
   dependencies are planner-owned and not user-editable; `waiting_for_
   validation`/`waiting_for_approval` statuses are reserved for later
   versions.
-- **Enforcement decides; approvals resolve, but quarantine/reroute don't
-  act.** Policy rules are code-defined (not user-editable), sensitive-path
-  detection is token-based (e.g. any path segment containing "auth" or
-  "deploy" triggers approval — false positives are accepted as
-  conservative). v1.6 approvals can approve (resume the exact stored
-  action), deny, or approve-read-only; **reroute and quarantine
-  resolutions are recorded as decisions/events only** — a quarantine
-  resolution does not restrict the agent and there is no reassignment loop
-  (real runtime quarantine is v1.7). Approvals have no auto-expiry, and the
-  `permissions_downgraded`/`retry_with_constraints` enforcement decisions
-  are still recorded events rather than enforced restrictions.
+- **Enforcement/approval scope.** Policy rules are code-defined (not
+  user-editable), sensitive-path detection is token-based (e.g. any path
+  segment containing "auth" or "deploy" triggers approval — false positives
+  are accepted as conservative). v1.6 approvals can approve (resume the
+  exact stored action), deny, or approve-read-only; **reroute** resolutions
+  are recorded as decisions/events only (no autonomous reassignment).
+  Approvals have no auto-expiry, and the `permissions_downgraded`/
+  `retry_with_constraints` enforcement decisions are recorded events rather
+  than enforced restrictions.
+- **Quarantine is real but action-surface-scoped.** v1.7 quarantine refuses
+  agent-attributed actions on the *existing* runtime surfaces (files,
+  commands, task assignment/results) and is enforced application-side, not
+  by OS isolation. There is no agent-to-agent message system, so the
+  "quarantined agent may still message a Verifier/Human" allowance from the
+  master plan is not built; quarantine bookkeeping lives in the agent's
+  metadata (not dedicated columns), and lift restores the prior status
+  rather than a full permission snapshot.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
