@@ -833,6 +833,40 @@ def evaluate_action(
             ),
         },
     )
+
+    # v1.7 real-quarantine wiring (imported here to avoid an import cycle).
+    from . import quarantine
+
+    if (
+        deciding.id == "block-unassignable-actor"
+        and ctx.agent is not None
+        and ctx.agent.status == "quarantined"
+    ):
+        # A quarantined agent's action was refused before execution — emit the
+        # quarantine-specific audit signal alongside enforcement.blocked.
+        stored += quarantine.blocked_action_event(
+            session,
+            workspace,
+            ctx.agent.id,
+            action_type=proposal.action_type,
+            target=proposal.target,
+            reason="quarantined agents cannot perform runtime actions",
+        )
+    elif (
+        deciding.decision == "quarantine_agent"
+        and ctx.agent is not None
+        and ctx.agent.status != "quarantined"
+    ):
+        # An extreme-risk decision now applies *real* quarantine deterministically.
+        stored += quarantine.quarantine_agent(
+            session,
+            workspace,
+            ctx.agent,
+            reason=deciding.reason,
+            requested_by="enforcement-gateway",
+            source_action_id=proposal.id,
+            policy_rules=decision.matched_rules,
+        )
     return decision, stored
 
 
@@ -991,6 +1025,8 @@ def guarded_execute(
     metadata: dict[str, Any] | None = None,
     workflow_id: str | None = None,
     task_id: str | None = None,
+    actor_type: str = "user",
+    agent_id: str | None = None,
     legacy_audit: Callable[[ActionDecision], list[core_models.Event]] | None = None,
     approval_payload: dict[str, Any] | None = None,
     execute: Callable[[], tuple[Any, list[core_models.Event]]],
@@ -999,17 +1035,19 @@ def guarded_execute(
     action.started / action.completed. On refusal, optionally emit the
     legacy v1.2/v1.3 audit events for stream parity, then raise; an
     approval-required refusal stores `approval_payload` so v1.6 approval
-    can resume the exact action."""
+    can resume the exact action. When `agent_id` names a quarantined agent
+    (actor_type="agent"), the gateway refuses the action before execution."""
     proposal, decision, stored = propose_action(
         session,
         workspace,
         workspaces_root,
-        actor_type="user",
+        actor_type=actor_type if agent_id else "user",
         action_type=action_type,
         target=target,
         metadata=metadata,
         workflow_id=workflow_id,
         task_id=task_id,
+        agent_id=agent_id,
         approval_payload=approval_payload,
     )
     assert decision is not None

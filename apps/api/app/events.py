@@ -117,6 +117,16 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "approval.execution_skipped",
         "approval.reroute_requested",
         "approval.quarantine_requested",
+        # Real runtime quarantine (v1.7) — quarantine now actually restricts an
+        # agent's runtime actions (not just a status marker). blocked_action
+        # fires when a quarantined agent's action is refused pre-execution.
+        "agent.quarantine.requested",
+        "agent.quarantined",
+        "agent.quarantine.enforced",
+        "agent.quarantine.blocked_action",
+        "agent.unquarantine.requested",
+        "agent.unquarantined",
+        "agent.permissions.restored",
     }
 )
 

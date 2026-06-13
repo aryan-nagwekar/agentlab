@@ -189,6 +189,8 @@ class AgentDefinitionOut(RuntimeModel):
     trust_score: float
     risk_score: float
     status: str
+    # Quarantine bookkeeping (v1.7) — present while quarantined or after a lift.
+    quarantine: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
@@ -229,6 +231,8 @@ class FileReadOut(BaseModel):
 class FileWriteIn(BaseModel):
     path: str = Field(min_length=1, max_length=512)
     content: str = Field(default="", max_length=1_000_000)
+    # v1.7: attribute the action to an agent; a quarantined agent is refused.
+    agent_id: str | None = Field(default=None, max_length=255)
 
 
 class FileWriteOut(BaseModel):
@@ -240,6 +244,7 @@ class FileWriteOut(BaseModel):
 
 class MkdirIn(BaseModel):
     path: str = Field(min_length=1, max_length=512)
+    agent_id: str | None = Field(default=None, max_length=255)
 
 
 class MkdirOut(BaseModel):
@@ -261,6 +266,7 @@ class CommandRunIn(BaseModel):
     args: list[str] = Field(default_factory=list, max_length=20)
     timeout_seconds: int = Field(default=30, ge=1, le=120)
     working_subdir: str = Field(default="", max_length=512)
+    agent_id: str | None = Field(default=None, max_length=255)
 
     @field_validator("args")
     @classmethod
@@ -536,6 +542,26 @@ class ApprovalResolveIn(BaseModel):
 
 class PendingCountOut(BaseModel):
     pending: int
+
+
+# ------------------------------------------------------------- quarantine (v1.7)
+
+
+class QuarantineIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+    requested_by: str = Field(default="user", min_length=1, max_length=255)
+
+
+class UnquarantineIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+    requested_by: str = Field(default="user", min_length=1, max_length=255)
+
+
+class QuarantineStatusOut(BaseModel):
+    agent_id: str
+    status: str
+    quarantined: bool
+    quarantine: dict[str, Any] | None = None
 
 
 class AgentTemplateOut(BaseModel):

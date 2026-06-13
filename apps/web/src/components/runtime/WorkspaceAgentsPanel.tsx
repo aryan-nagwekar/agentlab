@@ -270,15 +270,21 @@ function AgentCard({
         <p className="mt-1 text-[10.5px] leading-4 text-zinc-600">{riskNotes.join(" ")}</p>
       ) : null}
 
-      {gated ? (
+      {agent.status === "quarantined" ? (
+        <p className="mt-1 text-[10.5px] text-red-300/90" data-testid="quarantine-note">
+          🔒 Quarantined — runtime actions (file writes, commands, task
+          assignment/results) are blocked before execution.
+          {agent.quarantine?.reason ? ` Reason: ${agent.quarantine.reason}` : ""}
+          {agent.quarantine?.requested_by ? ` (by ${agent.quarantine.requested_by})` : ""}
+        </p>
+      ) : agent.status === "disabled" ? (
         <p className="mt-1 text-[10.5px] text-zinc-500" data-testid="gated-note">
-          {agent.status === "quarantined" ? "Quarantined" : "Disabled"} — excluded from
-          assignment (metadata only; no real runtime quarantine yet).
+          Disabled — excluded from task assignment.
         </p>
       ) : null}
 
       {!readOnly ? (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <button
             type="button"
             disabled={disabled || busy !== null}
@@ -288,6 +294,39 @@ function AgentCard({
           >
             {isEditing ? "Close" : "Edit"}
           </button>
+          {agent.status === "quarantined" ? (
+            <button
+              type="button"
+              data-testid="unquarantine-btn"
+              disabled={disabled || busy !== null}
+              title={hintTitle}
+              onClick={() =>
+                act(`unq-${agent.agent_id}`, () =>
+                  api.unquarantineAgent(workspaceId, agent.agent_id, {}),
+                )
+              }
+              className="rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10.5px] text-emerald-300 transition-colors hover:bg-emerald-400/20 disabled:opacity-40"
+            >
+              {busy === `unq-${agent.agent_id}` ? "…" : "Unquarantine"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="quarantine-btn"
+              disabled={disabled || busy !== null}
+              title={hintTitle}
+              onClick={() =>
+                act(`q-${agent.agent_id}`, () =>
+                  api.quarantineAgent(workspaceId, agent.agent_id, {
+                    reason: "manually quarantined from the agents panel",
+                  }),
+                )
+              }
+              className="rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10.5px] text-amber-300 transition-colors hover:bg-amber-400/20 disabled:opacity-40"
+            >
+              {busy === `q-${agent.agent_id}` ? "…" : "Quarantine"}
+            </button>
+          )}
           <button
             type="button"
             disabled={disabled || busy !== null}

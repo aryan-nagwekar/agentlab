@@ -150,6 +150,17 @@ APPROVAL_EXECUTION_SKIPPED = "approval.execution_skipped"
 APPROVAL_REROUTE_REQUESTED = "approval.reroute_requested"
 APPROVAL_QUARANTINE_REQUESTED = "approval.quarantine_requested"
 
+# Real runtime quarantine (v1.7) — quarantine now actually restricts an agent's
+# runtime actions. agent.quarantine.blocked_action fires when a quarantined
+# agent's action is refused before execution.
+AGENT_QUARANTINE_REQUESTED = "agent.quarantine.requested"
+AGENT_QUARANTINED = "agent.quarantined"
+AGENT_QUARANTINE_ENFORCED = "agent.quarantine.enforced"
+AGENT_QUARANTINE_BLOCKED_ACTION = "agent.quarantine.blocked_action"
+AGENT_UNQUARANTINE_REQUESTED = "agent.unquarantine.requested"
+AGENT_UNQUARANTINED = "agent.unquarantined"
+AGENT_PERMISSIONS_RESTORED = "agent.permissions.restored"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -245,6 +256,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         APPROVAL_EXECUTION_SKIPPED,
         APPROVAL_REROUTE_REQUESTED,
         APPROVAL_QUARANTINE_REQUESTED,
+        AGENT_QUARANTINE_REQUESTED,
+        AGENT_QUARANTINED,
+        AGENT_QUARANTINE_ENFORCED,
+        AGENT_QUARANTINE_BLOCKED_ACTION,
+        AGENT_UNQUARANTINE_REQUESTED,
+        AGENT_UNQUARANTINED,
+        AGENT_PERMISSIONS_RESTORED,
     }
 )
 

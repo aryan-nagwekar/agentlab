@@ -392,6 +392,24 @@ export const api = {
     request<void>(`/api/runtime/workspaces/${workspaceId}/agents/${agentId}`, {
       method: "DELETE",
     }),
+  quarantineAgent: (
+    workspaceId: string,
+    agentId: string,
+    body: { reason: string; requested_by?: string },
+  ) =>
+    request<WorkspaceAgent>(
+      `/api/runtime/workspaces/${workspaceId}/agents/${agentId}/quarantine`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  unquarantineAgent: (
+    workspaceId: string,
+    agentId: string,
+    body: { reason?: string; requested_by?: string },
+  ) =>
+    request<WorkspaceAgent>(
+      `/api/runtime/workspaces/${workspaceId}/agents/${agentId}/unquarantine`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   studioTemplates: () => request<StudioTemplateSummary[]>("/api/studio/templates"),
   studioTemplate: (templateId: string) =>
     request<StudioTemplate>(`/api/studio/templates/${templateId}`),

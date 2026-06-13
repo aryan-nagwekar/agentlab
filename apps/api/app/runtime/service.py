@@ -368,8 +368,13 @@ def update_agent(
         if field not in patch or patch[field] is None:
             continue
         attr = "meta" if field == "metadata" else field
-        if getattr(agent, attr) != patch[field]:
-            setattr(agent, attr, patch[field])
+        new_value = patch[field]
+        # Preserve the reserved quarantine bookkeeping key (v1.7) across a
+        # user metadata replacement — only the quarantine service owns it.
+        if field == "metadata" and (agent.meta or {}).get("quarantine") is not None:
+            new_value = {**new_value, "quarantine": agent.meta["quarantine"]}
+        if getattr(agent, attr) != new_value:
+            setattr(agent, attr, new_value)
             changed_fields.append(field)
 
     if changed_fields:

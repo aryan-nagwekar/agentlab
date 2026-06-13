@@ -247,7 +247,9 @@ def test_reroute_records_event_without_autonomous_action(env):
     assert "approval.execution_resumed" not in types
 
 
-def test_quarantine_records_metadata_only_no_real_quarantine(env):
+def test_quarantine_resolution_applies_real_quarantine_when_agent_linked(env):
+    """v1.7: a quarantine approval resolution now REALLY quarantines the
+    linked agent (in v1.6 this was metadata-only)."""
     client, wid, _ = env
     agent_id = client.post(
         f"/api/runtime/workspaces/{wid}/agents",
@@ -266,9 +268,11 @@ def test_quarantine_records_metadata_only_no_real_quarantine(env):
     types = _activity_types(client, wid)
     assert "approval.quarantine_requested" in types
     assert "enforcement.quarantine_triggered" in types
-    # the agent definition is NOT actually restricted (real quarantine is v1.7)
+    assert "agent.quarantined" in types  # v1.7 real quarantine
+    # the agent definition is now actually quarantined
     agent = client.get(f"/api/runtime/workspaces/{wid}/agents/{agent_id}").json()
-    assert agent["status"] == "ready"
+    assert agent["status"] == "quarantined"
+    assert agent["quarantine"]["source_approval_id"] == approval_id
 
 
 # ----------------------------------------------- security / replay / auth

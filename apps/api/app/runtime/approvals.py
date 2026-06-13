@@ -33,6 +33,7 @@ from .models import (
     ActionProposal,
     ApprovalRequest,
     Workspace,
+    WorkspaceAgent,
 )
 from .sandbox import SandboxBlocked, SandboxError
 from .service import _emit
@@ -384,7 +385,6 @@ def resolve(
             session, workspace, approval, "approval.quarantine_requested",
             {**common, **({"agent_id": approval.agent_id} if approval.agent_id else {})},
         )
-        # Metadata/event only — real runtime quarantine arrives in v1.7.
         stored += _emit(
             session,
             workspace,
@@ -397,6 +397,25 @@ def resolve(
                 "reason": "quarantine requested by human during approval review",
             },
         )
+        # v1.7: apply REAL quarantine when the approval is linked to an agent.
+        if approval.agent_id:
+            from . import quarantine
+
+            agent = session.get(
+                WorkspaceAgent, {"workspace_id": workspace.id, "id": approval.agent_id}
+            )
+            if agent is not None:
+                stored += quarantine.quarantine_agent(
+                    session,
+                    workspace,
+                    agent,
+                    reason=approval.resolution_reason
+                    or "quarantine requested by human during approval review",
+                    requested_by=resolved_by,
+                    source_action_id=approval.action_id,
+                    source_approval_id=approval.id,
+                    policy_rules=approval.matched_policy_rules,
+                )
     else:
         raise SandboxError(f"unknown resolution decision {decision!r}")
     return approval, stored

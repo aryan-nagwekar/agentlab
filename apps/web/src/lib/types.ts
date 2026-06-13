@@ -567,9 +567,24 @@ export interface WorkspaceAgent {
   trust_score: number;
   risk_score: number;
   status: WorkspaceAgentStatus;
+  // Quarantine bookkeeping (v1.7) — present while quarantined or after a lift.
+  quarantine: AgentQuarantineInfo | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface AgentQuarantineInfo {
+  reason: string;
+  requested_by: string;
+  quarantined_at: string;
+  source_action_id: string | null;
+  source_approval_id: string | null;
+  policy_rules: Array<{ id: string; name: string }>;
+  previous_status: string;
+  lifted_at: string | null;
+  lifted_by: string | null;
+  lift_reason: string | null;
 }
 
 // ------------------------------------------------- sandbox files (v1.2)

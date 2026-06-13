@@ -17,7 +17,15 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import approvals, commands, enforcement, orchestration, sandbox, service
+from ..runtime import (
+    approvals,
+    commands,
+    enforcement,
+    orchestration,
+    quarantine,
+    sandbox,
+    service,
+)
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import (
     ActionDecision,
@@ -44,6 +52,9 @@ from ..runtime.schemas import (
     ArtifactIn,
     ArtifactOut,
     PendingCountOut,
+    QuarantineIn,
+    QuarantineStatusOut,
+    UnquarantineIn,
     DecisionRecordOut,
     PolicyRuleOut,
     CommandRunIn,
@@ -121,7 +132,8 @@ def _agent_out(agent: WorkspaceAgent) -> AgentDefinitionOut:
         trust_score=agent.trust_score,
         risk_score=agent.risk_score,
         status=agent.status,
-        metadata=agent.meta or {},
+        quarantine=(agent.meta or {}).get("quarantine"),
+        metadata={k: v for k, v in (agent.meta or {}).items() if k != "quarantine"},
         created_at=agent.created_at,
         updated_at=agent.updated_at,
     )
@@ -429,6 +441,8 @@ async def write_file(
             root,
             action_type="file.write",
             target=body.path,
+            actor_type="agent" if body.agent_id else "user",
+            agent_id=body.agent_id,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "write", body.path),
             approval_payload={"path": body.path, "content": body.content},
             execute=lambda: sandbox.write_file(session, workspace, root, body.path, body.content),
@@ -454,6 +468,8 @@ async def make_directory(
             root,
             action_type="directory.create",
             target=body.path,
+            actor_type="agent" if body.agent_id else "user",
+            agent_id=body.agent_id,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "mkdir", body.path),
             approval_payload={"path": body.path},
             execute=lambda: sandbox.make_dir(session, workspace, root, body.path),
@@ -467,7 +483,9 @@ async def make_directory(
     response_model=FileDeleteOut,
     dependencies=[Depends(require_api_key)],
 )
-async def delete_file(workspace_id: str, request: Request, path: str) -> FileDeleteOut:
+async def delete_file(
+    workspace_id: str, request: Request, path: str, agent_id: str | None = None
+) -> FileDeleteOut:
     root = _workspaces_root(request)
 
     def _delete(session: Session, workspace: Workspace):
@@ -477,6 +495,8 @@ async def delete_file(workspace_id: str, request: Request, path: str) -> FileDel
             root,
             action_type="file.delete",
             target=path,
+            actor_type="agent" if agent_id else "user",
+            agent_id=agent_id,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "delete", path),
             approval_payload={"path": path},
             execute=lambda: sandbox.delete_path(session, workspace, root, path),
@@ -521,6 +541,8 @@ async def run_sandbox_command(
             action_type="command.run",
             target=shlex.join([body.command, *body.args]),
             metadata={"command": body.command, "args": body.args},
+            actor_type="agent" if body.agent_id else "user",
+            agent_id=body.agent_id,
             legacy_audit=enforcement.command_legacy_audit(
                 session, workspace, body.command, body.args
             ),
@@ -1316,3 +1338,75 @@ async def delete_workspace_agent(
 
     stored, project_id = await run_in_threadpool(_delete)
     await _broadcast(request, project_id, stored)
+
+
+# ---------------------------------------------------------------- quarantine (v1.7)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}/quarantine",
+    response_model=QuarantineStatusOut,
+)
+def get_agent_quarantine(
+    workspace_id: str, agent_id: str, session: Session = Depends(get_session)
+) -> QuarantineStatusOut:
+    _require_workspace(session, workspace_id)
+    agent = _require_agent(session, workspace_id, agent_id)
+    return QuarantineStatusOut(
+        agent_id=agent.id,
+        status=agent.status,
+        quarantined=quarantine.is_quarantined(agent),
+        quarantine=quarantine.quarantine_info(agent),
+    )
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}/quarantine",
+    response_model=AgentDefinitionOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def quarantine_workspace_agent(
+    workspace_id: str, agent_id: str, body: QuarantineIn, request: Request
+) -> AgentDefinitionOut:
+    def _quarantine(session: Session, workspace: Workspace):
+        agent = _require_agent(session, workspace_id, agent_id)
+        if agent.status == "quarantined":
+            raise sandbox.SandboxError("agent is already quarantined", status_code=409)
+        stored = quarantine.quarantine_agent(
+            session, workspace, agent, reason=body.reason, requested_by=body.requested_by
+        )
+        return _agent_out(agent), stored
+
+    return await _sandbox_call(request, workspace_id, _quarantine)
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agents/{agent_id}/unquarantine",
+    response_model=AgentDefinitionOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def unquarantine_workspace_agent(
+    workspace_id: str, agent_id: str, body: UnquarantineIn, request: Request
+) -> AgentDefinitionOut:
+    def _unquarantine(session: Session, workspace: Workspace):
+        agent = _require_agent(session, workspace_id, agent_id)
+        stored = quarantine.unquarantine_agent(
+            session, workspace, agent, requested_by=body.requested_by, reason=body.reason
+        )
+        return _agent_out(agent), stored
+
+    return await _sandbox_call(request, workspace_id, _unquarantine)
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/quarantine/events",
+    response_model=list[EventOut],
+)
+def list_quarantine_events(
+    workspace_id: str, session: Session = Depends(get_session), limit: int = 100
+) -> list[EventOut]:
+    workspace = _require_workspace(session, workspace_id)
+    events = quarantine.quarantine_events(
+        session, workspace_id, workspace.activity_run_id, limit
+    )
+    return [EventOut.model_validate(event) for event in events]

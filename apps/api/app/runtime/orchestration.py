@@ -38,7 +38,7 @@ from .models import (
     Workspace,
     WorkspaceAgent,
 )
-from .sandbox import SandboxError
+from .sandbox import SandboxBlocked, SandboxError
 from .service import _emit
 
 MAX_RESULT_OUTPUT_CHARS = 4_000
@@ -545,6 +545,32 @@ def record_result(
     output: str,
     artifacts: list[str],
 ) -> tuple[RuntimeTaskResult, list[core_models.Event]]:
+    # v1.7: a result attributed to a quarantined agent cannot be recorded.
+    # Checked before the status guard (quarantine may have already blocked the
+    # task) and raised as SandboxBlocked so the audit event commits (a plain
+    # SandboxError would be rolled back by the router) and presents as a block.
+    if task.assigned_agent_id:
+        agent = session.get(
+            WorkspaceAgent, {"workspace_id": workspace.id, "id": task.assigned_agent_id}
+        )
+        if agent is not None and agent.status == "quarantined":
+            reason = (
+                "the task's assigned agent is quarantined; unquarantine it or "
+                "reassign the task before recording a result"
+            )
+            blocked = SandboxBlocked(reason, "agent_quarantined", task.id)
+            blocked.events = _emit(
+                session,
+                workspace,
+                "agent.quarantine.blocked_action",
+                {
+                    "agent_id": agent.id,
+                    "blocked_action_type": "task.result_record",
+                    "task_id": task.id,
+                    "reason": "the assigned agent is quarantined",
+                },
+            )
+            raise blocked
     if task.status not in ("running", "pending"):
         raise SandboxError(
             f"cannot record a result for a {task.status} task", status_code=409

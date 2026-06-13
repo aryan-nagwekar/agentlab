@@ -37,6 +37,7 @@ const agent: WorkspaceAgent = {
   trust_score: 1,
   risk_score: 0.4,
   status: "caution",
+  quarantine: null,
   metadata: { risk_notes: ["Touches database and server logic."] },
   created_at: "2026-06-12T10:00:00Z",
   updated_at: "2026-06-12T10:00:00Z",
@@ -83,6 +84,8 @@ const workspaceAgentTemplates = vi.fn();
 const createWorkspaceAgentFromTemplate = vi.fn();
 const patchWorkspaceAgent = vi.fn();
 const deleteWorkspaceAgent = vi.fn();
+const quarantineAgent = vi.fn();
+const unquarantineAgent = vi.fn();
 vi.mock("../../lib/api", () => ({
   api: {
     workspaceAgents: (...a: unknown[]) => workspaceAgents(...a),
@@ -91,8 +94,29 @@ vi.mock("../../lib/api", () => ({
       createWorkspaceAgentFromTemplate(...a),
     patchWorkspaceAgent: (...a: unknown[]) => patchWorkspaceAgent(...a),
     deleteWorkspaceAgent: (...a: unknown[]) => deleteWorkspaceAgent(...a),
+    quarantineAgent: (...a: unknown[]) => quarantineAgent(...a),
+    unquarantineAgent: (...a: unknown[]) => unquarantineAgent(...a),
   },
 }));
+
+const quarantinedAgent: WorkspaceAgent = {
+  ...agent,
+  agent_id: "wsagent-q",
+  name: "Risky Agent",
+  status: "quarantined",
+  quarantine: {
+    reason: "repeated high-risk violations",
+    requested_by: "admin",
+    quarantined_at: "2026-06-12T10:00:00Z",
+    source_action_id: null,
+    source_approval_id: null,
+    policy_rules: [],
+    previous_status: "ready",
+    lifted_at: null,
+    lifted_by: null,
+    lift_reason: null,
+  },
+};
 
 import { WorkspaceAgentsPanel } from "./WorkspaceAgentsPanel";
 
@@ -180,5 +204,48 @@ describe("WorkspaceAgentsPanel", () => {
     await screen.findByTestId("agent-card");
     expect(screen.queryByText("+ Add agent")).toBeNull();
     expect(screen.queryByText("Edit")).toBeNull();
+  });
+
+  // ---- v1.7 real runtime quarantine ----
+
+  it("quarantines an agent from its card", async () => {
+    workspaceAgents.mockResolvedValue([agent]);
+    quarantineAgent.mockResolvedValue({ ...agent, status: "quarantined" });
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("quarantine-btn"));
+    await waitFor(() =>
+      expect(quarantineAgent).toHaveBeenCalledWith("ws-abc123", "wsagent-1", {
+        reason: "manually quarantined from the agents panel",
+      }),
+    );
+  });
+
+  it("renders the quarantined state with reason and an unquarantine button", async () => {
+    workspaceAgents.mockResolvedValue([quarantinedAgent]);
+    renderPanel();
+    const note = await screen.findByTestId("quarantine-note");
+    expect(note.textContent).toContain("Quarantined");
+    expect(note.textContent).toContain("runtime actions");
+    expect(note.textContent).toContain("repeated high-risk violations");
+    expect(screen.getByTestId("unquarantine-btn")).toBeTruthy();
+    expect(screen.queryByTestId("quarantine-btn")).toBeNull();
+  });
+
+  it("unquarantines an agent from its card", async () => {
+    workspaceAgents.mockResolvedValue([quarantinedAgent]);
+    unquarantineAgent.mockResolvedValue({ ...quarantinedAgent, status: "ready" });
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("unquarantine-btn"));
+    await waitFor(() =>
+      expect(unquarantineAgent).toHaveBeenCalledWith("ws-abc123", "wsagent-q", {}),
+    );
+  });
+
+  it("disables quarantine actions in Chat Mode", async () => {
+    workspaceAgents.mockResolvedValue([agent]);
+    renderPanel({ chatMode: true });
+    const btn = (await screen.findByTestId("quarantine-btn")) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe("Switch to Agent Mode to perform this action.");
   });
 });
