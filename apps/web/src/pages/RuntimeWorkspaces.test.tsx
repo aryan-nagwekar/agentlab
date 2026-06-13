@@ -93,6 +93,8 @@ vi.mock("../lib/api", () => ({
     // v1.5 enforcement panel — default to no decisions here.
     enforcementDecisions: () => Promise.resolve([]),
     runtimePolicies: () => Promise.resolve([]),
+    // v1.6 approvals panel — default to no approvals here.
+    workspaceApprovals: () => Promise.resolve([]),
   },
 }));
 

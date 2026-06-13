@@ -290,7 +290,8 @@ def test_sensitive_file_write_requires_approval_and_does_not_execute(env):
     assert response.status_code == 403
     detail = response.json()["detail"]
     assert detail.startswith("approval required (approval-sensitive-file)")
-    assert "v1.6" in detail
+    # v1.6: the halt now creates a pending approval and the detail points to it.
+    assert "is waiting in the Approvals panel" in detail
     assert not (root / "src" / "payment").exists()
     types = _types(client, wid)
     assert "enforcement.approval_required" in types

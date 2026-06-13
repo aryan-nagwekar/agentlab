@@ -103,6 +103,20 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "action.started",
         "action.completed",
         "action.failed",
+        # Human approval system (v1.6) — resolution of approval_required
+        # enforcement decisions. Quarantine/reroute resolutions are recorded
+        # events only (real quarantine v1.7, validators v1.8). Payloads carry
+        # summaries and ids, never stored execution payloads.
+        "approval.requested",
+        "approval.approved",
+        "approval.denied",
+        "approval.cancelled",
+        "approval.override_used",
+        "approval.execution_resumed",
+        "approval.execution_failed",
+        "approval.execution_skipped",
+        "approval.reroute_requested",
+        "approval.quarantine_requested",
     }
 )
 

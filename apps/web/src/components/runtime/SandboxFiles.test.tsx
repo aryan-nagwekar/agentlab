@@ -175,10 +175,10 @@ describe("SandboxFilesPanel", () => {
     await waitFor(() => expect(sandboxDelete).toHaveBeenCalledWith("ws-abc123", "README.md"));
   });
 
-  it("surfaces the enforcement approval-required reason (v1.5)", async () => {
+  it("surfaces the enforcement approval-required reason and links to the approval (v1.6)", async () => {
     sandboxWrite.mockRejectedValue(
       new Error(
-        "403 Forbidden — approval required (approval-sensitive-file): the file touches auth/payment/deployment-sensitive paths and needs human approval — approval resolution arrives in v1.6",
+        "403 Forbidden — approval required (approval-sensitive-file): the file touches auth/payment/deployment-sensitive paths and needs human approval — approval apr-1234567890 is waiting in the Approvals panel",
       ),
     );
     renderPanel();
@@ -190,6 +190,7 @@ describe("SandboxFilesPanel", () => {
     expect(
       await screen.findByText(/approval required \(approval-sensitive-file\)/),
     ).toBeTruthy();
+    expect(screen.getByText(/is waiting in the Approvals panel/)).toBeTruthy();
   });
 
   it("shows the safe error when a path is blocked", async () => {

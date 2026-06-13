@@ -494,6 +494,50 @@ class PolicyRuleOut(BaseModel):
     reason: str
 
 
+# ------------------------------------------------------------- approvals (v1.6)
+
+
+class ApprovalOut(RuntimeModel):
+    approval_id: str
+    workspace_id: str
+    workflow_id: str | None = None
+    task_id: str | None = None
+    action_id: str
+    agent_id: str | None = None
+    title: str
+    plain_english_summary: str
+    technical_summary: str
+    risk_level: str
+    matched_policy_rules: list[dict[str, str]] = Field(default_factory=list)
+    recommended_decision: str
+    options: list[str] = Field(default_factory=list)
+    status: str
+    action_type: str = ""
+    target: str = ""
+    resolution_decision: str | None = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+    resolution_reason: str | None = None
+    execution_status: str
+    execution_detail: str | None = None
+    created_at: datetime
+
+    @field_serializer("created_at", "resolved_at", when_used="json")
+    def _ser_dt(self, value: datetime | None) -> str | None:
+        return isoz(value) if value else None
+
+
+class ApprovalResolveIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=1000)
+    resolved_by: str = Field(default="user", min_length=1, max_length=255)
+    # approve endpoint only: record as a one-time approval.
+    once: bool = False
+
+
+class PendingCountOut(BaseModel):
+    pending: int
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

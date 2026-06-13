@@ -19,6 +19,7 @@ import type {
   EnforcementDecisionRecord,
   Run,
   RuntimeActionProposal,
+  RuntimeApproval,
   RuntimeArtifact,
   RuntimePolicyRule,
   RuntimeTask,
@@ -342,6 +343,24 @@ export const api = {
   ) =>
     request<RuntimeActionProposal>(
       `/api/runtime/workspaces/${workspaceId}/actions/propose`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  workspaceApprovals: (workspaceId: string, status?: string) =>
+    request<RuntimeApproval[]>(
+      `/api/runtime/workspaces/${workspaceId}/approvals${query({ status })}`,
+    ),
+  approvalsPendingCount: (workspaceId: string) =>
+    request<{ pending: number }>(
+      `/api/runtime/workspaces/${workspaceId}/approvals/pending-count`,
+    ),
+  resolveApproval: (
+    workspaceId: string,
+    approvalId: string,
+    action: "approve" | "deny" | "approve-readonly" | "reroute" | "quarantine" | "cancel",
+    body: { reason?: string; resolved_by?: string } = {},
+  ) =>
+    request<RuntimeApproval>(
+      `/api/runtime/workspaces/${workspaceId}/approvals/${approvalId}/${action}`,
       { method: "POST", body: JSON.stringify(body) },
     ),
   workspaceAgents: (workspaceId: string) =>

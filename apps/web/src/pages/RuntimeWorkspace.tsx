@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
 import { EnforcementPanel } from "../components/runtime/EnforcementPanel";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
@@ -236,6 +237,13 @@ export function RuntimeWorkspacePage() {
 
           {/* Enforcement gateway (v1.5) */}
           <EnforcementPanel
+            workspaceId={workspace.workspace_id}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Human approvals (v1.6) */}
+          <ApprovalsPanel
             workspaceId={workspace.workspace_id}
             readOnly={workspace.status === "archived"}
             chatMode={chatMode}

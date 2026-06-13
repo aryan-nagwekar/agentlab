@@ -307,6 +307,19 @@ def _rule_sensitive_file(ctx: ActionContext) -> dict | None:
     return None
 
 
+def _rule_sensitive_command(ctx: ActionContext) -> dict | None:
+    """Commands that pass v1.3 safety but touch auth/payment/deployment-
+    sensitive paths still need a human decision (v1.6)."""
+    if ctx.action_type != "command.run" or ctx.command_block is not None:
+        return None
+    args = [str(a) for a in ctx.metadata.get("args", [])]
+    for arg in args:
+        token = _is_sensitive_path(arg)
+        if token:
+            return {"sensitive_token": token, "argument": _redact(arg)[:200]}
+    return None
+
+
 def _rule_protected_action(ctx: ActionContext) -> dict | None:
     if ctx.action_type in PROTECTED_ACTION_TYPES:
         return {"detail": f"{ctx.action_type} always requires a human decision"}
@@ -476,6 +489,13 @@ POLICY_RULES: list[PolicyRule] = sorted(
             31, "retry_with_constraints",
             "the command needs a project manifest that does not exist yet",
             _rule_retry_manifest, frozenset({"command.run"}),
+        ),
+        PolicyRule(
+            "approval-sensitive-command", "Sensitive-path commands need approval",
+            "Allowlisted commands whose arguments touch auth/payment/deployment paths require a human decision.",
+            34, "require_human_approval",
+            "the command touches auth/payment/deployment-sensitive paths and needs human approval",
+            _rule_sensitive_command, frozenset({"command.run"}),
         ),
         PolicyRule(
             "approval-protected-action", "Protected domains need approval",
@@ -656,6 +676,7 @@ def propose_action(
     workflow_id: str | None = None,
     task_id: str | None = None,
     evaluate_now: bool = True,
+    approval_payload: dict[str, Any] | None = None,
 ) -> tuple[ActionProposal, ActionDecision | None, list[core_models.Event]]:
     proposal = ActionProposal(
         id=f"act-{uuid.uuid4().hex[:10]}",
@@ -698,6 +719,17 @@ def propose_action(
             raw_target=target, raw_input_summary=input_summary,
         )
         stored += more
+        if decision.decision == "require_human_approval":
+            # v1.6: a halted action waits in the approval inbox. The stored
+            # payload (if the surface provided one) lets approval resume the
+            # exact action; the generic API provides none and never executes.
+            from . import approvals
+
+            approval, approval_events = approvals.ensure_approval(
+                session, workspace, proposal, decision, approval_payload
+            )
+            stored += approval_events
+            proposal.meta = {**(proposal.meta or {}), "approval_id": approval.id}
     return proposal, decision, stored
 
 
@@ -932,6 +964,7 @@ def _refuse(
             "downgrade_permissions": "permissions downgraded",
             "quarantine_agent": "quarantine triggered",
         }.get(decision.decision, "refused")
+        approval_id = (proposal.meta or {}).get("approval_id")
         exc = EnforcementRefused(
             decision.reason,
             rule_id,
@@ -939,8 +972,8 @@ def _refuse(
             http_status=403,
             detail_override=(
                 f"{label} ({rule_id}): {decision.reason} — "
-                "approval resolution arrives in v1.6"
-                if decision.decision == "require_human_approval"
+                f"approval {approval_id} is waiting in the Approvals panel"
+                if decision.decision == "require_human_approval" and approval_id
                 else f"{label} ({rule_id}): {decision.reason}"
             ),
         )
@@ -959,11 +992,14 @@ def guarded_execute(
     workflow_id: str | None = None,
     task_id: str | None = None,
     legacy_audit: Callable[[ActionDecision], list[core_models.Event]] | None = None,
+    approval_payload: dict[str, Any] | None = None,
     execute: Callable[[], tuple[Any, list[core_models.Event]]],
 ) -> tuple[Any, list[core_models.Event]]:
     """Propose → evaluate → (if executable) run `execute` between
     action.started / action.completed. On refusal, optionally emit the
-    legacy v1.2/v1.3 audit events for stream parity, then raise."""
+    legacy v1.2/v1.3 audit events for stream parity, then raise; an
+    approval-required refusal stores `approval_payload` so v1.6 approval
+    can resume the exact action."""
     proposal, decision, stored = propose_action(
         session,
         workspace,
@@ -974,6 +1010,7 @@ def guarded_execute(
         metadata=metadata,
         workflow_id=workflow_id,
         task_id=task_id,
+        approval_payload=approval_payload,
     )
     assert decision is not None
     if decision.decision not in EXECUTABLE_DECISIONS:

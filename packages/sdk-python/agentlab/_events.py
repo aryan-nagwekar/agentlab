@@ -136,6 +136,20 @@ ACTION_STARTED = "action.started"
 ACTION_COMPLETED = "action.completed"
 ACTION_FAILED = "action.failed"
 
+# Human approval system (v1.6) — resolution of approval_required enforcement
+# decisions, emitted by the server. Quarantine/reroute resolutions are
+# recorded events only (real quarantine v1.7, validators v1.8).
+APPROVAL_REQUESTED = "approval.requested"
+APPROVAL_APPROVED = "approval.approved"
+APPROVAL_DENIED = "approval.denied"
+APPROVAL_CANCELLED = "approval.cancelled"
+APPROVAL_OVERRIDE_USED = "approval.override_used"
+APPROVAL_EXECUTION_RESUMED = "approval.execution_resumed"
+APPROVAL_EXECUTION_FAILED = "approval.execution_failed"
+APPROVAL_EXECUTION_SKIPPED = "approval.execution_skipped"
+APPROVAL_REROUTE_REQUESTED = "approval.reroute_requested"
+APPROVAL_QUARANTINE_REQUESTED = "approval.quarantine_requested"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -221,6 +235,16 @@ EVENT_TYPES: frozenset[str] = frozenset(
         ACTION_STARTED,
         ACTION_COMPLETED,
         ACTION_FAILED,
+        APPROVAL_REQUESTED,
+        APPROVAL_APPROVED,
+        APPROVAL_DENIED,
+        APPROVAL_CANCELLED,
+        APPROVAL_OVERRIDE_USED,
+        APPROVAL_EXECUTION_RESUMED,
+        APPROVAL_EXECUTION_FAILED,
+        APPROVAL_EXECUTION_SKIPPED,
+        APPROVAL_REROUTE_REQUESTED,
+        APPROVAL_QUARANTINE_REQUESTED,
     }
 )
 

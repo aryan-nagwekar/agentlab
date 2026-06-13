@@ -757,6 +757,43 @@ export interface RuntimeActionProposal {
   created_at: string;
 }
 
+// ----------------------------------------------------- approvals (v1.6)
+
+export type ApprovalStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "expired"
+  | "cancelled"
+  | "rerouted"
+  | "quarantine_requested";
+
+export interface RuntimeApproval {
+  approval_id: string;
+  workspace_id: string;
+  workflow_id: string | null;
+  task_id: string | null;
+  action_id: string;
+  agent_id: string | null;
+  title: string;
+  plain_english_summary: string;
+  technical_summary: string;
+  risk_level: string;
+  matched_policy_rules: Array<{ id: string; name: string }>;
+  recommended_decision: string;
+  options: string[];
+  status: ApprovalStatus;
+  action_type: string;
+  target: string;
+  resolution_decision: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_reason: string | null;
+  execution_status: "not_executed" | "executed" | "execution_failed" | "skipped";
+  execution_detail: string | null;
+  created_at: string;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

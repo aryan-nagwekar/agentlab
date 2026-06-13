@@ -330,6 +330,80 @@ class ActionDecision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+# Human approval system (v1.6). Approval requests resolve enforcement's
+# require_human_approval decisions. Quarantine/reroute resolutions are
+# recorded as events/metadata only — real quarantine arrives in v1.7,
+# validators in v1.8.
+APPROVAL_STATUSES: tuple[str, ...] = (
+    "pending",
+    "approved",
+    "denied",
+    "expired",  # reserved: no auto-expiry mechanism exists yet
+    "cancelled",
+    "rerouted",
+    "quarantine_requested",
+)
+
+RESOLUTION_DECISIONS: tuple[str, ...] = (
+    "approve",
+    "approve_once",
+    "approve_readonly",
+    "deny",
+    "reroute",
+    "quarantine",
+)
+
+APPROVAL_EXECUTION_STATUSES: tuple[str, ...] = (
+    "not_executed",
+    "executed",
+    "execution_failed",
+    "skipped",
+)
+
+
+class ApprovalRequest(Base):
+    """A halted approval_required action waiting for a human decision.
+
+    Resolution fields live on the request (single audit row); every
+    transition also emits approval.* events, so the activity run carries
+    the full trail.
+    """
+
+    __tablename__ = "runtime_approval_requests"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("runtime_workspaces.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    workflow_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    action_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("runtime_action_proposals.id", ondelete="CASCADE"), index=True
+    )
+    agent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    title: Mapped[str] = mapped_column(String(255))
+    plain_english_summary: Mapped[str] = mapped_column(Text)
+    technical_summary: Mapped[str] = mapped_column(Text)
+    risk_level: Mapped[str] = mapped_column(String(16), default="medium")
+    matched_policy_rules: Mapped[list] = mapped_column(JSONType, default=list)
+    recommended_decision: Mapped[str] = mapped_column(String(32), default="approve_once")
+    options: Mapped[list] = mapped_column(JSONType, default=list)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    resolution_decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resolution_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Whether approving actually resumed the stored action.
+    execution_status: Mapped[str] = mapped_column(String(32), default="not_executed")
+    execution_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # meta["execution"] holds the exact stored payload needed to resume the
+    # action (e.g. file content, command argv). Never emitted in events.
+    meta: Mapped[dict] = mapped_column("metadata", JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 class WorkspaceAgent(Base):
     """An agent *definition* inside a workspace (v1.1).
 

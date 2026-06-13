@@ -17,11 +17,12 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
-from ..runtime import commands, enforcement, orchestration, sandbox, service
+from ..runtime import approvals, commands, enforcement, orchestration, sandbox, service
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import (
     ActionDecision,
     ActionProposal,
+    ApprovalRequest,
     RuntimeTask,
     RuntimeWorkflow,
     RuntimeWorkflowPlan,
@@ -38,8 +39,11 @@ from ..runtime.schemas import (
     AgentFromTemplateIn,
     AgentTemplateOut,
     AllowedCommandOut,
+    ApprovalOut,
+    ApprovalResolveIn,
     ArtifactIn,
     ArtifactOut,
+    PendingCountOut,
     DecisionRecordOut,
     PolicyRuleOut,
     CommandRunIn,
@@ -426,6 +430,7 @@ async def write_file(
             action_type="file.write",
             target=body.path,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "write", body.path),
+            approval_payload={"path": body.path, "content": body.content},
             execute=lambda: sandbox.write_file(session, workspace, root, body.path, body.content),
         )
 
@@ -450,6 +455,7 @@ async def make_directory(
             action_type="directory.create",
             target=body.path,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "mkdir", body.path),
+            approval_payload={"path": body.path},
             execute=lambda: sandbox.make_dir(session, workspace, root, body.path),
         )
 
@@ -472,6 +478,7 @@ async def delete_file(workspace_id: str, request: Request, path: str) -> FileDel
             action_type="file.delete",
             target=path,
             legacy_audit=enforcement.file_legacy_audit(session, workspace, "delete", path),
+            approval_payload={"path": path},
             execute=lambda: sandbox.delete_path(session, workspace, root, path),
         )
 
@@ -517,6 +524,12 @@ async def run_sandbox_command(
             legacy_audit=enforcement.command_legacy_audit(
                 session, workspace, body.command, body.args
             ),
+            approval_payload={
+                "command": body.command,
+                "args": body.args,
+                "timeout_seconds": body.timeout_seconds,
+                "working_subdir": body.working_subdir,
+            },
             execute=lambda: commands.run_command(
                 session,
                 workspace,
@@ -709,6 +722,127 @@ def list_enforcement_decisions(
             )
         )
     return records
+
+
+# ---------------------------------------------------------------- approvals (v1.6)
+
+
+def _approval_out(approval: ApprovalRequest) -> ApprovalOut:
+    meta = approval.meta or {}
+    return ApprovalOut(
+        approval_id=approval.id,
+        workspace_id=approval.workspace_id,
+        workflow_id=approval.workflow_id,
+        task_id=approval.task_id,
+        action_id=approval.action_id,
+        agent_id=approval.agent_id,
+        title=approval.title,
+        plain_english_summary=approval.plain_english_summary,
+        technical_summary=approval.technical_summary,
+        risk_level=approval.risk_level,
+        matched_policy_rules=approval.matched_policy_rules or [],
+        recommended_decision=approval.recommended_decision,
+        options=approval.options or [],
+        status=approval.status,
+        action_type=meta.get("action_type", ""),
+        target=meta.get("target", ""),
+        resolution_decision=approval.resolution_decision,
+        resolved_at=approval.resolved_at,
+        resolved_by=approval.resolved_by,
+        resolution_reason=approval.resolution_reason,
+        execution_status=approval.execution_status,
+        execution_detail=approval.execution_detail,
+        created_at=approval.created_at,
+    )
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/approvals", response_model=list[ApprovalOut]
+)
+def list_workspace_approvals(
+    workspace_id: str,
+    session: Session = Depends(get_session),
+    status: str | None = None,
+    limit: int = 50,
+) -> list[ApprovalOut]:
+    _require_workspace(session, workspace_id)
+    return [
+        _approval_out(a)
+        for a in approvals.list_approvals(session, workspace_id, status, limit)
+    ]
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/approvals/pending-count",
+    response_model=PendingCountOut,
+)
+def approvals_pending_count(
+    workspace_id: str, session: Session = Depends(get_session)
+) -> PendingCountOut:
+    _require_workspace(session, workspace_id)
+    return PendingCountOut(pending=approvals.pending_count(session, workspace_id))
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/approvals/{approval_id}",
+    response_model=ApprovalOut,
+)
+def get_workspace_approval(
+    workspace_id: str, approval_id: str, session: Session = Depends(get_session)
+) -> ApprovalOut:
+    _require_workspace(session, workspace_id)
+    approval = approvals.get_approval(session, workspace_id, approval_id)
+    if approval is None:
+        raise HTTPException(status_code=404, detail="approval not found")
+    return _approval_out(approval)
+
+
+def _approval_resolution_route(action: str, decision: str | None):
+    async def _handler(
+        workspace_id: str, approval_id: str, body: ApprovalResolveIn, request: Request
+    ) -> ApprovalOut:
+        root = _workspaces_root(request)
+
+        def _resolve(session: Session, workspace: Workspace):
+            approval = approvals.get_approval(session, workspace_id, approval_id)
+            if approval is None:
+                raise HTTPException(status_code=404, detail="approval not found")
+            if decision is None:  # cancel
+                approval, stored = approvals.cancel(
+                    session, workspace, approval,
+                    resolved_by=body.resolved_by, reason=body.reason,
+                )
+            else:
+                effective = decision
+                if decision == "approve" and body.once:
+                    effective = "approve_once"
+                approval, stored = approvals.resolve(
+                    session, workspace, root, approval,
+                    decision=effective, resolved_by=body.resolved_by, reason=body.reason,
+                )
+            return _approval_out(approval), stored
+
+        return await _sandbox_call(request, workspace_id, _resolve)
+
+    _handler.__name__ = f"{action}_approval"
+    return _handler
+
+
+for _route, _decision in (
+    ("approve", "approve"),
+    ("deny", "deny"),
+    ("approve-readonly", "approve_readonly"),
+    ("reroute", "reroute"),
+    ("quarantine", "quarantine"),
+    ("cancel", None),
+):
+    router.add_api_route(
+        f"/runtime/workspaces/{{workspace_id}}/approvals/{{approval_id}}/{_route}",
+        _approval_resolution_route(_route.replace("-", "_"), _decision),
+        methods=["POST"],
+        response_model=ApprovalOut,
+        dependencies=[Depends(require_api_key)],
+    )
 
 
 # ------------------------------------------------------------ orchestration (v1.4)
