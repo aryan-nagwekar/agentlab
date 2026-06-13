@@ -54,10 +54,17 @@
 >   enforcement summaries, and a goal→workflow→task→agent project map;
 >   aggregation only — NO new runtime behavior, mutates nothing, emits no
 >   events, no demo hardcoding)
-> - **v2.0 Bottle-Selling Website End-to-End Demo — next, gated on owner
->   approval (separate spec to be provided)**
-> - Milestones 10–12 remainder (bottle-selling demo, gateway/cost
->   integration, full testing) — not started, gated on owner approval
+> - v2.0 Bottle-Selling Website End-to-End Demo — ✅ shipped (Milestone 10:
+>   deterministic one-click seed building a dependency-free Tidewater Bottle
+>   Co. storefront inside a sandbox; exercises workspace/agents/workflow/
+>   files/commands/validators end-to-end with one payment write held for
+>   human approval; reuses every existing service — NO new engine, no demo
+>   logic leaked into generic runtime, no secrets/network/installs/payments.
+>   Walkthrough: docs/BOTTLE_SHOP_DEMO.md)
+> - **v2.1 Final Hardening, Docs, Screenshots, Deployable Demo — next, gated
+>   on owner approval (separate spec to be provided)**
+> - Milestones 11–12 remainder (gateway/cost integration deep-dive, full
+>   test/CI hardening) — not started, gated on owner approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

@@ -953,6 +953,44 @@ bottle-selling demo (v2.0), autonomous execution, browser automation, web
 research, deployment, a routed graph editor, live push updates, and any new
 validator/enforcement/approval/quarantine engine.
 
+## Bottle Shop End-to-End Demo (v2.0 — shipped, a seed, not an engine)
+
+`app/runtime/demo_bottle_shop.py` is Milestone 10: a single isolated,
+deterministic `seed()` that proves the whole runtime works together by
+building a dependency-free storefront — and it deliberately adds **no new
+behavior**. It only *orchestrates existing services*, in order: `service.
+create_workspace` + `sandbox.init_sandbox`; `service.create_agent` ×6 (built
+from `AgentDefinitionIn` defaults, with roles that match the deterministic
+planner's step keywords so every task is assigned); `orchestration.
+create_workflow` + `create_plan` + `transition_workflow("start")`; seven
+website file writes through `enforcement.guarded_execute` →
+`sandbox.write_file` (so each is a real propose→allow→execute arc);
+`orchestration.record_result` walked over the DAG to completion; two
+commands through `enforcement.guarded_execute` → `commands.run_command`;
+five `validators.run_validator` calls; and one governance halt — a
+payment-path write attributed to an agent actor that `guarded_execute`
+refuses with `require_human_approval`, leaving a pending `ApprovalRequest`
+the user resolves. The seed accumulates the normal events and the route
+commits + broadcasts them, so Files/Commands/Workflows/Enforcement/Approvals/
+Validators/Project-Debugging/Replay all light up with zero special-casing.
+
+**Isolation & safety.** The bottle-shop content lives only in this module
+(a `WEBSITE_FILES` dict and agent/result tables) — nothing bottle-specific
+leaks into a generic runtime service. The route runs the seed in a
+threadpool, commits once, broadcasts. The site is static and self-contained:
+no secrets, no `https://`/CDN, no network, no package install, no server, no
+real payment, no customer data; tests grep the API response, activity,
+debug summary, and validator evidence for any host path or secret shape and
+find none. The only "failures" are intentional and benign — the business-risk
+validator flagging the checkout feature, and the payment write paused for
+approval.
+
+**Explicit non-goals for v2.0** (later versions): an autonomous coding
+agent, browser automation, web research, package installation, cloud deploy,
+payment integration, a real checkout, user accounts, a database-backed
+store, and any new runtime engine. v2.0 is a demo that *uses* the platform,
+not an extension of it.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

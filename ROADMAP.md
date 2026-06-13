@@ -531,10 +531,40 @@ away.
 - 15 pytest (incl. a read-only proof: activity count stable across repeated
   calls, and a no-secret/no-host-path proof) + 10 vitest.
 
-## Runtime v2.0 — Bottle-Selling Website End-to-End Demo (next, pending approval)
+## Runtime v2.0 — Bottle-Selling Website End-to-End Demo ✅
 
-Spec to be provided by the owner. The bottle-selling website demo is the
-only remaining gated milestone. Not started.
+A one-click, deterministic end-to-end demo proving the existing runtime can
+guide, govern, debug, validate, and replay the construction of a small real
+project — a dependency-free **Tidewater Bottle Co.** storefront built inside
+a workspace sandbox. **Not a new engine**: an isolated seed that orchestrates
+existing services and emits their normal events. (Full walkthrough:
+[docs/BOTTLE_SHOP_DEMO.md](BOTTLE_SHOP_DEMO.md).)
+
+- `app/runtime/demo_bottle_shop.py`: deterministic seed —
+  1) workspace + sandbox, 2) six agents (Planner/Researcher/Backend Coder/UI
+  Agent/Verifier/Safety Reviewer), 3) a five-task workflow auto-assigned and
+  walked to completion, 4) seven website files written **through the v1.5
+  enforcement gateway** (README/index.html/styles.css/app.js/products.json/
+  tests/docs), 5) `ls` + `python3 --version` through the v1.3 command runner,
+  6) the five v1.8 validators (code-syntax/secret-exposure/command-result/
+  data-flow pass; business-risk flags the payment feature), 7) a **governance
+  halt**: the Backend Coder's payment-path write is held for human approval
+  (the file is not written) — the user approves to resume the exact write or
+  denies to keep it blocked.
+- Route `POST /api/runtime/demo/bottle-shop` (gated) seeds and broadcasts
+  the normal events; returns the workspace id + pending approval id.
+- UI: a "Create Bottle Shop Demo" card on the Runtime list page and a demo
+  banner on the workspace; the v1.9 Project Debugging panel is the headline
+  view (Needs approval / Verification failed / Risky change).
+- Safety: no secrets, no network/CDN, no package installs, no server, no
+  real payments, no customer data; tests assert no host path or secret-shape
+  ever leaks.
+- 14 pytest + 4 vitest; reuses every existing service — no core system
+  replaced, no demo-only logic leaked into generic runtime.
+
+## Runtime v2.1 — Final Hardening, Docs, Screenshots, Deployable Demo (next, pending approval)
+
+Spec to be provided by the owner. Not started.
 
 ## Later (unscheduled)
 

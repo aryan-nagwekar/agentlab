@@ -66,7 +66,8 @@ inspect, and (soon) replay.
 | Real Runtime Quarantine (v1.7) — quarantine enforces restrictions: agent-attributed file/command/task actions refused before execution (disk untouched), no task assignment, existing tasks blocked; apply/lift lifecycle, 7 `agent.quarantine.*` events with full replay, and quarantine controls on agent cards | ✅ |
 | Deterministic Validators (v1.8) — six evidence-based validators (secret-exposure, code-syntax, command-result, research-claim, data-flow, business-risk) with bounded redacted evidence, risk/trust signals, a `block-failed-validation` enforcement rule, 12 `validator.*`/`validation.*` events with full replay, and a Validators panel UI; no code execution, no web fetch | ✅ |
 | Visual Project Debugging UI (v1.9) — read-only deterministic Workspace Home: project-health summary, recommended next actions, plain-English issues, recent changes, agent/workflow/validation/enforcement summaries, and a goal→workflow→task→agent project map; progressive disclosure, links to replay/activity; no new runtime behavior | ✅ |
-| Runtime v2.0 — bottle-selling website end-to-end demo | 🔜 gated |
+| Bottle Shop End-to-End Demo (v2.0) — one-click deterministic seed that builds a dependency-free storefront inside a sandbox, exercising workspace/agents/workflow/files/commands/validators end-to-end with one payment write held for human approval; reuses every existing service, no new engine ([walkthrough](docs/BOTTLE_SHOP_DEMO.md)) | ✅ |
+| Runtime v2.1 — final hardening, docs, screenshots, deployable demo | 🔜 gated |
 
 ## Architecture
 
@@ -773,7 +774,38 @@ the Replay tab and activity run.
 > the bottle-selling demo, autonomous execution, browser automation,
 > deployment, or any new validator/enforcement/approval/quarantine engine.
 
-## Known limitations (v0.1–v1.9)
+## Bottle Shop End-to-End Demo (v2.0)
+
+The **Create Bottle Shop Demo** card on the Runtime page seeds a one-click,
+deterministic end-to-end demo: AgentLab builds a small, dependency-free
+storefront for the *fictional* **Tidewater Bottle Co.** inside a real
+workspace sandbox — and every step flows through an existing system and emits
+the normal events. It proves the thesis that AgentLab is *"AI builds an app
+inside a controlled runtime you can see, debug, validate, approve, and
+govern,"* not just *"AI builds an app."*
+
+In one seed it creates the workspace + sandbox, six agents
+(Planner/Researcher/Backend Coder/UI Agent/Verifier/Safety Reviewer), a
+five-task workflow walked to completion, seven website files written **through
+the enforcement gateway**, two governed commands, and five validator runs
+(four pass; business-risk flags the payment feature). Then the Backend Coder
+attempts to wire payment code — and the gateway **holds it for your
+approval**. Approve it in the Approvals panel to resume the exact write; deny
+it to keep it blocked. The v1.9 Project Debugging panel ties it together
+(*Needs approval · Verification failed · Risky change*), and Replay
+reconstructs the whole build. Full walkthrough:
+[docs/BOTTLE_SHOP_DEMO.md](docs/BOTTLE_SHOP_DEMO.md).
+
+> v2.0 is a **demo, not a new engine**: an isolated seed
+> (`app/runtime/demo_bottle_shop.py`) that orchestrates existing services. It
+> writes no secrets, makes no network calls, uses no CDN, installs no
+> packages, runs no server, handles no real payments, stores no customer
+> data, and adds no behavior to the generic runtime. It does **not** include
+> an autonomous coding agent, browser automation, web research, deployment,
+> payment integration, real checkout, user accounts, or a database-backed
+> store.
+
+## Known limitations (v0.1–v2.0)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -878,6 +910,15 @@ Stated plainly so nobody discovers them the hard way:
   routed graph, and the in-page panel links are labels/anchors (Replay and
   the activity run are the only deep links). Health is a fixed severity
   ordering, not a learned or weighted score.
+- **The Bottle Shop demo is a scripted seed, not an autonomous build.** v2.0
+  agents don't actually write the code — the deterministic seed writes
+  fixed file contents through the real services and records plain-English
+  task results on the agents' behalf. The generated storefront is a static
+  mock (its checkout prints a message; `fetch('products.json')` falls back to
+  in-file data when opened from `file://`), and the JS test file is
+  illustrative (not executed, since AgentLab installs no packages and runs no
+  JS harness). Each demo run creates a fresh workspace rather than reusing
+  one.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
