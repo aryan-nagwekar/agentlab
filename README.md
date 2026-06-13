@@ -64,7 +64,8 @@ inspect, and (soon) replay.
 | Action Enforcement Gateway (v1.5) — every file/command/workflow action proposed and resolved by 22 deterministic policies before execution (allow/block/approval-required/reroute/retry/downgrade/quarantine-triggered), explainable decisions with matched rules + redacted evidence, 13 `action.*`/`policy.*`/`enforcement.*` events with full replay, and an Enforcement panel UI | ✅ |
 | Human Approval System (v1.6) — `require_human_approval` decisions create pending approval requests; approve resumes the exact stored action through the v1.2/v1.3 safe executors, deny blocks, reroute/quarantine record decisions only; 10 `approval.*` events with full replay, and an Approvals inbox UI | ✅ |
 | Real Runtime Quarantine (v1.7) — quarantine enforces restrictions: agent-attributed file/command/task actions refused before execution (disk untouched), no task assignment, existing tasks blocked; apply/lift lifecycle, 7 `agent.quarantine.*` events with full replay, and quarantine controls on agent cards | ✅ |
-| Runtime v1.8+ — deterministic validators, then visual debugger, bottle demo | 🔜 gated |
+| Deterministic Validators (v1.8) — six evidence-based validators (secret-exposure, code-syntax, command-result, research-claim, data-flow, business-risk) with bounded redacted evidence, risk/trust signals, a `block-failed-validation` enforcement rule, 12 `validator.*`/`validation.*` events with full replay, and a Validators panel UI; no code execution, no web fetch | ✅ |
+| Runtime v1.9+ — visual project debugger, then bottle demo | 🔜 gated |
 
 ## Architecture
 
@@ -696,7 +697,45 @@ command safety that still run underneath.
 > still talk to a Verifier/Human" allowance is not built — quarantine
 > restricts the existing action surfaces only.
 
-## Known limitations (v0.1–v1.7)
+## Deterministic Validators (v1.8)
+
+So AgentLab doesn't blindly trust agent outputs, the **Validators** panel
+runs deterministic, evidence-based checks and records `ValidatorResult`s with
+bounded, redacted evidence. Six validators ship:
+
+- **secret_exposure** — scans a workspace file (or inline content) for
+  secret-like patterns (`sk-…`, `AIza…`, `ghp_…`, `AKIA…`, `xox…`, private-key
+  headers, `.env`-style assignments). Fails with **redacted** snippets — the
+  raw secret never reaches the DB, events, API, or UI.
+- **code_syntax** — `ast.parse` for `.py`, `json.loads` for `.json` /
+  `package.json`. **No project code is executed.**
+- **command_result** — validates the most recent recorded v1.3 command
+  result in a run (exit 0 = pass). It *consumes existing command events* and
+  never re-runs anything.
+- **research_claim** — validates a structured claim against **provided cited
+  evidence only**: fails on a missing `source_url`, missing required fields
+  (price/MOQ/shipping/supplier_name), or a claim unsupported by the evidence
+  text. It never browses the web or fetches a URL.
+- **data_flow** — compares a consumer's expected fields against a producer's
+  actual fields and explains mismatches in plain English ("the product page
+  expects `price`, but the product API does not provide it").
+- **business_risk** — flags business-critical changes (payment/auth/deploy/
+  customer-data/unverified) with a suggested action and risk/trust deltas.
+
+Results carry `risk_delta`/`trust_delta` as **scoring signals**, emit
+`validator.*` / `validation.*` / `claim.*` / `schema.mismatch.detected` /
+`secret.exposure.detected` events into the activity run (timeline + Replay
+reconstruct them), and a new `block-failed-validation` enforcement rule
+blocks any action tagged as validator-failed. Running a validator against a
+task records the task's `validation_status` metadata.
+
+> v1.8 is **deterministic and evidence-based**: no LLM judgment, no browser
+> automation, no live external URL fetching, no web research crawler, no
+> deployment, no autonomous execution, no full visual project debugger, and
+> no bottle demo. The v0.5 trust/risk fold is not modified — validator deltas
+> are scoring *signals* recorded on results and events.
+
+## Known limitations (v0.1–v1.8)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -785,6 +824,15 @@ Stated plainly so nobody discovers them the hard way:
   master plan is not built; quarantine bookkeeping lives in the agent's
   metadata (not dedicated columns), and lift restores the prior status
   rather than a full permission snapshot.
+- **Validators are deterministic and shallow by design.** v1.8 validators
+  check syntax (`ast.parse`/`json.loads`, not a full type-checker or
+  static analyzer), recorded command results (not a live build), and
+  *provided* claim/data-flow/business metadata (no web fetch, no schema
+  introspection of real code). Their `risk_delta`/`trust_delta` are scoring
+  *signals* — the deterministic v0.5 trust/risk fold does not yet consume
+  them — and the enforcement tie-in is one rule that blocks actions a caller
+  explicitly tags `validation_failed` (validators don't auto-block unrelated
+  future actions).
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.

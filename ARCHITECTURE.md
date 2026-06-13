@@ -876,6 +876,47 @@ deployment, package installation, and a full agent-to-agent message system
 (so the "quarantined agent may still message a Verifier/Human" allowance is
 not built — quarantine restricts the existing action surfaces only).
 
+## Deterministic Validators (v1.8 — shipped, evidence over trust)
+
+`app/runtime/validators.py` is Milestone 8: deterministic, evidence-based
+checks so the platform never has to take an agent's output on faith. Each
+validator is a pure function returning an `Outcome` (passed, bounded/redacted
+evidence, failures, suggested action, risk/trust deltas, plain-English
+explanation, plus extra signal events); `run_validator` persists a
+`ValidatorResult`, emits `validator.started` → signal events →
+`validation.passed`/`failed` → `validator.completed`, and (when a `task_id`
+is supplied) stamps the task's `validation_status` metadata. **No LLM
+judgment, no web browsing, no live URL fetch, and no arbitrary project code
+runs** — Python is checked with `ast.parse`, JSON with `json.loads`, and the
+command-result validator *consumes* the most recent recorded v1.3 command
+event rather than re-running anything.
+
+**Evidence hygiene.** Secret detection uses a broader pattern set than the
+command-output redactor (api keys, private-key headers, `.env` assignments)
+but every captured snippet is run through the same `_redact` before it is
+stored — a found secret is reported as `API_KEY = "[redacted]"`, never raw.
+Evidence dicts and failure lists are length-capped, and only logical
+workspace paths (never host paths) appear in results or events. A test plants
+a live-looking key and greps the result, the activity stream, and the
+decisions API to prove it never surfaces.
+
+**Narrow integrations.** Enforcement gains exactly one rule —
+`block-failed-validation` (priority 16) blocks an action whose proposal
+metadata carries `validation_failed` (the caller references a failed
+result), extending the existing v1.5 policy/evidence model without a new
+engine. Trust/Risk integration is deliberately signal-only: results carry
+`risk_delta`/`trust_delta` and the events expose them, but the deterministic
+v0.5 event-fold is **not** modified — documented as a limitation so the
+safety-critical scoring path stays a pure, reviewed function. Workflow
+linkage is metadata-only (`task.meta["validation_status"]`) to avoid a
+validator mutating the orchestration scheduler's state.
+
+**Explicit non-goals for v1.8** (later Runtime versions): browser
+automation, live external research/URL fetching, a production static
+analyzer or full type-checker, autonomous execution, deployment, package
+installation, the visual project debugger (v1.9), and the bottle-selling
+demo (v2.0).
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

@@ -460,11 +460,47 @@ it is never assigned tasks, and its existing tasks are blocked.
   Quarantine/Unquarantine button; the block reason surfaces on halts.
 - 17 pytest + 4 vitest.
 
-## Runtime v1.8 — Deterministic Validators (next, pending approval)
+## Runtime v1.8 — Deterministic Validators ✅
 
-Spec to be provided by the owner. Later Runtime versions own: deterministic
-validators, the visual project debugger, and the bottle-selling website demo.
-None of these are started.
+Evidence-based checks so AgentLab stops blindly trusting agent outputs. Every
+validator is deterministic — no LLM judgment, no web browsing, no live
+external fetch — and produces a `ValidatorResult` with bounded, redacted
+evidence plus risk/trust scoring signals.
+
+- `app/runtime/validators.py`: six validators —
+  **secret_exposure** (api-key/private-key/.env patterns; fails with
+  `[redacted]` snippets, never the raw secret), **code_syntax**
+  (`ast.parse` for .py, `json.loads` for .json/package.json — no code runs),
+  **command_result** (consumes the latest recorded v1.3 command event;
+  exit 0 = pass — never re-runs anything), **research_claim** (validates a
+  claim against *provided* cited evidence only; fails on missing url/fields/
+  support), **data_flow** (consumer-vs-producer field comparison with a
+  plain-English mismatch explanation), **business_risk** (flags
+  payment/auth/deploy/customer-data/unverified changes → requires approval/
+  validation + risk/trust deltas)
+- 12 events (`validator.started/completed/failed`, `validation.passed/
+  failed`, `claim.verified/rejected`, `schema.mismatch.detected`,
+  `runtime.error.detected`, `app.error.translated`,
+  `risky.file_change.detected`, `secret.exposure.detected`) — shared
+  registry, API + SDK; timeline/replay reconstruct every result
+- Narrow enforcement hook: a new `block-failed-validation` policy rule
+  (priority 16) blocks actions tagged `metadata.validation_failed`
+- Trust/Risk: results carry risk_delta/trust_delta as **scoring signals**;
+  the deterministic v0.5 fold is not modified (documented limitation)
+- Task linkage: running a validator with a `task_id` sets the task's
+  `validation_status` metadata (no scheduler status change)
+- Routes: `GET /runtime/validators`, `POST …/validators/run` (gated),
+  `GET …/validators/results[/{id}]`
+- UI: Validators panel (registry-aware run form, result cards with
+  pass/fail badges, redacted secret evidence, failures, suggested actions,
+  risk deltas, plain-English explanations)
+- 25 pytest + 10 vitest
+
+## Runtime v1.9 — Visual Project Debugging UI (next, pending approval)
+
+Spec to be provided by the owner. Later Runtime versions own: the visual
+project debugger and the bottle-selling website demo. None of these are
+started.
 
 ## Later (unscheduled)
 

@@ -41,11 +41,18 @@
 >   apply/lift lifecycle, existing tasks blocked, approval/extreme-risk
 >   decisions apply real quarantine; no agent-to-agent message system, no
 >   validators, no autonomous execution)
-> - **v1.8 Deterministic Validators — next, gated on owner approval (separate
->   spec to be provided)**
-> - Milestones 8–12 remainder (deterministic validators, visual debugging,
->   bottle-selling demo, gateway/cost integration, full testing) — not
->   started, gated on owner approval
+> - v1.8 Deterministic Validators — ✅ shipped (Milestone 8: six deterministic
+>   evidence-based validators (secret-exposure, code-syntax, command-result,
+>   research-claim, data-flow, business-risk) with bounded redacted evidence,
+>   a block-failed-validation enforcement rule, and task validation_status
+>   metadata; risk/trust deltas are scoring SIGNALS only — the v0.5 fold is
+>   NOT modified; no web browsing, no live URL fetch, no code execution, no
+>   autonomous execution)
+> - **v1.9 Visual Project Debugging UI — next, gated on owner approval
+>   (separate spec to be provided)**
+> - Milestones 9–12 remainder (visual debugging, bottle-selling demo,
+>   gateway/cost integration, full testing) — not started, gated on owner
+>   approval
 >
 > The plan text below is preserved verbatim as provided by the owner.
 
