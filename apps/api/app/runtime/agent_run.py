@@ -29,7 +29,8 @@ events) let Replay reconstruct the whole multi-step build.
 from __future__ import annotations
 
 import shlex
-from dataclasses import dataclass, field
+import uuid
+from dataclasses import asdict, dataclass, field
 from dataclasses import replace
 from typing import Any
 
@@ -38,11 +39,17 @@ from sqlalchemy.orm import Session
 from .. import models as core_models
 from ..collector import process_events
 from ..model_gateway import ModelRequest, ModelResponse, build_model_events
-from . import agent_build, commands, enforcement, sandbox, validators
+from . import agent_build, approvals, commands, enforcement, sandbox, validators
 from .commands import _redact
-from .models import Workspace, WorkspaceAgent
+from .models import AgentRun, Workspace, WorkspaceAgent
 from .sandbox import SandboxBlocked, SandboxError
 from .service import _emit
+
+# Action outcome statuses that count as a written file / a blocked action when
+# tallying run totals. "approved"/"denied" appear after a paused run resumes:
+# a held action whose approval was granted (written) or denied (blocked).
+_WRITTEN_STATUSES = ("written", "approved")
+_BLOCKED_STATUSES = ("blocked", "denied")
 
 DEFAULT_MAX_STEPS = 6
 HARD_MAX_STEPS = 8
@@ -100,6 +107,16 @@ class StepContext:
     def is_empty(self) -> bool:
         return not (self.file_tree or self.validations or self.commands or self.notes)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "StepContext":
+        data = data or {}
+        return cls(
+            file_tree=list(data.get("file_tree", [])),
+            validations=list(data.get("validations", [])),
+            commands=list(data.get("commands", [])),
+            notes=list(data.get("notes", [])),
+        )
+
 
 @dataclass
 class Step:
@@ -127,7 +144,7 @@ class StepResult:
 
     @property
     def written(self) -> int:
-        return sum(1 for f in self.files if f["status"] == "written")
+        return sum(1 for f in self.files if f["status"] in _WRITTEN_STATUSES)
 
     @property
     def held(self) -> int:
@@ -137,7 +154,7 @@ class StepResult:
 
     @property
     def blocked(self) -> int:
-        return sum(1 for a in (self.files + self.commands) if a["status"] == "blocked")
+        return sum(1 for a in (self.files + self.commands) if a["status"] in _BLOCKED_STATUSES)
 
     @property
     def commands_run(self) -> int:
@@ -645,61 +662,226 @@ def initial_context(
     return StepContext(file_tree=_flat_tree(session, workspace, workspaces_root))
 
 
-def finalize_run(
+def create_run(
     session: Session,
     workspace: Workspace,
     agent: WorkspaceAgent,
-    agent_name: str,
-    prep: RunPrep,
     goal: str,
+    max_steps: int,
+    context: StepContext,
+) -> AgentRun:
+    """Persist a fresh agent-run state row (status=running, cursor at step 0)."""
+    run = AgentRun(
+        id=f"arun-{uuid.uuid4().hex[:10]}",
+        workspace_id=workspace.id,
+        agent_id=agent.id,
+        agent_name=agent.name,
+        provider=agent.model_provider,
+        model=agent.model_name,
+        goal=goal,
+        max_steps=max_steps,
+        next_step=0,
+        status="running",
+        steps=[],
+        context=asdict(context),
+        pending_approval_ids=[],
+    )
+    session.add(run)
+    session.flush()
+    return run
+
+
+def prep_from_run(workspace: Workspace, run: AgentRun) -> RunPrep:
+    """Rebuild the model-request snapshot from a persisted run (for resume)."""
+    return RunPrep(
+        workspace_id=workspace.id,
+        activity_run_id=workspace.activity_run_id,
+        project_id=workspace.project_id,
+        provider=run.provider,
+        model_name=run.model,
+        agent_id=run.agent_id,
+    )
+
+
+# --------------------------------------------------------- pause / resume
+
+
+def held_targets(step: dict[str, Any]) -> list[str]:
+    """Targets (file paths / command displays) held for approval in a step."""
+    out = [f["path"] for f in step["files"] if f["status"] == "halted_for_approval"]
+    out += [c["command"] for c in step["commands"] if c["status"] == "halted_for_approval"]
+    return out
+
+
+def find_pending_approvals(
+    session: Session, workspace_id: str, targets: list[str]
+) -> list[str]:
+    """Pending approvals whose target matches one the loop just held."""
+    if not targets:
+        return []
+    rows = approvals.list_approvals(session, workspace_id, status="pending", limit=200)
+    return [r.id for r in rows if (r.meta or {}).get("target") in targets]
+
+
+def _totals(steps: list[dict[str, Any]]) -> dict[str, int]:
+    def count(pred) -> int:
+        return sum(sum(1 for a in (s["files"] + s["commands"]) if pred(a)) for s in steps)
+
+    return {
+        "total_written": count(lambda a: a["status"] in _WRITTEN_STATUSES),
+        "total_held": count(lambda a: a["status"] == "halted_for_approval"),
+        "total_blocked": count(lambda a: a["status"] in _BLOCKED_STATUSES),
+        "commands_run": sum(
+            sum(1 for c in s["commands"] if c["status"] in ("completed", "failed", "timed_out"))
+            for s in steps
+        ),
+    }
+
+
+def _build_output(run: AgentRun) -> dict[str, Any]:
+    totals = _totals(run.steps)
+    return {
+        "status": run.status,
+        "run_id": run.id,
+        "agent_id": run.agent_id,
+        "agent_name": run.agent_name,
+        "provider": run.provider,
+        "model": run.model,
+        "goal": run.goal,
+        "steps": run.steps,
+        "step_count": len(run.steps),
+        "stop_reason": run.stop_reason or "",
+        "pending_approval_ids": list(run.pending_approval_ids or []),
+        "resumable": run.status == "awaiting_approval",
+        **totals,
+    }
+
+
+def pause_run(
+    session: Session,
+    workspace: Workspace,
+    run: AgentRun,
+    steps: list[dict[str, Any]],
+    context: StepContext,
+    last_step_index: int,
+) -> tuple[dict[str, Any], list[core_models.Event]]:
+    """Persist the loop as awaiting_approval at the first approval-required
+    action. Resume picks up from the next step once the human resolves it."""
+    run.steps = steps
+    run.next_step = last_step_index + 1
+    run.context = asdict(context)
+    run.status = "awaiting_approval"
+    run.stop_reason = "halted_for_approval"
+    run.pending_approval_ids = find_pending_approvals(
+        session, workspace.id, held_targets(steps[last_step_index])
+    )
+    stored = _emit(
+        session, workspace, "runtime.agent_run.paused",
+        {
+            "agent_id": run.agent_id,
+            "run_id": run.id,
+            "step": last_step_index,
+            "pending_approvals": len(run.pending_approval_ids),
+            **_totals(steps),
+        },
+    )
+    return _build_output(run), stored
+
+
+def complete_run(
+    session: Session,
+    workspace: Workspace,
+    run: AgentRun,
     steps: list[dict[str, Any]],
     stop_reason: str,
 ) -> tuple[dict[str, Any], list[core_models.Event]]:
-    total_written = sum(sum(1 for f in s["files"] if f["status"] == "written") for s in steps)
-    total_held = sum(
-        sum(1 for a in (s["files"] + s["commands"]) if a["status"] == "halted_for_approval")
-        for s in steps
-    )
-    total_blocked = sum(
-        sum(1 for a in (s["files"] + s["commands"]) if a["status"] == "blocked")
-        for s in steps
-    )
-    commands_run = sum(
-        sum(1 for c in s["commands"] if c["status"] in ("completed", "failed", "timed_out"))
-        for s in steps
-    )
-    overall = "completed" if (total_written > 0 or stop_reason == "done") else "failed"
+    """Finalize a run that stopped for a non-approval reason."""
+    run.steps = steps
+    run.next_step = len(steps)
+    run.stop_reason = stop_reason
+    totals = _totals(steps)
+    run.status = "completed" if (totals["total_written"] > 0 or stop_reason == "done") else "failed"
 
-    payload = {
-        "agent_id": agent.id,
-        "steps": len(steps),
-        "stop_reason": stop_reason,
-        "total_written": total_written,
-        "total_held": total_held,
-        "total_blocked": total_blocked,
-        "commands_run": commands_run,
-    }
-    if overall == "failed":
-        stored = _emit(
-            session, workspace, "runtime.agent_run.failed",
-            {**payload, "reason": stop_reason},
-        )
+    payload = {"agent_id": run.agent_id, "run_id": run.id, "steps": len(steps),
+               "stop_reason": stop_reason, **totals}
+    if run.status == "failed":
+        stored = _emit(session, workspace, "runtime.agent_run.failed",
+                       {**payload, "reason": stop_reason})
     else:
         stored = _emit(session, workspace, "runtime.agent_run.completed", payload)
+    return _build_output(run), stored
 
-    out = {
-        "status": overall,
-        "agent_id": agent.id,
-        "agent_name": agent_name,
-        "provider": prep.provider,
-        "model": prep.model_name,
-        "goal": goal,
-        "steps": steps,
-        "step_count": len(steps),
-        "stop_reason": stop_reason,
-        "total_written": total_written,
-        "total_held": total_held,
-        "total_blocked": total_blocked,
-        "commands_run": commands_run,
-    }
-    return out, stored
+
+def resume_context(
+    session: Session, workspace: Workspace, workspaces_root: str, run: AgentRun
+) -> tuple[StepContext, list[str]]:
+    """Build the prompt context for resuming: the persisted last-step feedback
+    with a refreshed file tree (approved files now exist on disk) plus a note
+    for each resolved approval. Also reconciles the stored step outcomes so a
+    held action reads `approved`/`denied` after its approval was resolved.
+    Returns (context, unresolved_approval_ids)."""
+    context = StepContext.from_dict(run.context)
+    context.file_tree = _flat_tree(session, workspace, workspaces_root)
+
+    unresolved: list[str] = []
+    resolutions: dict[str, str] = {}  # target -> "approved" | "denied"
+    for approval_id in run.pending_approval_ids or []:
+        approval = approvals.get_approval(session, workspace.id, approval_id)
+        if approval is None:
+            continue
+        if approval.status == "pending":
+            unresolved.append(approval_id)
+            continue
+        target = (approval.meta or {}).get("target", "")
+        if approval.status == "approved" and approval.execution_status == "executed":
+            resolutions[target] = "approved"
+            context.notes.append(f"{target} was approved and written — continue building on it.")
+        elif approval.status == "approved":
+            context.notes.append(
+                f"{target} was approved but its safety re-check refused execution — it was NOT written."
+            )
+        elif approval.status == "denied":
+            resolutions[target] = "denied"
+            context.notes.append(f"{target} was denied — do NOT propose it again.")
+        else:
+            context.notes.append(f"{target} approval was {approval.status}.")
+
+    if resolutions:
+        _reconcile_steps(run, resolutions)
+    return context, unresolved
+
+
+def _reconcile_steps(run: AgentRun, resolutions: dict[str, str]) -> None:
+    """Rewrite held outcomes in the stored steps to their resolved status so
+    the run output/UI reflect what actually happened after approval."""
+    new_status = {"approved": "approved", "denied": "denied"}
+    steps = run.steps
+    for step in steps:
+        for outcome in step["files"]:
+            if outcome["status"] == "halted_for_approval" and outcome["path"] in resolutions:
+                outcome["status"] = new_status[resolutions[outcome["path"]]]
+        for outcome in step["commands"]:
+            if outcome["status"] == "halted_for_approval" and outcome["command"] in resolutions:
+                outcome["status"] = new_status[resolutions[outcome["command"]]]
+    run.steps = list(steps)  # reassign so the JSON column is marked dirty
+
+
+def emit_resumed(
+    session: Session, workspace: Workspace, run: AgentRun
+) -> list[core_models.Event]:
+    return _emit(
+        session, workspace, "runtime.agent_run.resumed",
+        {"agent_id": run.agent_id, "run_id": run.id, "from_step": run.next_step},
+    )
+
+
+def get_run(session: Session, workspace_id: str, run_id: str) -> AgentRun | None:
+    run = session.get(AgentRun, run_id)
+    if run is None or run.workspace_id != workspace_id:
+        return None
+    return run
+
+
+def build_output(run: AgentRun) -> dict[str, Any]:
+    """Public run state (for the GET endpoint)."""
+    return _build_output(run)

@@ -154,6 +154,11 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "runtime.agent_run.step",
         "runtime.agent_run.completed",
         "runtime.agent_run.failed",
+        # Pause/resume the bounded loop on approval (v3.2): the loop pauses when
+        # a step hits an approval-required action and resumes from the next step
+        # once the human resolves it.
+        "runtime.agent_run.paused",
+        "runtime.agent_run.resumed",
     }
 )
 

@@ -35,6 +35,7 @@ function agent(overrides: Partial<WorkspaceAgent> = {}): WorkspaceAgent {
 function result(overrides: Partial<AgentRunResult> = {}): AgentRunResult {
   return {
     status: "completed",
+    run_id: "arun-1",
     agent_id: "wsagent-1",
     agent_name: "Builder",
     provider: "ollama",
@@ -42,6 +43,8 @@ function result(overrides: Partial<AgentRunResult> = {}): AgentRunResult {
     goal: "Build a small site.",
     stop_reason: "done",
     step_count: 2,
+    pending_approval_ids: [],
+    resumable: false,
     total_written: 2,
     total_held: 0,
     total_blocked: 0,
@@ -75,10 +78,12 @@ function result(overrides: Partial<AgentRunResult> = {}): AgentRunResult {
 
 const workspaceAgents = vi.fn();
 const agentRun = vi.fn();
+const agentRunResume = vi.fn();
 vi.mock("../../lib/api", () => ({
   api: {
     workspaceAgents: (...a: unknown[]) => workspaceAgents(...a),
     agentRun: (...a: unknown[]) => agentRun(...a),
+    agentRunResume: (...a: unknown[]) => agentRunResume(...a),
   },
 }));
 
@@ -196,6 +201,67 @@ describe("AgentRunPanel", () => {
     const card = await screen.findByTestId("run-result");
     expect(card.textContent).toContain("needs your approval");
     expect(card.textContent).toContain("need approval — resolve them in the Approvals panel");
+  });
+
+  it("shows the awaiting-approval banner and resumes a paused run", async () => {
+    const paused = result({
+      status: "awaiting_approval",
+      stop_reason: "halted_for_approval",
+      step_count: 1,
+      resumable: true,
+      pending_approval_ids: ["apr-1"],
+      total_written: 1,
+      total_held: 1,
+      total_blocked: 0,
+      commands_run: 0,
+      steps: [
+        {
+          step: 0,
+          summary: "Touched payment code",
+          status: "ok",
+          done: false,
+          files: [
+            { path: "index.html", status: "written", reason: null },
+            { path: "src/payment/pay.js", status: "halted_for_approval", reason: "needs approval" },
+          ],
+          commands: [],
+          validations: [],
+        },
+      ],
+    });
+    agentRun.mockResolvedValue(paused);
+    // Resume resolves to a completed run with the held file approved.
+    agentRunResume.mockResolvedValue(
+      result({
+        status: "completed",
+        stop_reason: "done",
+        steps: [
+          {
+            step: 0,
+            summary: "Touched payment code",
+            status: "ok",
+            done: false,
+            files: [
+              { path: "index.html", status: "written", reason: null },
+              { path: "src/payment/pay.js", status: "approved", reason: null },
+            ],
+            commands: [],
+            validations: [],
+          },
+        ],
+      }),
+    );
+    renderPanel();
+    fireEvent.click(await screen.findByText("Run agent loop"));
+    const banner = await screen.findByTestId("run-awaiting");
+    expect(banner.textContent).toContain("waiting for approval");
+    expect(screen.getByTestId("run-stop-reason").textContent).toContain("paused");
+
+    fireEvent.click(screen.getByTestId("run-resume"));
+    await waitFor(() => expect(agentRunResume).toHaveBeenCalledWith("ws-abc123", "arun-1"));
+    // after resume the banner is gone and the run reads completed
+    await waitFor(() => expect(screen.queryByTestId("run-awaiting")).toBeNull());
+    expect((await screen.findByTestId("run-result")).textContent).toContain("completed");
   });
 
   it("disables running in Chat Mode", async () => {

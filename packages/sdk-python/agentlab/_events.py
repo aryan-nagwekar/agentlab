@@ -190,6 +190,9 @@ AGENT_RUN_STARTED = "runtime.agent_run.started"
 AGENT_RUN_STEP = "runtime.agent_run.step"
 AGENT_RUN_COMPLETED = "runtime.agent_run.completed"
 AGENT_RUN_FAILED = "runtime.agent_run.failed"
+# Pause/resume the bounded loop on approval (v3.2).
+AGENT_RUN_PAUSED = "runtime.agent_run.paused"
+AGENT_RUN_RESUMED = "runtime.agent_run.resumed"
 
 EVENT_TYPES: frozenset[str] = frozenset(
     {
@@ -312,6 +315,8 @@ EVENT_TYPES: frozenset[str] = frozenset(
         AGENT_RUN_STEP,
         AGENT_RUN_COMPLETED,
         AGENT_RUN_FAILED,
+        AGENT_RUN_PAUSED,
+        AGENT_RUN_RESUMED,
     }
 )
 

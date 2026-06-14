@@ -974,9 +974,19 @@ export interface AgentBuildResult {
 
 // ------------------------------------------- bounded agent loop (v3.1)
 
+export type AgentRunActionStatus =
+  | "written"
+  | "completed"
+  | "failed"
+  | "timed_out"
+  | "halted_for_approval"
+  | "blocked"
+  | "approved"
+  | "denied";
+
 export interface AgentRunCommand {
   command: string;
-  status: "completed" | "failed" | "timed_out" | "halted_for_approval" | "blocked";
+  status: AgentRunActionStatus;
   exit_code: number | null;
   reason?: string | null;
 }
@@ -987,18 +997,26 @@ export interface AgentRunValidation {
   passed: boolean;
 }
 
+export interface AgentRunFile {
+  path: string;
+  // adds "approved"/"denied" over AgentBuildFile once a held write is resolved
+  status: AgentRunActionStatus;
+  reason?: string | null;
+}
+
 export interface AgentRunStep {
   step: number;
   summary: string;
   status: "ok" | "failed";
   done: boolean;
-  files: AgentBuildFile[];
+  files: AgentRunFile[];
   commands: AgentRunCommand[];
   validations: AgentRunValidation[];
 }
 
 export interface AgentRunResult {
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "awaiting_approval" | "running";
+  run_id: string;
   agent_id: string;
   agent_name: string;
   provider: string;
@@ -1007,6 +1025,8 @@ export interface AgentRunResult {
   steps: AgentRunStep[];
   step_count: number;
   stop_reason: string;
+  pending_approval_ids: string[];
+  resumable: boolean;
   total_written: number;
   total_held: number;
   total_blocked: number;

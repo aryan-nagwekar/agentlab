@@ -721,7 +721,8 @@ class AgentRunIn(BaseModel):
 
 class AgentRunCommandOut(BaseModel):
     command: str
-    status: str  # completed | failed | timed_out | halted_for_approval | blocked
+    # completed | failed | timed_out | halted_for_approval | blocked | approved | denied
+    status: str
     exit_code: int | None = None
     reason: str | None = None
 
@@ -743,7 +744,8 @@ class AgentRunStepOut(BaseModel):
 
 
 class AgentRunOut(BaseModel):
-    status: str  # completed | failed
+    status: str  # completed | failed | awaiting_approval | running
+    run_id: str
     agent_id: str
     agent_name: str
     provider: str
@@ -752,7 +754,10 @@ class AgentRunOut(BaseModel):
     steps: list[AgentRunStepOut] = Field(default_factory=list)
     step_count: int = 0
     # done | halted_for_approval | no_actions | max_steps | model_failed | malformed
-    stop_reason: str
+    stop_reason: str = ""
+    # v3.2: approvals blocking a resume (set when status == awaiting_approval).
+    pending_approval_ids: list[str] = Field(default_factory=list)
+    resumable: bool = False
     total_written: int = 0
     total_held: int = 0
     total_blocked: int = 0

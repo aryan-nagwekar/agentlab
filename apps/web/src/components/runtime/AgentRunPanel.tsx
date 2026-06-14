@@ -9,8 +9,10 @@ const CHAT_HINT = "Switch to Agent Mode to perform this action.";
 
 const FILE_STATUS_STYLE: Record<string, string> = {
   written: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+  approved: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   halted_for_approval: "border-amber-400/30 bg-amber-400/10 text-amber-300",
   blocked: "border-red-400/40 bg-red-400/10 text-red-300",
+  denied: "border-red-400/40 bg-red-400/10 text-red-300",
   completed: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   failed: "border-red-400/40 bg-red-400/10 text-red-300",
   timed_out: "border-red-400/40 bg-red-400/10 text-red-300",
@@ -18,7 +20,7 @@ const FILE_STATUS_STYLE: Record<string, string> = {
 
 const STOP_REASON_LABEL: Record<string, string> = {
   done: "the agent reported the goal complete",
-  halted_for_approval: "an action needs your approval — the loop stopped here",
+  halted_for_approval: "an action needs your approval — the loop paused here",
   no_actions: "the agent proposed no further actions",
   max_steps: "the step limit was reached",
   model_failed: "the model call failed",
@@ -45,6 +47,7 @@ export function AgentRunPanel({
   const [prompt, setPrompt] = useState("");
   const [maxSteps, setMaxSteps] = useState(6);
   const [busy, setBusy] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AgentRunResult | null>(null);
 
@@ -68,6 +71,20 @@ export function AgentRunPanel({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resume = async () => {
+    if (!result?.run_id) return;
+    setResuming(true);
+    setError(null);
+    try {
+      const out = await api.agentRunResume(workspaceId, result.run_id);
+      setResult(out);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -179,10 +196,12 @@ export function AgentRunPanel({
               className={`rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium ${
                 result.status === "completed"
                   ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                  : "border-red-400/40 bg-red-400/10 text-red-300"
+                  : result.status === "awaiting_approval"
+                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                    : "border-red-400/40 bg-red-400/10 text-red-300"
               }`}
             >
-              {result.status}
+              {result.status.replace(/_/g, " ")}
             </span>
             <span className="font-mono text-zinc-400">
               {result.provider}/{result.model}
@@ -197,6 +216,30 @@ export function AgentRunPanel({
           <p className="mt-1.5 text-[11.5px] text-zinc-400" data-testid="run-stop-reason">
             Stopped: {STOP_REASON_LABEL[result.stop_reason] ?? result.stop_reason}.
           </p>
+
+          {result.status === "awaiting_approval" ? (
+            <div
+              data-testid="run-awaiting"
+              className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2"
+            >
+              <p className="text-[11.5px] text-amber-200">
+                The loop paused with {result.pending_approval_ids.length} action
+                {result.pending_approval_ids.length === 1 ? "" : "s"} waiting for approval.
+                Resolve {result.pending_approval_ids.length === 1 ? "it" : "them"} in the
+                Approvals panel, then resume — the loop continues from the next step.
+              </p>
+              <button
+                type="button"
+                disabled={disabled || resuming}
+                title={hintTitle}
+                onClick={resume}
+                data-testid="run-resume"
+                className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-[12px] font-medium text-amber-100 transition-colors hover:bg-amber-500/25 disabled:opacity-40"
+              >
+                {resuming ? "Resuming…" : "Resume agent loop"}
+              </button>
+            </div>
+          ) : null}
 
           <div className="mt-2 space-y-2">
             {result.steps.map((s) => (

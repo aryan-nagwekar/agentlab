@@ -390,6 +390,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  agentRunResume: (workspaceId: string, runId: string) =>
+    request<AgentRunResult>(
+      `/api/runtime/workspaces/${workspaceId}/agent-run/${runId}/resume`,
+      { method: "POST", body: JSON.stringify({}) },
+    ),
+  agentRunState: (workspaceId: string, runId: string) =>
+    request<AgentRunResult>(`/api/runtime/workspaces/${workspaceId}/agent-run/${runId}`),
   debugSummary: (workspaceId: string) =>
     request<DebugSummary>(`/api/runtime/workspaces/${workspaceId}/debug/summary`),
   debugIssues: (workspaceId: string) =>

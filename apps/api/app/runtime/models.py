@@ -486,3 +486,40 @@ class WorkspaceAgent(Base):
     meta: Mapped[dict] = mapped_column("metadata", JSONType, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class AgentRun(Base):
+    """Persisted state of a bounded agent loop (v3.2).
+
+    v3.1 ran the whole loop inside one request. v3.2 persists the loop so it
+    can **pause** when a step hits an approval-required action and **resume**
+    from the next step once the human resolves it. The row holds the goal, the
+    step cursor, the accumulated per-step outcomes, the StepContext needed to
+    build the next prompt, and the approvals currently blocking a resume.
+    """
+
+    __tablename__ = "runtime_agent_runs"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("runtime_workspaces.id", ondelete="CASCADE"), index=True
+    )
+    agent_id: Mapped[str] = mapped_column(String(255))
+    agent_name: Mapped[str] = mapped_column(String(255), default="")
+    provider: Mapped[str] = mapped_column(String(64), default="mock")
+    model: Mapped[str] = mapped_column(String(128), default="")
+    goal: Mapped[str] = mapped_column(Text)
+    max_steps: Mapped[int] = mapped_column(default=6)
+    # Index of the next step to run (0-based); equals len(steps) at a clean pause.
+    next_step: Mapped[int] = mapped_column(default=0)
+    # running | awaiting_approval | completed | failed
+    status: Mapped[str] = mapped_column(String(32), default="running")
+    stop_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Accumulated public step dicts (the AgentRunStepOut shape).
+    steps: Mapped[list] = mapped_column(JSONType, default=list)
+    # Serialized StepContext for the next prompt (file_tree/validations/...).
+    context: Mapped[dict] = mapped_column(JSONType, default=dict)
+    # Approval ids that must be resolved before this run can resume.
+    pending_approval_ids: Mapped[list] = mapped_column(JSONType, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

@@ -224,13 +224,16 @@ def test_sensitive_file_halts_loop_cleanly(env):
 
     assert out["stop_reason"] == "halted_for_approval"
     assert out["step_count"] == 1  # loop stopped after the halting step
-    assert out["status"] == "completed"  # index.html was written
+    # v3.2: a halt PAUSES the run (resumable) rather than ending it.
+    assert out["status"] == "awaiting_approval"
+    assert out["resumable"] is True
+    assert len(out["pending_approval_ids"]) == 1
     assert out["total_held"] == 1
     # safe file written, sensitive file held (not written), step 2 never ran
     assert (root / "index.html").exists()
     assert not (root / "src" / "payment").exists()
     assert not (root / "more.html").exists()
-    # a real approval is waiting (resume is v3.2)
+    # a real approval is waiting
     pending = client.get(
         f"/api/runtime/workspaces/{wid}/approvals", params={"status": "pending"}
     ).json()
