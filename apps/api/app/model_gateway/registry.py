@@ -48,7 +48,10 @@ def build_registry(settings: Settings) -> ProviderRegistry:
             value("gemini", "api_key", settings.gemini_api_key) or None,
             base_url=value("gemini", "base_url", settings.gemini_base_url),
         ),
-        OllamaProvider(value("ollama", "base_url", settings.ollama_base_url)),
+        OllamaProvider(
+            value("ollama", "base_url", settings.ollama_base_url),
+            timeout_seconds=settings.ollama_timeout_seconds,
+        ),
     ]
     # OpenRouter is just an OpenAI-compatible endpoint; expose it only if keyed.
     if settings.openrouter_api_key:

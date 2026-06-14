@@ -301,3 +301,20 @@ def test_ollama_unavailable_returns_troubleshooting_message(tmp_path):
         providers = client.get("/api/model-gateway/providers").json()["providers"]
         ollama = next(p for p in providers if p["name"] == "ollama")
         assert ollama["message"] == health["detail"]
+
+
+def test_ollama_timeout_is_configurable(tmp_path):
+    # The Ollama completion timeout (too low at 300s for a 7B model building a
+    # full page) is settable so local-model builds can finish.
+    from app.model_gateway import build_registry
+
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path}/oll2.db",
+        api_keys="",
+        cors_origins="",
+        ollama_timeout_seconds=900.0,
+    )
+    registry = build_registry(settings)
+    assert registry.get("ollama")._timeout_seconds == 900.0
+    # default is generous for local models
+    assert Settings().ollama_timeout_seconds == 600.0

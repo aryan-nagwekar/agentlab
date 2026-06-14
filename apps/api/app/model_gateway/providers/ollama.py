@@ -28,9 +28,11 @@ class OllamaProvider(ModelProvider):
         base_url: str = "http://localhost:11434",
         *,
         models: list[str] | None = None,
+        timeout_seconds: float = 600.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._models = models or ["llama3.1", "qwen2.5", "mistral"]
+        self._models = models or ["qwen2.5-coder", "llama3.2", "mistral"]
+        self._timeout_seconds = timeout_seconds
 
     def models(self) -> list[str]:
         return list(self._models)
@@ -50,12 +52,13 @@ class OllamaProvider(ModelProvider):
         started = time.perf_counter()
         try:
             # Local models can take minutes to generate a longer page; give
-            # completions a generous timeout (the default 30s is for fast APIs).
+            # completions a generous, configurable timeout (the 30s default is
+            # for fast APIs). Tune via OLLAMA_TIMEOUT_SECONDS.
             payload, _status, latency_ms = await post_json(
                 f"{self._base_url}/api/generate",
                 headers={"Content-Type": "application/json"},
                 body=body,
-                timeout=300.0,
+                timeout=self._timeout_seconds,
             )
         except HttpError as exc:
             return ModelResponse(

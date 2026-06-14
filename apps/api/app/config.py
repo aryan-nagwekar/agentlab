@@ -52,6 +52,13 @@ class Settings(BaseSettings):
         default="http://localhost:11434",
         validation_alias=AliasChoices("OLLAMA_BASE_URL", "AGENTLAB_OLLAMA_BASE_URL"),
     )
+    # Local models are slow: a 7B coder model (e.g. qwen2.5-coder, the runtime
+    # template default) generating a full page can take minutes. Per-completion
+    # timeout for the Ollama provider only; raise it for bigger models/pages.
+    ollama_timeout_seconds: float = Field(
+        default=600.0,
+        validation_alias=AliasChoices("OLLAMA_TIMEOUT_SECONDS", "AGENTLAB_OLLAMA_TIMEOUT_SECONDS"),
+    )
     openrouter_api_key: str = Field(
         default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "AGENTLAB_OPENROUTER_API_KEY")
     )
