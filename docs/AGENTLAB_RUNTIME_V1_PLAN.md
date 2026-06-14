@@ -88,9 +88,18 @@
 >   unrecoverable error, or the first approval-required action (recorded, loop
 >   stopped cleanly). New `runtime.agent_run.*` events; Replay reconstructs the
 >   multi-step build. Live-verified with local ollama/llama3.2.
-> - **v3.2 (pause/resume the loop on approval)** is the next Runtime v2
->   milestone, gated on owner direction. Other post-v1 work (teams/auth, hosted
->   platform) remains gated.
+> - v3.2 Pause/Resume the Loop on Approval — ✅ shipped (post-v1, Runtime v2):
+>   a bounded run that hits an approval-required action now PAUSES as a
+>   persisted, resumable run (`AgentRun` state row, status awaiting_approval)
+>   instead of ending. Once the human resolves the approval through the existing
+>   v1.6 flow, `POST …/agent-run/{run_id}/resume` continues the loop from the
+>   next step (refreshed prompt context + held outcome reconciled to
+>   approved/denied), and can pause again on a later approval. New
+>   `runtime.agent_run.paused`/`resumed` events. Live-verified with local
+>   ollama/llama3.2. **This completes the Live Agent Execution arc
+>   (v3.0 → v3.1 → v3.2).**
+> - Remaining post-v1 work (framework adapters, teams/auth, hosted platform) is
+>   unscheduled backlog, gated on owner direction.
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

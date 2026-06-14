@@ -1125,6 +1125,55 @@ an approval (v3.2), parallel agents, agent-to-agent handoff, arbitrary
 long-running processes/dev servers, package installation, web research, and any
 new validator/enforcement/approval/quarantine engine.
 
+## Pause/Resume the Loop on Approval (v3.2 — shipped)
+
+v3.1's loop ran entirely inside one request and *stopped* at the first
+approval-required action. v3.2 makes that stop a **pause**: the loop is
+persisted and can be **resumed** from the next step once the human resolves the
+approval. It adds one state table and two endpoints — no change to the approval
+engine, the enforcement gateway, or the step body.
+
+**The state row.** `AgentRun` (`runtime_agent_runs`) persists everything the
+loop needs to continue: the goal, `max_steps`, the `next_step` cursor, the
+accumulated public step outcomes, the serialized `StepContext` for the next
+prompt, the `pending_approval_ids` blocking a resume, and a `status`
+(`running` → `awaiting_approval` → `running` → … → `completed`/`failed`). The
+async loop body is shared by both entry points via `_drive_agent_loop`, which
+runs steps `[start_step, max_steps)`; `_finalize_loop` then calls `pause_run`
+(if the stop reason was `halted_for_approval`) or `complete_run`.
+
+**Pause.** When a step holds an action, `pause_run` records the run as
+`awaiting_approval`, sets `next_step` past the halting step, links the pending
+approvals (matched by the held targets), and emits `runtime.agent_run.paused`.
+The `POST …/agent-run` response now carries `run_id`, `status`, and
+`pending_approval_ids` — the v3.1 single-shot completion became a resumable
+checkpoint.
+
+**Resume.** `POST …/agent-run/{run_id}/resume` refuses unless the run is
+`awaiting_approval` and *every* linked approval is resolved (409 otherwise).
+`resume_context` rebuilds the next prompt from the **current** sandbox tree
+(an approved write now exists on disk) plus a plain-English note per
+resolution, and `_reconcile_steps` rewrites the stored held outcome to
+`approved` (granted + executed) or `denied` so the run's history reads true.
+It emits `runtime.agent_run.resumed` and drives the loop onward from
+`next_step`; a later approval pauses it again, fully re-resumable. The approval
+is granted/denied entirely through the **existing v1.6 flow** — `approvals.
+resolve` is not touched, and approving is what actually writes the held file
+(the loop just observes the result). `GET …/agent-run/{run_id}` returns the
+live state for the UI.
+
+**Why an explicit resume (not auto-resume).** Driving the loop is async
+(model calls) and belongs in the request/route layer; `approvals.resolve` is a
+synchronous, widely-shared service. Keeping resume a separate, gated endpoint
+keeps the approval system decoupled and composable, and lets a human resolve
+several approvals before continuing.
+
+**Explicit non-goals for v3.2** (later versions): auto-resume on approval,
+parallel/branching runs, agent-to-agent handoff, long-running processes/dev
+servers, package installation, web research, and any new enforcement/approval/
+validator/quarantine engine. v3.2 completes the Live Agent Execution arc
+(v3.0 single step → v3.1 bounded loop → v3.2 resumable loop).
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

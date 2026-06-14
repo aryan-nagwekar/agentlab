@@ -684,6 +684,42 @@ and validators are all reused unchanged.
 > approval-required action stops the loop cleanly with a pending approval. That
 > resume-on-approval flow is v3.2.
 
+## v3.2 — Pause / Resume the Loop on Approval ✅
+
+Closes the v3.1 gap: a bounded run that hits an approval-required action now
+**pauses** as a persisted, resumable run instead of ending — and once the human
+resolves the approval, the loop **resumes** from the next step. Still no new
+engine: it reuses the v1.6 approval flow and the v3.1 loop verbatim.
+
+- **`AgentRun` state row** (`runtime_agent_runs`): the loop is persisted (goal,
+  step cursor, accumulated per-step outcomes, the next-prompt context, and the
+  approvals blocking a resume), so it survives across requests. Statuses:
+  `running` / `awaiting_approval` / `completed` / `failed`.
+- **Pause.** When a step holds an action for approval, the run is saved as
+  `awaiting_approval` with `pending_approval_ids` and a
+  `runtime.agent_run.paused` event. The `POST …/agent-run` response now returns
+  `run_id`, `status`, and `pending_approval_ids` instead of forcing completion.
+- **Resume.** `POST …/agent-run/{run_id}/resume` (gated): refuses while any
+  linked approval is still pending (409); otherwise refreshes the prompt context
+  from the current sandbox (an approved file now exists on disk) plus a note for
+  each resolution, reconciles the held step outcome to `approved`/`denied`, emits
+  `runtime.agent_run.resumed`, and drives the loop from the next step. It can
+  pause again on a later approval — fully re-resumable. `GET …/agent-run/{run_id}`
+  exposes the current state.
+- The approval itself is resolved through the **existing v1.6 flow**
+  (approve writes the held action, deny keeps it blocked) — `approvals.resolve`
+  is untouched and stays decoupled from the loop.
+- UI: the **Agent run** panel shows an amber "paused — N actions waiting for
+  approval" banner with a **Resume agent loop** button once the run is
+  `awaiting_approval`.
+- 8 backend pytest (pause persists, resume blocked while pending, resume after
+  approve/deny, re-pause, 404/409 guards, gating) + 1 vitest. **Live-verified
+  with real ollama/llama3.2**: a run paused on a payment-path write, the write
+  was approved, and the loop resumed to completion. Version 3.2.0.
+
+> This completes the Live Agent Execution arc (v3.0 → v3.1 → v3.2). Everything
+> beyond is the unscheduled backlog below.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
