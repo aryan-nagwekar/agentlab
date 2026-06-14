@@ -20,6 +20,52 @@ Gemini / Ollama providers.
 
 ---
 
+## AgentLab Runtime v1
+
+AgentLab is a **sandboxed AI project-building runtime** that lets users:
+
+- create multi-agent software workflows,
+- see what every agent is doing,
+- validate outputs,
+- block unsafe actions,
+- reroute hallucinating or low-trust agents,
+- require approvals for risky actions,
+- quarantine risky agents at runtime,
+- and replay the entire build/debug process.
+
+**The product is not "AI builds an app." It is "AI builds an app inside a
+controlled runtime where the user can see, understand, debug, validate, and
+govern what the AI is doing."**
+
+> Claude / Codex / Cursor / Replit can *generate* code. AgentLab helps you
+> **understand, validate, govern, replay, and control** what AI-built software
+> is doing.
+
+**Start here:** open the app, click **Try Bottle Shop Demo**, then read the
+[Demo Walkthrough](docs/DEMO_WALKTHROUGH.md). New to AgentLab? See the
+[Nontechnical User Guide](docs/NONTECHNICAL_USER_GUIDE.md). Integrating? See the
+[Developer Integration Guide](docs/DEVELOPER_INTEGRATION_GUIDE.md).
+
+### Documentation
+
+| Doc | What it covers |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Per-version system design (events, scoring, gateway, runtime) |
+| [ROADMAP.md](ROADMAP.md) | Version history and what shipped when |
+| [docs/RUNTIME_DESIGN.md](docs/RUNTIME_DESIGN.md) | Workspace/agent/workflow/sandbox/events/replay/demo design |
+| [docs/SANDBOX_SAFETY.md](docs/SANDBOX_SAFETY.md) | Path safety, command allowlist, preview safety, isolation limits |
+| [docs/ENFORCEMENT_POLICY.md](docs/ENFORCEMENT_POLICY.md) | Action proposals, the 24-rule policy registry, decisions |
+| [docs/VALIDATOR_DESIGN.md](docs/VALIDATOR_DESIGN.md) | The 6 deterministic validators, evidence/redaction, limits |
+| [docs/HUMAN_APPROVAL.md](docs/HUMAN_APPROVAL.md) | Approval lifecycle, resolutions, safe resume |
+| [docs/BOTTLE_SHOP_DEMO.md](docs/BOTTLE_SHOP_DEMO.md) | What the demo proves, what to inspect |
+| [docs/DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md) | Step-by-step run-it-locally tour |
+| [docs/NONTECHNICAL_USER_GUIDE.md](docs/NONTECHNICAL_USER_GUIDE.md) | Plain-English guide for non-engineers |
+| [docs/DEVELOPER_INTEGRATION_GUIDE.md](docs/DEVELOPER_INTEGRATION_GUIDE.md) | SDK/collector, gateway, sandbox, adding validators/policies |
+| [docs/RUNTIME_V1_ACCEPTANCE_MATRIX.md](docs/RUNTIME_V1_ACCEPTANCE_MATRIX.md) | Honest Complete/Partial audit of the v1 acceptance criteria |
+| [docs/AGENTLAB_RUNTIME_V1_PLAN.md](docs/AGENTLAB_RUNTIME_V1_PLAN.md) | The owner's verbatim Runtime v1 master plan |
+
+---
+
 ## Why
 
 LLM observability tools answer *"what did the model say and what did it cost?"*
@@ -837,6 +883,39 @@ in an opaque origin and cannot reach the parent app.
 > replay/model engine.
 
 ## Known limitations (v0.1–v2.1)
+
+**Runtime v1 — honest limitations (read this).** AgentLab reduces risk and makes
+AI-built software understandable; it is not a guarantee of correctness or a
+production deployment platform.
+
+- **AgentLab reduces risk but cannot guarantee perfect correctness.** It catches
+  many classes of problem, not all of them.
+- **Validators are evidence-based, not omniscient.** They confirm a specific
+  property (a file parses, a claim cites its sources) — not truth. See
+  [VALIDATOR_DESIGN.md](docs/VALIDATOR_DESIGN.md).
+- **LLM verifiers can be wrong.** Safety-critical decisions are deterministic;
+  LLM judgment is never the sole authority for blocking/allowing.
+- **Sandbox isolation depends on deployment mode.** v1 is application-level
+  (path + command safety in-process), not OS/container isolation. See
+  [SANDBOX_SAFETY.md](docs/SANDBOX_SAFETY.md).
+- **BYOK keys must be handled carefully.** Keys are env-only / gitignored,
+  redacted everywhere, and never in events — but you are responsible for the
+  environment they live in.
+- **External research validation may be incomplete.** `research_claim` validates
+  *provided* evidence only; it does not browse the web or fetch URLs.
+- **Production deployment requires stronger isolation than local development.**
+  Container/OS isolation, resource limits, and network policy are out of scope
+  for the local-first v1.
+- **Human approval is required for high-risk actions.** Auth/payment/deployment
+  and other sensitive actions halt for a human by design.
+- **Local preview is not production hosting.** The website preview is a safe,
+  read-only render of sandbox files — not a dev server, build, or deployment.
+- **The Bottle Shop demo is scripted and deterministic, not a fully autonomous
+  software engineer.** A seed writes fixed contents through the real services on
+  the agents' behalf; agents do not autonomously author arbitrary code.
+
+For the per-criterion breakdown, see the
+[Runtime v1 Acceptance Matrix](docs/RUNTIME_V1_ACCEPTANCE_MATRIX.md).
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key

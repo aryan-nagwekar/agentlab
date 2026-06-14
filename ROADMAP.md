@@ -562,6 +562,18 @@ existing services and emits their normal events. (Full walkthrough:
 - 14 pytest + 4 vitest; reuses every existing service — no core system
   replaced, no demo-only logic leaked into generic runtime.
 
+## Runtime v2.1.1 — Documentation & Acceptance Audit ✅ — Runtime v1 frozen
+
+A docs-only audit patch (no runtime behavior, no engine). Added the full
+Runtime v1 documentation set — [RUNTIME_DESIGN](docs/RUNTIME_DESIGN.md),
+[SANDBOX_SAFETY](docs/SANDBOX_SAFETY.md), [ENFORCEMENT_POLICY](docs/ENFORCEMENT_POLICY.md),
+[VALIDATOR_DESIGN](docs/VALIDATOR_DESIGN.md), [HUMAN_APPROVAL](docs/HUMAN_APPROVAL.md),
+[NONTECHNICAL_USER_GUIDE](docs/NONTECHNICAL_USER_GUIDE.md),
+[DEVELOPER_INTEGRATION_GUIDE](docs/DEVELOPER_INTEGRATION_GUIDE.md) — plus an
+honest [RUNTIME_V1_ACCEPTANCE_MATRIX](docs/RUNTIME_V1_ACCEPTANCE_MATRIX.md)
+(18 Complete / 6 Partial), a README positioning + docs index + a 10-point
+limitations section. Version 2.1.1. **Runtime v1 is frozen as complete.**
+
 ## Runtime v2.1 — Final Hardening + Website Preview + Landing Page ✅ — Runtime v1 complete
 
 The final Runtime v1 polish release. Closes the two biggest first-run UX gaps

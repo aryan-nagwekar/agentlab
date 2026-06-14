@@ -67,9 +67,13 @@
 >   extension allowlisted, served into a sandboxed iframe — plus a clean
 >   product landing page at `/` with one-click demo CTAs, and the milestone
 >   demo docs; NO new engine, preview is a preview surface not a host)
-> - **Runtime v1 is COMPLETE.** Any further milestones (framework adapters,
->   teams/auth, hosted platform, deeper gateway/cost integration) are
->   post-v1 and gated on owner direction.
+> - v2.1.1 Documentation & Acceptance Audit — ✅ shipped (docs-only: the full
+>   Runtime v1 design/safety/policy/validator/approval docs, nontechnical +
+>   developer guides, and an honest RUNTIME_V1_ACCEPTANCE_MATRIX.md — 18
+>   Complete / 6 Partial; no runtime behavior changed)
+> - **Runtime v1 is COMPLETE and frozen.** Any further milestones (framework
+>   adapters, teams/auth, hosted platform, deeper gateway/cost integration)
+>   are post-v1 and gated on owner direction.
 >
 > The plan text below is preserved verbatim as provided by the owner.
 
