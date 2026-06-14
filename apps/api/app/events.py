@@ -142,6 +142,11 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "app.error.translated",
         "risky.file_change.detected",
         "secret.exposure.detected",
+        # Live agent execution (v3.0) — a single governed build pass: one model
+        # call, then enforcement-gated file writes. No control is bypassed.
+        "agent.build.started",
+        "agent.build.completed",
+        "agent.build.failed",
     }
 )
 

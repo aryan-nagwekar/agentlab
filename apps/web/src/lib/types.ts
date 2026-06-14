@@ -948,6 +948,30 @@ export interface DebugMap {
   edges: Array<{ from: string; to: string; label: string | null }>;
 }
 
+// ----------------------------------------------- live agent build (v3.0)
+
+export interface AgentBuildFile {
+  path: string;
+  status: "written" | "halted_for_approval" | "blocked";
+  reason: string | null;
+}
+
+export interface AgentBuildResult {
+  status: "completed" | "failed";
+  agent_id: string;
+  agent_name: string;
+  provider: string;
+  model: string;
+  summary: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number | null;
+  files: AgentBuildFile[];
+  written: number;
+  halted_for_approval: number;
+  blocked: number;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

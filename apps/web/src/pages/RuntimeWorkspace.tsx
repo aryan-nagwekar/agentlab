@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
+import { AgentBuildPanel } from "../components/runtime/AgentBuildPanel";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
 import { ProjectDebugPanel } from "../components/runtime/ProjectDebugPanel";
 import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
@@ -233,6 +234,14 @@ export function RuntimeWorkspacePage() {
           <ProjectDebugPanel
             workspaceId={workspace.workspace_id}
             activityRunId={workspace.activity_run_id}
+          />
+
+          {/* Live agent build — model proposes files, enforcement governs (v3.0) */}
+          <AgentBuildPanel
+            workspaceId={workspace.workspace_id}
+            goal={workspace.goal}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
           />
 
           {/* Website preview — safe read-only render of the generated site (v2.1) */}

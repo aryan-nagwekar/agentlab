@@ -17,7 +17,9 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import models as core_models
 from ..deps import get_session, require_api_key
+from ..model_gateway import ModelRequest, ModelResponse
 from ..runtime import (
+    agent_build,
     approvals,
     commands,
     debug,
@@ -50,6 +52,8 @@ from ..runtime.schemas import (
     AgentDefinitionOut,
     AgentDefinitionPatch,
     AgentFromTemplateIn,
+    AgentBuildIn,
+    AgentBuildOut,
     AgentTemplateOut,
     AllowedCommandOut,
     ApprovalOut,
@@ -633,6 +637,76 @@ async def create_bottle_shop_demo(request: Request) -> DemoSeedOut:
     summary, stored, project_id = await run_in_threadpool(_seed)
     await _broadcast(request, project_id, stored)
     return DemoSeedOut(**summary)
+
+
+# ------------------------------------------------ live agent execution (v3.0)
+# One governed build pass: the agent's model proposes files; every write goes
+# through the v1.5 enforcement gateway (so v1.2/v1.6/v1.7 all apply) before it
+# touches the sandbox. No control is bypassed; nothing runs autonomously past
+# this single pass.
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agent-build",
+    response_model=AgentBuildOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def run_agent_build(
+    workspace_id: str, body: AgentBuildIn, request: Request
+) -> AgentBuildOut:
+    root = _workspaces_root(request)
+    registry = request.app.state.provider_registry
+    session_factory = request.app.state.session_factory
+
+    # Prep (sync): validate workspace/agent, init the sandbox, build the request.
+    session = session_factory()
+    try:
+        workspace = _require_workspace(session, workspace_id)
+        agent = _require_agent(session, workspace_id, body.agent_id)
+        if quarantine.is_quarantined(agent):
+            raise HTTPException(status_code=409, detail="agent is quarantined and cannot build")
+        goal = (body.prompt or workspace.goal or "").strip()
+        if not goal:
+            raise HTTPException(status_code=400, detail="a prompt or workspace goal is required")
+        sandbox.init_sandbox(session, workspace, root)
+        session.commit()
+        model_request = agent_build.build_model_request(workspace, agent, goal)
+        provider_name = agent.model_provider
+    finally:
+        session.close()
+
+    provider = registry.get(provider_name)
+    if provider is None:
+        raise HTTPException(status_code=400, detail=f"unknown provider {provider_name!r}")
+
+    # The model call (async). A provider error returns a failed ModelResponse.
+    try:
+        response = await provider.complete(model_request)
+    except Exception as exc:  # noqa: BLE001 — surface as a clean failed build
+        response = ModelResponse(
+            provider=provider_name,
+            model_name=model_request.model_name,
+            output_text="",
+            latency_ms=0,
+            status="failed",
+            error_message=str(exc)[:300],
+        )
+
+    # Apply (sync, in a thread): parse + enforcement-gated writes + events.
+    def _apply():
+        s = session_factory()
+        try:
+            ws = _require_workspace(s, workspace_id)
+            ag = _require_agent(s, workspace_id, body.agent_id)
+            result, stored = agent_build.apply_build(s, ws, root, ag, response)
+            s.commit()
+            return result, list(stored), ws.project_id
+        finally:
+            s.close()
+
+    result, stored, project_id = await run_in_threadpool(_apply)
+    await _broadcast(request, project_id, stored)
+    return AgentBuildOut(**result)
 
 
 # ---------------------------------------------------- website preview (v2.1)

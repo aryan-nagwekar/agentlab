@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentBuildResult,
   AgentLabEvent,
   AgentScore,
   AllowedCommand,
@@ -375,6 +376,11 @@ export const api = {
     request<{ workspace_id: string; previewable: boolean }>(
       `/api/runtime/workspaces/${workspaceId}/preview-status`,
     ),
+  agentBuild: (workspaceId: string, body: { agent_id: string; prompt?: string }) =>
+    request<AgentBuildResult>(`/api/runtime/workspaces/${workspaceId}/agent-build`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   debugSummary: (workspaceId: string) =>
     request<DebugSummary>(`/api/runtime/workspaces/${workspaceId}/debug/summary`),
   debugIssues: (workspaceId: string) =>

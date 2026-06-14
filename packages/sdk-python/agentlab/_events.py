@@ -177,6 +177,12 @@ APP_ERROR_TRANSLATED = "app.error.translated"
 RISKY_FILE_CHANGE_DETECTED = "risky.file_change.detected"
 SECRET_EXPOSURE_DETECTED = "secret.exposure.detected"
 
+# Live agent execution (v3.0) — a single governed build pass emitted by the
+# server: one model call, then enforcement-gated file writes.
+AGENT_BUILD_STARTED = "agent.build.started"
+AGENT_BUILD_COMPLETED = "agent.build.completed"
+AGENT_BUILD_FAILED = "agent.build.failed"
+
 EVENT_TYPES: frozenset[str] = frozenset(
     {
         RUN_STARTED,
@@ -291,6 +297,9 @@ EVENT_TYPES: frozenset[str] = frozenset(
         APP_ERROR_TRANSLATED,
         RISKY_FILE_CHANGE_DETECTED,
         SECRET_EXPOSURE_DETECTED,
+        AGENT_BUILD_STARTED,
+        AGENT_BUILD_COMPLETED,
+        AGENT_BUILD_FAILED,
     }
 )
 

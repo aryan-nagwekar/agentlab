@@ -680,6 +680,37 @@ class PreviewStatusOut(BaseModel):
     previewable: bool
 
 
+# ----------------------------------------------- live agent execution (v3.0)
+
+
+class AgentBuildIn(BaseModel):
+    agent_id: str = Field(min_length=1, max_length=255)
+    # Defaults to the workspace goal when omitted.
+    prompt: str | None = Field(default=None, max_length=4000)
+
+
+class AgentBuildFileOut(BaseModel):
+    path: str
+    status: str  # written | halted_for_approval | blocked
+    reason: str | None = None
+
+
+class AgentBuildOut(BaseModel):
+    status: str  # completed | failed
+    agent_id: str
+    agent_name: str
+    provider: str
+    model: str
+    summary: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    latency_ms: int | None = None
+    files: list[AgentBuildFileOut] = Field(default_factory=list)
+    written: int = 0
+    halted_for_approval: int = 0
+    blocked: int = 0
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str
