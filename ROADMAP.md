@@ -562,9 +562,38 @@ existing services and emits their normal events. (Full walkthrough:
 - 14 pytest + 4 vitest; reuses every existing service — no core system
   replaced, no demo-only logic leaked into generic runtime.
 
-## Runtime v2.1 — Final Hardening, Docs, Screenshots, Deployable Demo (next, pending approval)
+## Runtime v2.1 — Final Hardening + Website Preview + Landing Page ✅ — Runtime v1 complete
 
-Spec to be provided by the owner. Not started.
+The final Runtime v1 polish release. Closes the two biggest first-run UX gaps
+without adding any new engine, and ships the milestone documentation.
+
+- **Website Preview** (`app/runtime/preview.py`): a safe, read-only static
+  serve of files already inside a workspace sandbox, so the generated Bottle
+  Shop site renders inside AgentLab. Every path goes through the v1.2
+  `check_path` (traversal/absolute/outside-root/secret rejected before any
+  disk access); only an allowlist of static web extensions is served; a 2 MB
+  cap bounds responses; file *content* is returned, never host paths.
+  GET-only — never writes/runs/installs/deploys. Routes:
+  `GET …/preview-status`, `GET …/preview[/{path}]`. The frontend renders it
+  in a `sandbox="allow-scripts"` iframe (scripts isolated in an opaque
+  origin) behind an opt-in "Open Website Preview" button, with a clean
+  "no index.html" empty state.
+- **Landing page** (`HomePage` at `/`): a clean product homepage — hero
+  ("Build with AI. Stay in control."), what-AgentLab-does cards,
+  how-it-works steps, positioning vs. code generators, and CTAs that one-click
+  the Bottle Shop demo or open Runtime. `/` is now the landing page;
+  `/dashboard` is unchanged; a Home nav entry was added.
+- **Docs**: [BOTTLE_SHOP_DEMO.md](docs/BOTTLE_SHOP_DEMO.md) updated and a new
+  [DEMO_WALKTHROUGH.md](docs/DEMO_WALKTHROUGH.md) — what AgentLab is, how to
+  run locally, how to create the demo, how to open the preview, which panels
+  to inspect, and the governance behaviors shown.
+- 12 backend pytest (preview path-safety/extension/host-path proofs) + 6
+  vitest (landing page CTAs, preview panel states). Version 2.1.0.
+
+**Runtime v1 is complete** — observe → replay → score → profile → gateway →
+studio → workspaces → agents → sandbox files → safe commands → orchestration
+→ enforcement → approvals → real quarantine → validators → visual debugging
+→ end-to-end demo → preview + landing.
 
 ## Later (unscheduled)
 

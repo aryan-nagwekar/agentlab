@@ -61,10 +61,15 @@
 >   human approval; reuses every existing service — NO new engine, no demo
 >   logic leaked into generic runtime, no secrets/network/installs/payments.
 >   Walkthrough: docs/BOTTLE_SHOP_DEMO.md)
-> - **v2.1 Final Hardening, Docs, Screenshots, Deployable Demo — next, gated
->   on owner approval (separate spec to be provided)**
-> - Milestones 11–12 remainder (gateway/cost integration deep-dive, full
->   test/CI hardening) — not started, gated on owner approval
+> - v2.1 Final Hardening + Website Preview + Landing Page — ✅ shipped (the
+>   Runtime v1 close-out: a safe read-only Website Preview that renders the
+>   generated site from inside AgentLab — path-safety-checked, static-
+>   extension allowlisted, served into a sandboxed iframe — plus a clean
+>   product landing page at `/` with one-click demo CTAs, and the milestone
+>   demo docs; NO new engine, preview is a preview surface not a host)
+> - **Runtime v1 is COMPLETE.** Any further milestones (framework adapters,
+>   teams/auth, hosted platform, deeper gateway/cost integration) are
+>   post-v1 and gated on owner direction.
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

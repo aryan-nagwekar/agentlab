@@ -53,6 +53,11 @@ Then drill into the panels:
 - **Enforcement** — the allow decisions for each write, plus the approval-
   required decision for the payment file.
 - **Approvals** — the **pending** `file.write: src/payment/checkout.js`.
+- **Website preview** (v2.1) — click **Open Website Preview** to render the
+  generated Tidewater Bottle Co. storefront inside AgentLab: hero, the
+  product grid, a working cart, and the mock checkout. The preview is
+  read-only and served only from the workspace sandbox (see
+  [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md) for the safety model).
 - **Replay** — step through everything that happened.
 
 ## The governance moment

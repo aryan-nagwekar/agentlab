@@ -991,6 +991,44 @@ payment integration, a real checkout, user accounts, a database-backed
 store, and any new runtime engine. v2.0 is a demo that *uses* the platform,
 not an extension of it.
 
+## Website Preview + Landing Page (v2.1 — shipped, the Runtime v1 close-out)
+
+`app/runtime/preview.py` is the final polish surface: a **safe, read-only
+static serve** of files that already live inside a workspace sandbox, so a
+user can see the generated site rendered inside AgentLab. It adds no engine
+and no new behavior to the runtime — it is a read path layered on the v1.2
+sandbox.
+
+**Safety is reused, not reinvented.** `serve()` calls the v1.2 `check_path`
+first, so traversal, absolute paths, secret-named files, and symlink/outside-
+root escapes are rejected *before any disk access* (tests prove a planted
+outside-root symlink and a `.env` are both refused and never echoed). Only a
+fixed allowlist of static web extensions (`.html/.css/.js/.json/.svg/png/…`)
+is served — anything else is a 415 — and a 2 MB cap bounds responses. The
+route family is **GET-only** (POST/DELETE return 405); it returns file
+*content* with a content-type, never a host path, and sets
+`X-Frame-Options: SAMEORIGIN` + `Cache-Control: no-store`. The endpoints are
+open in local mode (an `<iframe>` cannot attach `X-API-Key`), matching every
+other read path. The frontend embeds the preview in a
+`sandbox="allow-scripts"` iframe with no `allow-same-origin`: the previewed
+markup/scripts run in an opaque origin and cannot reach the parent app, so
+even arbitrary workspace HTML is contained; its cross-origin
+`fetch('products.json')` falls back to in-file data, which is why the
+storefront still renders without exposing the API to the isolated frame.
+
+**Landing page.** `HomePage` at `/` is a static product page (hero, value
+cards, how-it-works, positioning, CTAs); `/` no longer redirects to the
+dashboard. The demo CTA calls the existing `POST /runtime/demo/bottle-shop`
+seed and navigates to the new workspace — no new backend behavior.
+
+**Explicit non-goals for v2.1** (would be a different product): a dev
+server, build pipeline, package installation, cloud deployment, real
+hosting, arbitrary web serving outside the target workspace, payment
+integration, real checkout, user accounts, a large visual redesign, and any
+new validator/enforcement/approval/quarantine/replay/model engine. The
+preview is a *preview surface*, not a hosting platform. **This completes
+Runtime v1.**
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

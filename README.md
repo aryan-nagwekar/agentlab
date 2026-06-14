@@ -67,6 +67,7 @@ inspect, and (soon) replay.
 | Deterministic Validators (v1.8) — six evidence-based validators (secret-exposure, code-syntax, command-result, research-claim, data-flow, business-risk) with bounded redacted evidence, risk/trust signals, a `block-failed-validation` enforcement rule, 12 `validator.*`/`validation.*` events with full replay, and a Validators panel UI; no code execution, no web fetch | ✅ |
 | Visual Project Debugging UI (v1.9) — read-only deterministic Workspace Home: project-health summary, recommended next actions, plain-English issues, recent changes, agent/workflow/validation/enforcement summaries, and a goal→workflow→task→agent project map; progressive disclosure, links to replay/activity; no new runtime behavior | ✅ |
 | Bottle Shop End-to-End Demo (v2.0) — one-click deterministic seed that builds a dependency-free storefront inside a sandbox, exercising workspace/agents/workflow/files/commands/validators end-to-end with one payment write held for human approval; reuses every existing service, no new engine ([walkthrough](docs/BOTTLE_SHOP_DEMO.md)) | ✅ |
+| Website Preview + Landing Page (v2.1) — a safe read-only static serve of the generated site (path-safety checked, sandboxed iframe) rendered inside AgentLab, plus a clean product landing page at `/` with one-click demo CTAs; final Runtime v1 hardening + docs, no new engine ([walkthrough](docs/DEMO_WALKTHROUGH.md)) | ✅ |
 | Runtime v2.1 — final hardening, docs, screenshots, deployable demo | 🔜 gated |
 
 ## Architecture
@@ -805,7 +806,37 @@ reconstructs the whole build. Full walkthrough:
 > payment integration, real checkout, user accounts, or a database-backed
 > store.
 
-## Known limitations (v0.1–v2.0)
+## Website Preview + Landing Page (v2.1)
+
+The final Runtime v1 polish release closes the two biggest first-run gaps.
+
+**Open AgentLab** and you land on a clean product homepage at `/` —
+"Build with AI. Stay in control.", a short explanation of what AgentLab does,
+how it works in three steps, how it differs from code generators, and CTAs
+that one-click the Bottle Shop demo or open Runtime. (The Dashboard and every
+other view are unchanged, now reachable from the Home nav.)
+
+**Create the demo** and a **Website preview** panel appears on the workspace
+page. Click *Open Website Preview* to render the generated Tidewater Bottle
+Co. storefront inside AgentLab — hero, product grid, cart, and mock checkout.
+The preview is **safe by construction**: a read-only backend route
+(`app/runtime/preview.py`) serves only files that already live inside the
+workspace sandbox, runs every path through the v1.2 path-safety checks
+(traversal, absolute, outside-root, and secret-named files are rejected
+before any disk access), serves only an allowlist of static web extensions,
+and never exposes a host path. The frontend embeds it in a
+`sandbox="allow-scripts"` iframe, so the previewed page's scripts run isolated
+in an opaque origin and cannot reach the parent app.
+
+> v2.1 adds **no new engine**. The preview is a safe local *preview surface*,
+> not a hosting/deployment platform: it is read-only, sandbox-bounded, and
+> serves nothing outside the target workspace. v2.1 does **not** add browser
+> automation, web research, package installation, cloud deployment, real
+> hosting, payment integration, real checkout, user accounts, a
+> database-backed store, or any new validator/enforcement/approval/quarantine/
+> replay/model engine.
+
+## Known limitations (v0.1–v2.1)
 
 - **Model gateway is local-first BYOK only.** Keys live in the server's
   environment; there is no hosted/cloud secret storage and no per-user key
@@ -919,6 +950,15 @@ Stated plainly so nobody discovers them the hard way:
   illustrative (not executed, since AgentLab installs no packages and runs no
   JS harness). Each demo run creates a fresh workspace rather than reusing
   one.
+- **The website preview is a local preview, not hosting.** v2.1 serves the
+  generated site read-only from the workspace sandbox through the same path
+  safety as the Files panel; it is not a dev server, build pipeline, or
+  deployment target. The previewed page runs in a `sandbox="allow-scripts"`
+  iframe with no `allow-same-origin`, so its `fetch('products.json')` is
+  cross-origin and falls back to the in-file product data — the storefront
+  renders and the cart works, but the live JSON fetch is intentionally not
+  served to the isolated frame. Only an allowlist of static web extensions is
+  previewable.
 - **Replay tape is a snapshot.** Opening the Replay tab loads the run's events
   once (up to 5,000); a still-running run keeps streaming, but the tape does
   not grow until the tab is reopened.
