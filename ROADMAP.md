@@ -736,6 +736,21 @@ template-created agent can do a real governed build (v3.0+) out of the box —
 - 1 added assertion (from-template agents default to ollama/qwen2.5-coder).
   Version 3.2.1.
 
+## v3.2.2 — configurable Ollama timeout ✅
+
+Follow-on to v3.2.1: with `qwen2.5-coder` now the default, the **hardcoded 300s**
+Ollama completion timeout was too low — a 7B model generating a full inline page
+runs ~330s+ at ~10 tok/s, so single-pass builds failed at exactly 300s and
+multi-step builds lost a step to the cap (empty product grid).
+
+- New `ollama_timeout_seconds` setting (`OLLAMA_TIMEOUT_SECONDS`, default **600**),
+  plumbed config → `build_registry` → `OllamaProvider` (was a hardcoded literal).
+  The Ollama model-suggestion list also updated to `qwen2.5-coder` / `llama3.2`.
+- 1 added test (timeout plumbs through; default is 600). `.env.example` documents
+  the knob. Live-verified: a single-pass qwen build of the full Bean Loop
+  storefront completed in ~141s (6 product cards, CSS-gradient thumbnails, no
+  external images). Version 3.2.2.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
