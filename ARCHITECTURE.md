@@ -550,7 +550,9 @@ policy blocking, human approvals, validators, real quarantine.
 A **WorkspaceAgent** (`runtime_workspace_agents`, composite PK
 `(workspace_id, id)`, CASCADE) is an agent *definition* inside a workspace:
 role, description, system prompt, Model Gateway `model_provider`/`model_name`
-(keyless mock defaults — the v0.7 gateway vocabulary is reused, not forked),
+(a blank agent defaults to the keyless `mock` provider; the v0.7 gateway
+vocabulary is reused, not forked — and as of v3.2.1 the **templates** default to
+local `ollama`/`qwen2.5-coder` so a template agent can do a real governed build),
 `allowed_tools`/`denied_tools`, a **permission profile**, budget ceilings
 (`max_tokens_per_call`/`max_calls_per_run`/`max_tool_calls_per_run`),
 `requires_verification`, `trust_score`/`risk_score`, and a `status`

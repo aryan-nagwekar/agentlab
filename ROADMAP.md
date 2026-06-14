@@ -720,6 +720,22 @@ engine: it reuses the v1.6 approval flow and the v3.1 loop verbatim.
 > This completes the Live Agent Execution arc (v3.0 → v3.1 → v3.2). Everything
 > beyond is the unscheduled backlog below.
 
+## v3.2.1 — qwen2.5-coder as the runtime agent default ✅
+
+A small default-only patch (no new engine, no new endpoint). The seven runtime
+**agent templates** (`app/runtime/agent_templates.py`) now default to the local
+`ollama` / `qwen2.5-coder` model instead of the keyless `mock` provider, so a
+template-created agent can do a real governed build (v3.0+) out of the box —
+`qwen2.5-coder` produces a far richer page than the smaller `llama3.2`.
+
+- Trade-off (accepted): a template-created agent now assumes Ollama is running
+  with the model pulled (`ollama pull qwen2.5-coder`); with no local model,
+  switch the agent to the `mock` provider or any BYOK gateway model. The
+  schema-level default for a *blank* agent (`AgentDefinitionIn`) stays `mock`,
+  so the keyless bottle-shop demo and the test suites are unaffected.
+- 1 added assertion (from-template agents default to ollama/qwen2.5-coder).
+  Version 3.2.1.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
