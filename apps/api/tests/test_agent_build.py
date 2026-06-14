@@ -195,6 +195,55 @@ def test_no_secrets_or_host_paths_in_build_events(env):
     assert str(root) not in activity
 
 
+def test_parse_repairs_missing_key_quote():
+    # Small local models often drop the opening quote on a key after { or ,.
+    from app.runtime import agent_build
+
+    broken = (
+        '{"summary": "site", "files": ['
+        '{"path": "index.html", "content": "<h1>ok</h1>"}, '
+        '{path": "a.css", "content": "body{}"}]}'
+    )
+    result = agent_build.parse_manifest(broken)
+    assert result is not None
+    _summary, files = result
+    assert {f["path"] for f in files} == {"index.html", "a.css"}
+
+
+def test_parse_salvages_html_from_broken_wrapper():
+    # The model emitted HTML but a structurally-broken JSON wrapper (no
+    # "content" key). The HTML salvage recovers a single index.html.
+    from app.runtime import agent_build
+
+    broken = (
+        '{"summary": "shop", "files": [{"path": "index.html", '
+        '"<style>body{}</style><h1>Sneakers</h1><p>Nike - $80</p></body>"}}'
+    )
+    result = agent_build.parse_manifest(broken)
+    assert result is not None
+    _summary, files = result
+    assert len(files) == 1 and files[0]["path"] == "index.html"
+    html = files[0]["content"].lower()
+    assert "<html" in html and "sneakers" in html
+
+
+def test_parse_salvages_raw_html_with_no_json():
+    from app.runtime import agent_build
+
+    result = agent_build.parse_manifest(
+        "<!DOCTYPE html><html><body><h1>Hi</h1></body></html>"
+    )
+    assert result is not None
+    _summary, files = result
+    assert files[0]["path"] == "index.html"
+
+
+def test_parse_returns_none_for_pure_prose():
+    from app.runtime import agent_build
+
+    assert agent_build.parse_manifest("Sorry, I cannot help with that.") is None
+
+
 def test_build_requires_api_key_when_configured(tmp_path):
     settings = Settings(
         database_url=f"sqlite:///{tmp_path}/build-auth.db",

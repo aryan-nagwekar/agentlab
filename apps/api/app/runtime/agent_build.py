@@ -40,22 +40,36 @@ MAX_FILE_CHARS = 100_000
 
 BUILD_SYSTEM_PROMPT = (
     "You are a build agent operating inside a sandboxed, governed runtime. "
-    "Given a goal, produce a small, dependency-free static website. "
+    "Given a goal, produce ONE small, self-contained static web page. "
     "Respond with ONLY a JSON object, no markdown, no commentary, of the form: "
     '{"summary": "<one sentence>", "files": [{"path": "index.html", "content": "..."}]}. '
-    "Rules: paths must be relative inside the workspace (never start with / or .. ); "
-    "include at least index.html; use only inline or relative local assets; "
-    "no external CDNs, no network calls, no secrets, no API keys. "
-    "Keep it small and self-contained."
+    "Strong rules: output exactly one file, index.html, a complete valid HTML "
+    "document with ALL styling inline in a <style> tag. "
+    "Do NOT reference external or separate image files — represent products with "
+    "emoji or CSS-colored blocks instead. "
+    "Every JSON key must be double-quoted (write {\"path\": ...}, never {path: ...}). "
+    "Paths must be relative (never start with / or ..); no external CDNs, no network "
+    "calls, no secrets, no API keys. Keep it compact."
 )
 
 
 def build_prompt(goal: str) -> str:
     return (
         f"Goal: {goal.strip()}\n\n"
-        "Return the JSON object now. index.html must be a complete, valid HTML "
-        "document. Keep total output focused and small."
+        "Return the JSON object now with a single index.html file. It must be a "
+        "complete, valid, self-contained HTML document with inline CSS and no "
+        "external image files. Keep it compact."
     )
+
+
+# llama-class local models routinely drop the opening quote on a JSON key right
+# after `{` or `,` (e.g. `{path": ...}`). Re-add it for known keys — this only
+# touches malformed keys; correctly-quoted `"path"` is preceded by `"`, not `{`/`,`.
+_KEY_REPAIR = re.compile(r'([{,]\s*)(path|content|type|summary|files)"\s*:')
+
+
+def _repair_json(text: str) -> str:
+    return _KEY_REPAIR.sub(r'\1"\2":', text)
 
 
 def parse_manifest(text: str) -> tuple[str, list[dict[str, str]]] | None:
@@ -68,32 +82,74 @@ def parse_manifest(text: str) -> tuple[str, list[dict[str, str]]] | None:
     fence = re.search(r"```(?:json)?\s*(.+?)```", candidate, re.DOTALL)
     if fence:
         candidate = fence.group(1).strip()
-    # Fall back to the outermost {...} block.
+    # Narrow to the outermost {...} block if there is surrounding prose. If
+    # there is no JSON object at all, fall straight through to HTML salvage.
     if not candidate.startswith("{"):
         brace = re.search(r"\{.*\}", candidate, re.DOTALL)
-        if not brace:
-            return None
-        candidate = brace.group(0)
-    try:
-        data = json.loads(candidate)
-    except (json.JSONDecodeError, ValueError):
-        return None
-    if not isinstance(data, dict) or not isinstance(data.get("files"), list):
-        return None
+        candidate = brace.group(0) if brace else ""
+    # strict=False tolerates literal newlines/tabs inside string values; the
+    # repair pass fixes the common missing-opening-quote-on-a-key malformation.
+    data = None
+    for attempt in (candidate, _repair_json(candidate)) if candidate else ():
+        try:
+            data = json.loads(attempt, strict=False)
+            break
+        except (json.JSONDecodeError, ValueError):
+            continue
+    if isinstance(data, dict) and isinstance(data.get("files"), list):
+        files: list[dict[str, str]] = []
+        for entry in data["files"][:MAX_FILES]:
+            if not isinstance(entry, dict):
+                continue
+            path = str(entry.get("path", "")).strip()
+            content = entry.get("content", "")
+            if not path or not isinstance(content, str):
+                continue
+            files.append({"path": path, "content": content[:MAX_FILE_CHARS]})
+        if files:
+            summary = str(data.get("summary", "")).strip()[:300] or "Generated files."
+            return summary, files
 
-    files: list[dict[str, str]] = []
-    for entry in data["files"][:MAX_FILES]:
-        if not isinstance(entry, dict):
-            continue
-        path = str(entry.get("path", "")).strip()
-        content = entry.get("content", "")
-        if not path or not isinstance(content, str):
-            continue
-        files.append({"path": path, "content": content[:MAX_FILE_CHARS]})
-    if not files:
+    # Last-resort salvage: small models often emit good HTML inside a broken
+    # JSON wrapper. If we can recover an HTML document, write it as a single
+    # index.html so a previewable page still results.
+    html = _salvage_html(text)
+    if html:
+        return "Recovered a single-page site from the model's HTML output", [
+            {"path": "index.html", "content": html[:MAX_FILE_CHARS]}
+        ]
+    return None
+
+
+# HTML the model emitted even when its JSON wrapper is malformed.
+_HTML_OPENERS = ("<!doctype", "<html", "<head", "<body", "<style", "<main",
+                 "<section", "<header", "<h1", "<div")
+
+
+def _salvage_html(text: str) -> str | None:
+    lowered = text.lower()
+    starts = [i for i in (lowered.find(t) for t in _HTML_OPENERS) if i != -1]
+    if not starts:
         return None
-    summary = str(data.get("summary", "")).strip()[:300] or "Generated files."
-    return summary, files
+    html = text[min(starts):]
+    # Trim trailing JSON wrapper junk after the last real close tag.
+    low = html.lower()
+    for closer in ("</html>", "</body>"):
+        idx = low.rfind(closer)
+        if idx != -1:
+            html = html[: idx + len(closer)]
+            break
+    else:
+        html = re.sub(r'["\']?\s*[}\]]*\s*$', "", html)
+    # Undo JSON string escapes the model may have left behind.
+    for a, b in (('\\"', '"'), ("\\n", "\n"), ("\\t", "\t"), ("\\/", "/"), ("\\\\", "\\")):
+        html = html.replace(a, b)
+    if "<html" not in html.lower():
+        html = (
+            '<!doctype html><html><head><meta charset="utf-8">'
+            "<title>Preview</title></head><body>\n" + html + "\n</body></html>"
+        )
+    return html.strip()
 
 
 def build_model_request(
