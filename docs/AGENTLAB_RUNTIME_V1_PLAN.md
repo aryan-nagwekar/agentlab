@@ -71,9 +71,17 @@
 >   Runtime v1 design/safety/policy/validator/approval docs, nontechnical +
 >   developer guides, and an honest RUNTIME_V1_ACCEPTANCE_MATRIX.md — 18
 >   Complete / 6 Partial; no runtime behavior changed)
-> - **Runtime v1 is COMPLETE and frozen.** Any further milestones (framework
->   adapters, teams/auth, hosted platform, deeper gateway/cost integration)
->   are post-v1 and gated on owner direction.
+> - **Runtime v1 is COMPLETE and frozen** (tagged `v2.1.1`).
+> - v3.0 Live Agent Execution (single governed step) — ✅ shipped (post-v1, the
+>   start of **Runtime v2**): an agent's own model makes one real gateway call
+>   that authors a JSON file manifest; every write is routed through the v1.5
+>   enforcement gateway (safe → sandbox, sensitive → approval, unsafe →
+>   blocked) and rendered in the preview. A single pass — no autonomous loop;
+>   closes acceptance criteria 3 & 5. Live-verified with local ollama/llama3.2.
+> - **v3.1 (bounded loop + governed commands + validator feedback)** and **v3.2
+>   (pause/resume the loop on approval)** are the next Runtime v2 milestones,
+>   gated on owner direction. Other post-v1 work (teams/auth, hosted platform)
+>   remains gated.
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

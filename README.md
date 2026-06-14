@@ -115,6 +115,7 @@ inspect, and (soon) replay.
 | Deterministic Validators (v1.8) — six evidence-based validators (secret-exposure, code-syntax, command-result, research-claim, data-flow, business-risk) with bounded redacted evidence, risk/trust signals, a `block-failed-validation` enforcement rule, 12 `validator.*`/`validation.*` events with full replay, and a Validators panel UI; no code execution, no web fetch | ✅ |
 | Visual Project Debugging UI (v1.9) — read-only deterministic Workspace Home: project-health summary, recommended next actions, plain-English issues, recent changes, agent/workflow/validation/enforcement summaries, and a goal→workflow→task→agent project map; progressive disclosure, links to replay/activity; no new runtime behavior | ✅ |
 | Bottle Shop End-to-End Demo (v2.0) — one-click deterministic seed that builds a dependency-free storefront inside a sandbox, exercising workspace/agents/workflow/files/commands/validators end-to-end with one payment write held for human approval; reuses every existing service, no new engine ([walkthrough](docs/BOTTLE_SHOP_DEMO.md)) | ✅ |
+| Live Agent Execution — single governed step (v3.0) — an agent's own model (e.g. local `ollama/llama3.2`) makes one real call → JSON file manifest → **every** write routed through enforcement (safe → sandbox, sensitive → approval, unsafe → blocked), then rendered in the preview; `agent.build.*` events with full replay, an Agent-build panel. Single pass, no autonomous loop | ✅ |
 | Website Preview + Landing Page (v2.1) — a safe read-only static serve of the generated site (path-safety checked, sandboxed iframe) rendered inside AgentLab, plus a clean product landing page at `/` with one-click demo CTAs; final Runtime v1 hardening + docs, no new engine ([walkthrough](docs/DEMO_WALKTHROUGH.md)) | ✅ |
 | Runtime v2.1 — final hardening, docs, screenshots, deployable demo | 🔜 gated |
 
@@ -1047,6 +1048,36 @@ Stated plainly so nobody discovers them the hard way:
   of events; snapshot memoization is the planned fix for very large runs.
 - **Bundle size.** The dashboard ships ~800 KB minified (React Flow +
   Recharts); route-level code-splitting is deferred.
+
+## Live Agent Execution (v3.0)
+
+This is where an agent's **own model actually builds something** — and every
+action it takes is governed. The **Agent build** panel on a workspace lets you
+pick an agent (with its provider/model, e.g. local `ollama/llama3.2`), give a
+prompt (defaults to the workspace goal), and click **Build with agent**.
+
+One governed pass happens:
+
+1. One real model call through the gateway (your BYOK/local model).
+2. The response is parsed into a strict JSON file manifest — a malformed or
+   empty response writes **nothing** (clean failure).
+3. **Every proposed file write is routed through the v1.5 enforcement gateway**,
+   attributed to the agent — so v1.2 path safety, v1.5 policy, v1.6 approval,
+   and v1.7 quarantine all apply exactly as for a manual write. Safe files land
+   in the sandbox; auth/payment/deploy paths **halt for your approval**;
+   traversal/secret paths are **blocked** with the disk untouched.
+
+Written files render immediately in the **Website preview**; held files appear
+in **Approvals**; and Replay reconstructs the whole chain — model call →
+enforcement decision → file written/held/blocked. The model's raw output is
+secret-redacted before it enters any event.
+
+> v3.0 is a **single pass**, not an autonomous agent. It does not iterate, run
+> commands on its own, or plan multi-step work — that's v3.1 (a bounded loop
+> with governed commands and validator feedback) and v3.2 (pausing/resuming the
+> loop on approval). The *quality* of the generated site is whatever the model
+> produces; the *governance* is identical for any model. A quarantined agent
+> cannot build at all.
 
 ## Privacy & Security
 

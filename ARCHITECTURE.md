@@ -1029,6 +1029,43 @@ new validator/enforcement/approval/quarantine/replay/model engine. The
 preview is a *preview surface*, not a hosting platform. **This completes
 Runtime v1.**
 
+## Live Agent Execution — single governed step (v3.0 — shipped)
+
+`app/runtime/agent_build.py` connects the model side (the v0.7 gateway / BYOK)
+to the governed runtime — the first version where an agent's **own model
+actually builds**. It is deliberately one bounded pass, not an autonomous
+loop. Flow: take the workspace goal → build a strict-JSON-manifest prompt →
+`await provider.complete(...)` through the gateway using the agent's own
+`model_provider`/`model_name` → parse the manifest (tolerant of markdown
+fences; a malformed or empty response yields **zero writes** and an
+`agent.build.failed` event) → for **each** proposed file, call
+`enforcement.guarded_execute(action_type="file.write", actor_type="agent",
+agent_id=…, approval_payload={path,content}, execute=sandbox.write_file)`.
+
+The single most important property: **the agent's writes go through the exact
+same choke point as a manual write** — so v1.2 path safety, the v1.5 policy
+registry, v1.6 approval halts, and v1.7 quarantine all apply with no new code.
+Safe files are written; sensitive paths (auth/payment/deploy) raise
+`EnforcementRefused` with a 403 and create an approval (recorded as
+`halted_for_approval`); traversal/secret paths are blocked (recorded as
+`blocked`, disk untouched); a blocked/held file never aborts the rest of the
+manifest. The model's raw output is run through `_redact` *before* it enters
+the `model.completed` telemetry preview — a real leak the test suite caught,
+since generated code can contain a secret. The route validates + refuses a
+quarantined agent (409), runs the async model call, then does all DB /
+enforcement / event work in a threadpool and broadcasts.
+
+Events: `agent.build.started/completed/failed` plus the reused `model.*`,
+`action.*`, `enforcement.*`, and `sandbox.file.*` — Replay reconstructs the
+full chain. Written files render through the v2.1 preview; held files appear
+in the v1.6 Approvals panel.
+
+**Explicit non-goals for v3.0** (later v3.x): no iteration/autonomous loop, no
+agent-driven command execution, no multi-step planning, no validator-feedback
+loop, no pause/resume across approval — those are v3.1 (bounded loop + governed
+commands + validator feedback) and v3.2 (resume-on-approval). v3.0 reuses every
+existing engine and adds none.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a

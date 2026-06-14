@@ -607,6 +607,42 @@ studio → workspaces → agents → sandbox files → safe commands → orchest
 → enforcement → approvals → real quarantine → validators → visual debugging
 → end-to-end demo → preview + landing.
 
+# Runtime v2 — Live Agent Execution
+
+## v3.0 — Live Agent Execution (single governed step) ✅
+
+The first version where an agent's **own model actually builds** — connecting
+the model side (v0.7 gateway / BYOK) to the governed runtime. One bounded pass,
+not an autonomous loop:
+
+- **`app/runtime/agent_build.py`**: take the workspace goal → one real model
+  call through the gateway using the agent's own provider/model (e.g. local
+  `ollama/llama3.2`) → parse a strict JSON file manifest (tolerant of markdown
+  fences; a malformed/empty response writes **nothing**) → route **every**
+  proposed file write through `enforcement.guarded_execute` attributed to the
+  agent. So v1.2 path safety, v1.5 policy, v1.6 approval, and v1.7 quarantine
+  all apply unchanged: safe files land in the sandbox, sensitive paths
+  (auth/payment/deploy) **halt for human approval**, unsafe paths are blocked
+  (disk untouched). Model output is redacted before it enters telemetry.
+- Route `POST /runtime/workspaces/{id}/agent-build` (API-key gated); a
+  quarantined agent is refused (409).
+- Events `agent.build.started/completed/failed` plus the existing `model.*` /
+  `action.*` / `enforcement.*` / `sandbox.file.*` — Replay reconstructs the
+  full chain (model call → enforcement decision → written/held/blocked).
+- UI: **Agent build** panel on the workspace — pick an agent, optional prompt,
+  "Build with agent" → per-file governance outcomes; written files render in
+  the **Website preview**, held files appear in **Approvals**.
+- 9 backend pytest (governed-pipeline proofs incl. a real telemetry-leak fix)
+  + 8 vitest. **Live-verified with real ollama/llama3.2**: generated a
+  previewable two-file site through the full governed pipeline (210/175
+  tokens). Version 3.0.0.
+
+> v3.0 is a **single pass**, not an autonomous loop: no iteration, no
+> agent-driven command execution, no multi-step planning. Those are v3.1
+> (bounded loop + governed commands + validator feedback) and v3.2 (pause/
+> resume the loop on approval). Output quality is the model's; the governance
+> is identical regardless of model.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
