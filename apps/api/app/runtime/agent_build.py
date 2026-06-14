@@ -39,26 +39,36 @@ MAX_FILES = 16
 MAX_FILE_CHARS = 100_000
 
 BUILD_SYSTEM_PROMPT = (
-    "You are a build agent operating inside a sandboxed, governed runtime. "
-    "Given a goal, produce ONE small, self-contained static web page. "
+    "You are a senior front-end build agent inside a sandboxed, governed runtime. "
+    "Given a goal, produce ONE polished, self-contained static web page. "
     "Respond with ONLY a JSON object, no markdown, no commentary, of the form: "
-    '{"summary": "<one sentence>", "files": [{"path": "index.html", "content": "..."}]}. '
-    "Strong rules: output exactly one file, index.html, a complete valid HTML "
-    "document with ALL styling inline in a <style> tag. "
-    "Do NOT reference external or separate image files — represent products with "
-    "emoji or CSS-colored blocks instead. "
-    "Every JSON key must be double-quoted (write {\"path\": ...}, never {path: ...}). "
+    '{"summary": "<one sentence>", "files": [{"path": "index.html", "content": "<full html>"}]}. '
+    "Design bar — the page must include: a sticky top header with the brand name and a "
+    "live cart count; a hero section with a bold headline and subtext; a responsive "
+    "product grid (CSS grid, repeat(auto-fit, minmax(220px, 1fr))) of at least 6 product "
+    "cards, each with an emoji or CSS-gradient thumbnail, a name, a price, and an "
+    "'Add to cart' button; and a footer. "
+    "Style it cohesively in a single <style> tag: a modern dark theme with ONE accent "
+    "color, a system font stack, generous spacing, rounded cards, subtle shadows, and a "
+    "gentle hover lift on cards and buttons. "
+    "Add a small inline <script> so 'Add to cart' increments the header cart count. "
+    "Hard rules: output exactly one file, index.html, a complete valid HTML document with "
+    "ALL CSS and JS inline; do NOT reference external or separate image/CSS/JS files — "
+    "use emoji or CSS gradients for product visuals; "
+    "every JSON key must be double-quoted (write {\"path\": ...}, never {path: ...}). "
     "Paths must be relative (never start with / or ..); no external CDNs, no network "
-    "calls, no secrets, no API keys. Keep it compact."
+    "calls, no secrets, no API keys."
 )
 
 
 def build_prompt(goal: str) -> str:
     return (
         f"Goal: {goal.strip()}\n\n"
-        "Return the JSON object now with a single index.html file. It must be a "
-        "complete, valid, self-contained HTML document with inline CSS and no "
-        "external image files. Keep it compact."
+        "Return the JSON object now with a single index.html file: a complete, "
+        "valid, self-contained HTML document with all CSS and JS inline and no "
+        "external files. Make it look polished and intentional — meet the design "
+        "bar (header with cart count, hero, responsive product grid of cards, "
+        "footer, cohesive dark theme with one accent color)."
     )
 
 
@@ -164,7 +174,7 @@ def build_model_request(
         run_id=workspace.activity_run_id,
         project_id=workspace.project_id,
         temperature=0.2,
-        max_tokens=4000,
+        max_tokens=6000,
         metadata={"source": "agent_build", "workspace_id": workspace.id},
     )
 

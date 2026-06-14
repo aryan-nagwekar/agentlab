@@ -49,8 +49,13 @@ class OllamaProvider(ModelProvider):
         }
         started = time.perf_counter()
         try:
+            # Local models can take minutes to generate a longer page; give
+            # completions a generous timeout (the default 30s is for fast APIs).
             payload, _status, latency_ms = await post_json(
-                f"{self._base_url}/api/generate", headers={"Content-Type": "application/json"}, body=body
+                f"{self._base_url}/api/generate",
+                headers={"Content-Type": "application/json"},
+                body=body,
+                timeout=300.0,
             )
         except HttpError as exc:
             return ModelResponse(
