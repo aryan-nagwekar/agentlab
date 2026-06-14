@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import shlex
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -24,6 +24,7 @@ from ..runtime import (
     demo_bottle_shop,
     enforcement,
     orchestration,
+    preview,
     quarantine,
     sandbox,
     service,
@@ -74,6 +75,7 @@ from ..runtime.schemas import (
     DebugMapOut,
     DebugSummaryOut,
     DemoSeedOut,
+    PreviewStatusOut,
     SandboxStatusOut,
     TaskOut,
     TaskPatch,
@@ -631,6 +633,58 @@ async def create_bottle_shop_demo(request: Request) -> DemoSeedOut:
     summary, stored, project_id = await run_in_threadpool(_seed)
     await _broadcast(request, project_id, stored)
     return DemoSeedOut(**summary)
+
+
+# ---------------------------------------------------- website preview (v2.1)
+# Read-only static preview of files already inside the workspace sandbox.
+# Open in local mode (an <iframe> can't send X-API-Key); never writes/runs.
+
+
+@router.get(
+    "/runtime/workspaces/{workspace_id}/preview-status",
+    response_model=PreviewStatusOut,
+)
+def preview_status(
+    workspace_id: str, request: Request, session: Session = Depends(get_session)
+) -> PreviewStatusOut:
+    workspace = _require_workspace(session, workspace_id)
+    return PreviewStatusOut(
+        workspace_id=workspace.id,
+        previewable=preview.is_previewable(workspace, _workspaces_root(request)),
+    )
+
+
+def _serve_preview(workspace_id: str, file_path: str, request: Request) -> Response:
+    session = next(get_session(request))
+    try:
+        workspace = _require_workspace(session, workspace_id)
+    finally:
+        session.close()
+    try:
+        content, media_type = preview.serve(
+            workspace, _workspaces_root(request), file_path
+        )
+    except sandbox.PathViolation as violation:
+        raise HTTPException(status_code=400, detail=f"blocked ({violation.rule}): {violation.reason}")
+    except sandbox.SandboxError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.detail)
+    # Same-origin framing is allowed (the app embeds it); the frontend also
+    # sandboxes the iframe. Cache nothing — the sandbox can change.
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"X-Frame-Options": "SAMEORIGIN", "Cache-Control": "no-store"},
+    )
+
+
+@router.get("/runtime/workspaces/{workspace_id}/preview")
+def preview_index(workspace_id: str, request: Request) -> Response:
+    return _serve_preview(workspace_id, "index.html", request)
+
+
+@router.get("/runtime/workspaces/{workspace_id}/preview/{file_path:path}")
+def preview_file(workspace_id: str, file_path: str, request: Request) -> Response:
+    return _serve_preview(workspace_id, file_path, request)
 
 
 # ---------------------------------------------------- project debugging (v1.9)

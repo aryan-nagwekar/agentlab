@@ -64,6 +64,7 @@ const archiveRuntimeWorkspace = vi.fn();
 const registerRuntimeArtifact = vi.fn();
 const createBottleShopDemo = vi.fn();
 vi.mock("../lib/api", () => ({
+  API_BASE: "",
   api: {
     runtimeWorkspaces: () => Promise.resolve([workspace]),
     runtimeWorkspace: () => Promise.resolve(workspace),
@@ -116,6 +117,9 @@ vi.mock("../lib/api", () => ({
       }),
     debugIssues: () => Promise.resolve([]),
     debugProjectMap: () => Promise.resolve({ nodes: [], edges: [] }),
+    // v2.1 website preview — default to not previewable here.
+    previewStatus: () =>
+      Promise.resolve({ workspace_id: "ws-abc123", previewable: false }),
   },
 }));
 
@@ -237,7 +241,9 @@ describe("RuntimeWorkspacePage", () => {
     expect(screen.getByDisplayValue("Eventually build a small storefront site.")).toBeTruthy();
     expect(screen.getByText("workspace.created")).toBeTruthy();
     expect(screen.getByText("workspace.updated")).toBeTruthy();
-    expect(screen.getByText("index.html")).toBeTruthy();
+    // the artifact name renders (the v2.1 preview panel's empty state also
+    // mentions index.html, so allow more than one match)
+    expect(screen.getAllByText("index.html").length).toBeGreaterThan(0);
     expect(screen.getByText("Project health")).toBeTruthy();
     expect(screen.getByText(/Health signals arrive with later Runtime versions/)).toBeTruthy();
     // links back to the activity run's timeline + replay

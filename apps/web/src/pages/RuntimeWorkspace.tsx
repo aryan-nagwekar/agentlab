@@ -5,6 +5,7 @@ import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
 import { ProjectDebugPanel } from "../components/runtime/ProjectDebugPanel";
 import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
+import { WebsitePreviewPanel } from "../components/runtime/WebsitePreviewPanel";
 import { EnforcementPanel } from "../components/runtime/EnforcementPanel";
 import { SandboxCommandsPanel } from "../components/runtime/SandboxCommandsPanel";
 import { SandboxFilesPanel } from "../components/runtime/SandboxFilesPanel";
@@ -222,7 +223,9 @@ export function RuntimeWorkspacePage() {
               <span className="text-zinc-200">Workflows</span>,{" "}
               <span className="text-zinc-200">Validators</span>, and{" "}
               <span className="text-zinc-200">Approvals</span> panels below — and
-              resolve the pending payment approval to see a governed action resume.
+              resolve the pending payment approval to see a governed action resume.{" "}
+              <span className="text-zinc-200">Open the Website preview</span> to see the
+              rendered storefront.
             </div>
           ) : null}
 
@@ -231,6 +234,9 @@ export function RuntimeWorkspacePage() {
             workspaceId={workspace.workspace_id}
             activityRunId={workspace.activity_run_id}
           />
+
+          {/* Website preview — safe read-only render of the generated site (v2.1) */}
+          <WebsitePreviewPanel workspaceId={workspace.workspace_id} />
 
           {/* Agents (v1.1) */}
           <WorkspaceAgentsPanel

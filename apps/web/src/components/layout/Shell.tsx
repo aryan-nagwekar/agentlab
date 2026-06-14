@@ -5,6 +5,7 @@ import { useAppStore } from "../../store/app";
 import { StatusDot } from "../ui";
 
 const NAV = [
+  { to: "/", label: "Home", icon: "⌂", end: true },
   { to: "/dashboard", label: "Dashboard", icon: "◧" },
   { to: "/projects", label: "Projects", icon: "▣" },
   { to: "/studio", label: "Studio", icon: "✦" },
@@ -62,6 +63,7 @@ export function Shell() {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
                 clsx(
                   "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
@@ -78,7 +80,7 @@ export function Shell() {
         </nav>
         <ConnectionPill />
         <div className="border-t border-edge px-4 py-3 text-[10px] text-zinc-600">
-          v2.0.0 · local mode
+          v2.1.0 · local mode
         </div>
       </aside>
       <main className="min-w-0 flex-1 overflow-y-auto">

@@ -675,6 +675,11 @@ class DemoSeedOut(BaseModel):
     goal: str
 
 
+class PreviewStatusOut(BaseModel):
+    workspace_id: str
+    previewable: bool
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

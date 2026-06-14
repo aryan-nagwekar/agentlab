@@ -371,6 +371,10 @@ export const api = {
     ),
   createBottleShopDemo: () =>
     request<DemoSeedResult>("/api/runtime/demo/bottle-shop", { method: "POST" }),
+  previewStatus: (workspaceId: string) =>
+    request<{ workspace_id: string; previewable: boolean }>(
+      `/api/runtime/workspaces/${workspaceId}/preview-status`,
+    ),
   debugSummary: (workspaceId: string) =>
     request<DebugSummary>(`/api/runtime/workspaces/${workspaceId}/debug/summary`),
   debugIssues: (workspaceId: string) =>
