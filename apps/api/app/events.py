@@ -147,6 +147,13 @@ EVENT_TYPES: frozenset[str] = frozenset(
         "agent.build.started",
         "agent.build.completed",
         "agent.build.failed",
+        # Bounded agent loop (v3.1) — multi-step live execution: each step is one
+        # governed model call + enforcement-gated file writes / commands +
+        # deterministic validators fed back into the next step.
+        "runtime.agent_run.started",
+        "runtime.agent_run.step",
+        "runtime.agent_run.completed",
+        "runtime.agent_run.failed",
     }
 )
 

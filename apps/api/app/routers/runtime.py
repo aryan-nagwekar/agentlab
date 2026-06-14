@@ -20,6 +20,7 @@ from ..deps import get_session, require_api_key
 from ..model_gateway import ModelRequest, ModelResponse
 from ..runtime import (
     agent_build,
+    agent_run,
     approvals,
     commands,
     debug,
@@ -54,6 +55,8 @@ from ..runtime.schemas import (
     AgentFromTemplateIn,
     AgentBuildIn,
     AgentBuildOut,
+    AgentRunIn,
+    AgentRunOut,
     AgentTemplateOut,
     AllowedCommandOut,
     ApprovalOut,
@@ -707,6 +710,115 @@ async def run_agent_build(
     result, stored, project_id = await run_in_threadpool(_apply)
     await _broadcast(request, project_id, stored)
     return AgentBuildOut(**result)
+
+
+# ----------------------------------------------- bounded agent loop (v3.1)
+# Wraps the v3.0 single-pass body in a bounded iteration: each step is one
+# governed model call that proposes file writes AND commands (both through the
+# v1.5 gateway), deterministic validators run over the step's outputs, and
+# their pass/fail feeds the next prompt. The loop stops on a model `done`
+# signal, an empty step, max steps, an unrecoverable error, or — for now — the
+# first approval-required action (recorded, then stopped cleanly; resume is v3.2).
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agent-run",
+    response_model=AgentRunOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def run_agent_loop(
+    workspace_id: str, body: AgentRunIn, request: Request
+) -> AgentRunOut:
+    root = _workspaces_root(request)
+    registry = request.app.state.provider_registry
+    session_factory = request.app.state.session_factory
+
+    # Prep (sync): validate, init sandbox, snapshot what the loop needs, and
+    # emit runtime.agent_run.started.
+    session = session_factory()
+    try:
+        workspace = _require_workspace(session, workspace_id)
+        agent = _require_agent(session, workspace_id, body.agent_id)
+        if quarantine.is_quarantined(agent):
+            raise HTTPException(status_code=409, detail="agent is quarantined and cannot build")
+        goal = (body.prompt or workspace.goal or "").strip()
+        if not goal:
+            raise HTTPException(status_code=400, detail="a prompt or workspace goal is required")
+        sandbox.init_sandbox(session, workspace, root)
+        max_steps = agent_run.clamp_steps(body.max_steps)
+        prep = agent_run.RunPrep(
+            workspace_id=workspace.id,
+            activity_run_id=workspace.activity_run_id,
+            project_id=workspace.project_id,
+            provider=agent.model_provider,
+            model_name=agent.model_name,
+            agent_id=agent.id,
+        )
+        agent_name = agent.name
+        context = agent_run.initial_context(session, workspace, root)
+        started = agent_run.emit_started(session, workspace, agent, goal, max_steps)
+        session.commit()
+        project_id = workspace.project_id
+    finally:
+        session.close()
+    await _broadcast(request, project_id, started)
+
+    provider = registry.get(prep.provider)
+    if provider is None:
+        raise HTTPException(status_code=400, detail=f"unknown provider {prep.provider!r}")
+
+    steps_out: list[dict] = []
+    stop_reason = "max_steps"
+    for i in range(max_steps):
+        model_request = agent_run.build_step_request(prep, goal, i, max_steps, context)
+        try:
+            response = await provider.complete(model_request)
+        except Exception as exc:  # noqa: BLE001 — surface as a clean failed step
+            response = ModelResponse(
+                provider=prep.provider,
+                model_name=model_request.model_name,
+                output_text="",
+                latency_ms=0,
+                status="failed",
+                error_message=str(exc)[:300],
+            )
+
+        def _apply(resp=response, idx=i):
+            s = session_factory()
+            try:
+                ws = _require_workspace(s, workspace_id)
+                ag = _require_agent(s, workspace_id, body.agent_id)
+                result = agent_run.apply_step(s, ws, root, ag, resp, idx)
+                s.commit()
+                return result, ws.project_id
+            finally:
+                s.close()
+
+        result, project_id = await run_in_threadpool(_apply)
+        await _broadcast(request, project_id, result.events)
+        steps_out.append(result.public())
+        context = result.context
+        if result.stop:
+            stop_reason = result.stop_reason
+            break
+
+    # Finalize (sync): totals + overall status + completed/failed event.
+    def _finalize():
+        s = session_factory()
+        try:
+            ws = _require_workspace(s, workspace_id)
+            ag = _require_agent(s, workspace_id, body.agent_id)
+            out, events = agent_run.finalize_run(
+                s, ws, ag, agent_name, prep, goal, steps_out, stop_reason
+            )
+            s.commit()
+            return out, list(events), ws.project_id
+        finally:
+            s.close()
+
+    out, events, project_id = await run_in_threadpool(_finalize)
+    await _broadcast(request, project_id, events)
+    return AgentRunOut(**out)
 
 
 # ---------------------------------------------------- website preview (v2.1)

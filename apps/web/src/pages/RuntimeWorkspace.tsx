@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { AgentBuildPanel } from "../components/runtime/AgentBuildPanel";
+import { AgentRunPanel } from "../components/runtime/AgentRunPanel";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
 import { ProjectDebugPanel } from "../components/runtime/ProjectDebugPanel";
 import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
@@ -238,6 +239,14 @@ export function RuntimeWorkspacePage() {
 
           {/* Live agent build — model proposes files, enforcement governs (v3.0) */}
           <AgentBuildPanel
+            workspaceId={workspace.workspace_id}
+            goal={workspace.goal}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
+          />
+
+          {/* Bounded agent loop — multi-step build with governed commands + validator feedback (v3.1) */}
+          <AgentRunPanel
             workspaceId={workspace.workspace_id}
             goal={workspace.goal}
             readOnly={workspace.status === "archived"}

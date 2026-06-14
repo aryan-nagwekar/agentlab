@@ -711,6 +711,54 @@ class AgentBuildOut(BaseModel):
     blocked: int = 0
 
 
+class AgentRunIn(BaseModel):
+    agent_id: str = Field(min_length=1, max_length=255)
+    # Defaults to the workspace goal when omitted.
+    prompt: str | None = Field(default=None, max_length=4000)
+    # Hard-capped server-side (see agent_run.clamp_steps).
+    max_steps: int | None = Field(default=None, ge=1, le=8)
+
+
+class AgentRunCommandOut(BaseModel):
+    command: str
+    status: str  # completed | failed | timed_out | halted_for_approval | blocked
+    exit_code: int | None = None
+    reason: str | None = None
+
+
+class AgentRunValidationOut(BaseModel):
+    validator: str
+    target: str
+    passed: bool
+
+
+class AgentRunStepOut(BaseModel):
+    step: int
+    summary: str
+    status: str  # ok | failed
+    done: bool
+    files: list[AgentBuildFileOut] = Field(default_factory=list)
+    commands: list[AgentRunCommandOut] = Field(default_factory=list)
+    validations: list[AgentRunValidationOut] = Field(default_factory=list)
+
+
+class AgentRunOut(BaseModel):
+    status: str  # completed | failed
+    agent_id: str
+    agent_name: str
+    provider: str
+    model: str
+    goal: str
+    steps: list[AgentRunStepOut] = Field(default_factory=list)
+    step_count: int = 0
+    # done | halted_for_approval | no_actions | max_steps | model_failed | malformed
+    stop_reason: str
+    total_written: int = 0
+    total_held: int = 0
+    total_blocked: int = 0
+    commands_run: int = 0
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

@@ -1,6 +1,7 @@
 import type {
   Agent,
   AgentBuildResult,
+  AgentRunResult,
   AgentLabEvent,
   AgentScore,
   AllowedCommand,
@@ -378,6 +379,14 @@ export const api = {
     ),
   agentBuild: (workspaceId: string, body: { agent_id: string; prompt?: string }) =>
     request<AgentBuildResult>(`/api/runtime/workspaces/${workspaceId}/agent-build`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  agentRun: (
+    workspaceId: string,
+    body: { agent_id: string; prompt?: string; max_steps?: number },
+  ) =>
+    request<AgentRunResult>(`/api/runtime/workspaces/${workspaceId}/agent-run`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

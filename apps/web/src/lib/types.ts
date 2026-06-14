@@ -972,6 +972,47 @@ export interface AgentBuildResult {
   blocked: number;
 }
 
+// ------------------------------------------- bounded agent loop (v3.1)
+
+export interface AgentRunCommand {
+  command: string;
+  status: "completed" | "failed" | "timed_out" | "halted_for_approval" | "blocked";
+  exit_code: number | null;
+  reason?: string | null;
+}
+
+export interface AgentRunValidation {
+  validator: string;
+  target: string;
+  passed: boolean;
+}
+
+export interface AgentRunStep {
+  step: number;
+  summary: string;
+  status: "ok" | "failed";
+  done: boolean;
+  files: AgentBuildFile[];
+  commands: AgentRunCommand[];
+  validations: AgentRunValidation[];
+}
+
+export interface AgentRunResult {
+  status: "completed" | "failed";
+  agent_id: string;
+  agent_name: string;
+  provider: string;
+  model: string;
+  goal: string;
+  steps: AgentRunStep[];
+  step_count: number;
+  stop_reason: string;
+  total_written: number;
+  total_held: number;
+  total_blocked: number;
+  commands_run: number;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

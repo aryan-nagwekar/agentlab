@@ -82,9 +82,11 @@ def _repair_json(text: str) -> str:
     return _KEY_REPAIR.sub(r'\1"\2":', text)
 
 
-def parse_manifest(text: str) -> tuple[str, list[dict[str, str]]] | None:
-    """Extract {summary, files[]} from a model response. Tolerant of markdown
-    fences and surrounding prose; returns None if no valid manifest is found."""
+def load_json_object(text: str) -> dict[str, Any] | None:
+    """Extract a JSON object from a model response, tolerant of markdown fences,
+    surrounding prose, and the common missing-opening-quote-on-a-key
+    malformation. Returns the parsed dict or None. Shared by v3.0 (parse_manifest)
+    and v3.1 (agent_run.parse_step)."""
     if not text:
         return None
     candidate = text.strip()
@@ -92,30 +94,48 @@ def parse_manifest(text: str) -> tuple[str, list[dict[str, str]]] | None:
     fence = re.search(r"```(?:json)?\s*(.+?)```", candidate, re.DOTALL)
     if fence:
         candidate = fence.group(1).strip()
-    # Narrow to the outermost {...} block if there is surrounding prose. If
-    # there is no JSON object at all, fall straight through to HTML salvage.
+    # Narrow to the outermost {...} block if there is surrounding prose.
     if not candidate.startswith("{"):
         brace = re.search(r"\{.*\}", candidate, re.DOTALL)
         candidate = brace.group(0) if brace else ""
     # strict=False tolerates literal newlines/tabs inside string values; the
     # repair pass fixes the common missing-opening-quote-on-a-key malformation.
-    data = None
     for attempt in (candidate, _repair_json(candidate)) if candidate else ():
         try:
             data = json.loads(attempt, strict=False)
-            break
         except (json.JSONDecodeError, ValueError):
             continue
-    if isinstance(data, dict) and isinstance(data.get("files"), list):
-        files: list[dict[str, str]] = []
-        for entry in data["files"][:MAX_FILES]:
-            if not isinstance(entry, dict):
-                continue
-            path = str(entry.get("path", "")).strip()
-            content = entry.get("content", "")
-            if not path or not isinstance(content, str):
-                continue
-            files.append({"path": path, "content": content[:MAX_FILE_CHARS]})
+        if isinstance(data, dict):
+            return data
+    return None
+
+
+def files_from(data: dict[str, Any]) -> list[dict[str, str]]:
+    """Pull a bounded, validated list of {path, content} files out of a parsed
+    manifest/step object. Shared by v3.0 and v3.1."""
+    files: list[dict[str, str]] = []
+    raw = data.get("files")
+    if not isinstance(raw, list):
+        return files
+    for entry in raw[:MAX_FILES]:
+        if not isinstance(entry, dict):
+            continue
+        path = str(entry.get("path", "")).strip()
+        content = entry.get("content", "")
+        if not path or not isinstance(content, str):
+            continue
+        files.append({"path": path, "content": content[:MAX_FILE_CHARS]})
+    return files
+
+
+def parse_manifest(text: str) -> tuple[str, list[dict[str, str]]] | None:
+    """Extract {summary, files[]} from a model response. Tolerant of markdown
+    fences and surrounding prose; returns None if no valid manifest is found."""
+    if not text:
+        return None
+    data = load_json_object(text)
+    if isinstance(data, dict):
+        files = files_from(data)
         if files:
             summary = str(data.get("summary", "")).strip()[:300] or "Generated files."
             return summary, files
