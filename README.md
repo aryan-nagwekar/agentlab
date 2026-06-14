@@ -53,6 +53,8 @@ govern what the AI is doing."**
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Per-version system design (events, scoring, gateway, runtime) |
 | [ROADMAP.md](ROADMAP.md) | Version history and what shipped when |
 | [docs/RUNTIME_DESIGN.md](docs/RUNTIME_DESIGN.md) | Workspace/agent/workflow/sandbox/events/replay/demo design |
+| [docs/PRIVACY_AND_SECURITY.md](docs/PRIVACY_AND_SECURITY.md) | Privacy posture, security model, honest limitations, responsible disclosure |
+| [docs/BYOK_AND_SECRETS.md](docs/BYOK_AND_SECRETS.md) | How API keys & secrets are handled (env/local, redacted, never leaked) |
 | [docs/SANDBOX_SAFETY.md](docs/SANDBOX_SAFETY.md) | Path safety, command allowlist, preview safety, isolation limits |
 | [docs/ENFORCEMENT_POLICY.md](docs/ENFORCEMENT_POLICY.md) | Action proposals, the 24-rule policy registry, decisions |
 | [docs/VALIDATOR_DESIGN.md](docs/VALIDATOR_DESIGN.md) | The 6 deterministic validators, evidence/redaction, limits |
@@ -1045,6 +1047,24 @@ Stated plainly so nobody discovers them the hard way:
   of events; snapshot memoization is the planned fix for very large runs.
 - **Bundle size.** The dashboard ships ~800 KB minified (React Flow +
   Recharts); route-level code-splitting is deferred.
+
+## Privacy & Security
+
+AgentLab is local-first by design. Workspaces, generated files, runtime events,
+validation results, approvals, and replay history are stored locally unless the
+user deploys or modifies the system. API keys are handled through the
+server-side BYOK gateway and should never be exposed to frontend state, logs,
+events, replay payloads, validator evidence, or screenshots. AgentLab reduces
+risk through sandboxed workspaces, allowlisted commands, enforcement policies,
+human approvals, deterministic validators, quarantine, and replayable audit
+history, but it cannot guarantee perfect correctness or production-grade
+isolation in local development mode.
+
+Each control is enforced before execution and covered by tests. Details:
+[PRIVACY_AND_SECURITY.md](docs/PRIVACY_AND_SECURITY.md) (privacy posture, security
+model, honest limitations, responsible disclosure) ·
+[BYOK_AND_SECRETS.md](docs/BYOK_AND_SECRETS.md) (API-key handling) ·
+[SANDBOX_SAFETY.md](docs/SANDBOX_SAFETY.md) (path/command/preview safety).
 
 ## Roadmap (abridged — see [ROADMAP.md](ROADMAP.md))
 
