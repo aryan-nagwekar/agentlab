@@ -1,10 +1,13 @@
-"""Default workspace-agent blueprints (v1.1).
+"""Default workspace-agent blueprints (v1.1; model default updated v3.2.1).
 
 Templates are *data*, not a runtime: instantiating one materializes a normal
-WorkspaceAgent definition row. Every default uses the keyless mock provider so
-a fresh install can add agents with no API keys. Permission flags and the
-`risk_notes` here are metadata + future-enforcement inputs — nothing executes,
-writes files, or is blocked in v1.1.
+WorkspaceAgent definition row. Defaults target the local `ollama` /
+`qwen2.5-coder` model so a template-created agent can do a real governed build
+(v3.0+) out of the box — this assumes Ollama is running with the model pulled
+(`ollama pull qwen2.5-coder`). With no local model, switch an agent to the
+keyless `mock` provider (or any BYOK gateway model) in the editor. Permission
+flags and the `risk_notes` here are metadata + future-enforcement inputs —
+nothing executes, writes files, or is blocked in v1.1.
 """
 from __future__ import annotations
 
@@ -22,8 +25,8 @@ class AgentTemplate:
     system_prompt: str
     permissions: dict[str, bool]
     status: str = "ready"
-    model_provider: str = "mock"
-    model_name: str = "mock:claude-sonnet"
+    model_provider: str = "ollama"
+    model_name: str = "qwen2.5-coder"
     allowed_tools: list[str] = field(default_factory=list)
     denied_tools: list[str] = field(default_factory=list)
     max_tokens_per_call: int = 2048
@@ -118,7 +121,6 @@ AGENT_TEMPLATES: tuple[AgentTemplate, ...] = (
         permissions=permission_profile(
             "can_read_files", "can_call_web", "can_send_to_agents", "can_send_to_user"
         ),
-        model_name="mock:gpt-4.1",
         requires_verification=True,
         risk_notes=[
             "Cannot save business-critical data without verification; product/supplier claims "

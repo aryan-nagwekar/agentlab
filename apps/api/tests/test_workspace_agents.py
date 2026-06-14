@@ -175,6 +175,10 @@ def test_create_agent_from_template(client):
     assert agent["permissions"]["can_access_database"] is True
     assert agent["metadata"]["template_id"] == "backend-coder"
     assert agent["metadata"]["future_approval_required"]
+    # v3.2.1: templates default to the local ollama/qwen2.5-coder model so a
+    # template-created agent can do a real governed build out of the box.
+    assert agent["model_provider"] == "ollama"
+    assert agent["model_name"] == "qwen2.5-coder"
 
 
 def test_create_agent_from_template_with_name_override(client):
