@@ -643,6 +643,47 @@ not an autonomous loop:
 > resume the loop on approval). Output quality is the model's; the governance
 > is identical regardless of model.
 
+## v3.1 — Bounded Agent Loop ✅
+
+Wraps the v3.0 single-pass body in a **bounded iteration** — the first version
+where an agent builds over several steps, reacting to what actually happened.
+No new engine: the gateway, enforcement, approvals, sandbox, command runner,
+and validators are all reused unchanged.
+
+- **`app/runtime/agent_run.py`**: loop of up to `max_steps` passes (default 6,
+  hard-capped at 8). Each step builds a prompt from the goal + the **current
+  sandbox file tree** + the **previous step's validator/command feedback** →
+  one real gateway call → parses a step manifest (`{summary, done, files[],
+  commands[]}`, reusing v3.0's tolerant JSON/HTML salvage) → applies actions.
+- **Governed commands.** A step can propose `command.run` actions alongside
+  file writes; both are attributed to the agent and routed through the **same**
+  `enforcement.guarded_execute` choke point (v1.3 allowlist + v1.5 policy +
+  v1.6 approval + v1.7 quarantine all apply). Safe commands run via the v1.3
+  runner; unsafe ones are blocked before execution.
+- **Validator feedback.** After each step, deterministic validators run over
+  its outputs — `secret_exposure` (every written file), `code_syntax`
+  (.py/.json), `command_result` (if a command ran) — and their pass/fail is
+  fed verbatim into the next prompt.
+- **Stop conditions.** The loop stops on a model `done` signal, an empty step,
+  max steps, an unrecoverable error (failed/malformed model response), or the
+  first approval-required action — which is **recorded and the loop stops
+  cleanly** (pause/resume across an approval is v3.2, deliberately not built).
+- Route `POST /runtime/workspaces/{id}/agent-run` (API-key gated; 409 if the
+  agent is quarantined). Events `runtime.agent_run.started/step/completed/
+  failed` plus the per-step `model.*`/`action.*`/`enforcement.*`/`sandbox.*`/
+  `validator.*` — Replay reconstructs the whole multi-step build.
+- UI: **Agent run** panel on the workspace — pick an agent, a max-step count,
+  optional prompt; renders a per-step timeline (files, commands, validator
+  badges) and a plain-English stop reason.
+- 17 backend pytest + 8 vitest. **Live-verified with real ollama/llama3.2**: a
+  3-step loop that wrote `notes.txt`/`data.json`/`index.html`, ran governed
+  `ls` commands (exit 0), and passed `code_syntax`/`secret_exposure`/
+  `command_result` validators that fed each next step. Version 3.1.0.
+
+> v3.1 still does **not** pause/resume across an approval — the first
+> approval-required action stops the loop cleanly with a pending approval. That
+> resume-on-approval flow is v3.2.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP

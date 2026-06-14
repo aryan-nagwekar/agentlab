@@ -78,10 +78,19 @@
 >   enforcement gateway (safe → sandbox, sensitive → approval, unsafe →
 >   blocked) and rendered in the preview. A single pass — no autonomous loop;
 >   closes acceptance criteria 3 & 5. Live-verified with local ollama/llama3.2.
-> - **v3.1 (bounded loop + governed commands + validator feedback)** and **v3.2
->   (pause/resume the loop on approval)** are the next Runtime v2 milestones,
->   gated on owner direction. Other post-v1 work (teams/auth, hosted platform)
->   remains gated.
+> - v3.1 Bounded Agent Loop — ✅ shipped (post-v1, Runtime v2): wraps the v3.0
+>   single-pass body in a bounded iteration (up to N steps, hard-capped). Each
+>   step prompts from the goal + current sandbox tree + the previous step's
+>   validator/command feedback, makes one gateway call, and applies file writes
+>   **and** governed `command.run` actions through the same v1.5 enforcement
+>   choke point; deterministic validators run over each step's outputs and feed
+>   the next prompt. Stops on a model `done`, an empty step, max steps, an
+>   unrecoverable error, or the first approval-required action (recorded, loop
+>   stopped cleanly). New `runtime.agent_run.*` events; Replay reconstructs the
+>   multi-step build. Live-verified with local ollama/llama3.2.
+> - **v3.2 (pause/resume the loop on approval)** is the next Runtime v2
+>   milestone, gated on owner direction. Other post-v1 work (teams/auth, hosted
+>   platform) remains gated.
 >
 > The plan text below is preserved verbatim as provided by the owner.
 

@@ -1066,6 +1066,65 @@ loop, no pause/resume across approval — those are v3.1 (bounded loop + governe
 commands + validator feedback) and v3.2 (resume-on-approval). v3.0 reuses every
 existing engine and adds none.
 
+## Bounded Agent Loop (v3.1 — shipped, multi-step governed execution)
+
+`app/runtime/agent_run.py` wraps the v3.0 single-pass body in a **bounded
+iteration**. It is not a new engine — it is a controller that calls the model
+gateway, enforcement, command runner, sandbox, and validators in a loop, all
+exactly as the rest of the runtime calls them. v3.0's JSON tolerance is shared
+verbatim: `agent_build.load_json_object` / `files_from` / `_salvage_html` were
+factored out so both the single pass and the loop parse identically.
+
+**The loop.** Up to `max_steps` passes (default 6, hard-capped at 8 by
+`clamp_steps`). Each step: `build_step_prompt` assembles the goal + the current
+sandbox file tree + the *previous* step's validator results, command results,
+and approval/block notes → one real `provider.complete(...)` through the agent's
+own provider/model → `parse_step` extracts `{summary, done, files[], commands[]}`
+(commands accept `{command,args}` objects or bare strings; everything is bounded
+and capped) → `apply_step` executes the actions. Because the async model call
+must interleave with synchronous DB/enforcement work, the **loop body lives in
+the route**: the model call is awaited, then `apply_step` runs in a threadpool
+and commits per step, so a long loop streams its events as it goes.
+
+**Same choke point for files *and* commands.** Every file write and every
+`command.run` is attributed to the agent and routed through
+`enforcement.guarded_execute` — so v1.2 path safety, the v1.5 policy registry,
+v1.6 approval halts, and v1.7 quarantine apply with no new code. A safe file
+lands in the sandbox; a safe command runs through the v1.3 runner (scrubbed env,
+allowlist, timeout); a sensitive path/command raises `EnforcementRefused` (403)
+and creates an approval; a traversal/secret path or unsafe command is blocked
+(disk untouched). A blocked or held action never crashes the step — it is
+recorded as an outcome.
+
+**Validator feedback.** After a step's actions, `_run_step_validators` runs the
+deterministic v1.8 validators over the outputs — `secret_exposure` on every
+written file, `code_syntax` on `.py`/`.json`, `command_result` when a command
+ran — and the pass/fail lines are folded into the next prompt. Validators are
+reused unchanged; their evidence stays redacted and bounded, and the model
+output is `_redact`ed before it ever reaches the `model.completed` preview.
+
+**Stop conditions.** The loop stops on a model `done` signal, a step with no
+actions, `max_steps`, an unrecoverable error (a failed or malformed model
+response), or the **first approval-required action** — recorded as
+`halted_for_approval`, after which the loop stops cleanly with a pending
+approval. Pausing the loop and resuming it once that approval is granted is
+v3.2 and deliberately not built here. `finalize_run` computes the overall
+status (completed if any file was written or the model said done, else failed)
+and emits `runtime.agent_run.completed`/`failed`.
+
+**Events & replay.** `runtime.agent_run.started` → one `runtime.agent_run.step`
+per pass (with per-step counts and the stop reason) → `completed`/`failed`,
+plus all the reused `model.*`/`action.*`/`enforcement.*`/`sandbox.*`/
+`validator.*` events — so Replay reconstructs the entire multi-step build.
+Route: `POST /runtime/workspaces/{id}/agent-run` (gated; 409 if quarantined).
+UI: the **Agent run** panel renders a per-step timeline (files, commands,
+validator badges) with a plain-English stop reason.
+
+**Explicit non-goals for v3.1** (later versions): pause/resume the loop across
+an approval (v3.2), parallel agents, agent-to-agent handoff, arbitrary
+long-running processes/dev servers, package installation, web research, and any
+new validator/enforcement/approval/quarantine engine.
+
 **Key hygiene.** Raw API keys must never enter the chat/event/replay stream.
 The composer blocks key-like strings (`sk-…`, `AIza…`) in both modes with a
 warning and refuses to send them. `/connect <provider>` (Agent Mode) opens a
