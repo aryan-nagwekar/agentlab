@@ -49,6 +49,22 @@ class WorkspaceIn(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class WorkspaceTemplateOut(BaseModel):
+    template_id: str
+    name: str
+    description: str
+    goal: str
+    agent_roles: list[str] = Field(default_factory=list)
+    agent_count: int = 0
+    tags: list[str] = Field(default_factory=list)
+
+
+class WorkspaceFromTemplateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    goal: str | None = Field(default=None, max_length=4000)
+    project_id: str = Field(default="demo-project", min_length=1, max_length=255)
+
+
 class WorkspacePatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     goal: str | None = Field(default=None, max_length=4000)

@@ -506,6 +506,17 @@ export interface RuntimeWorkspace {
   updated_at: string;
 }
 
+// Workspace templates (v3.3) — one-click real workspace + agent team setup.
+export interface WorkspaceTemplate {
+  template_id: string;
+  name: string;
+  description: string;
+  goal: string;
+  agent_roles: string[];
+  agent_count: number;
+  tags: string[];
+}
+
 // ------------------------------------------------- workspace agents (v1.1)
 
 export type WorkspaceAgentStatus =

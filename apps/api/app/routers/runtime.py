@@ -32,6 +32,7 @@ from ..runtime import (
     sandbox,
     service,
     validators,
+    workspace_templates,
 )
 from ..runtime.agent_templates import AGENT_TEMPLATES, get_template
 from ..runtime.models import (
@@ -94,9 +95,11 @@ from ..runtime.schemas import (
     WorkflowIn,
     WorkflowOut,
     WorkflowPlanOut,
+    WorkspaceFromTemplateIn,
     WorkspaceIn,
     WorkspaceOut,
     WorkspacePatch,
+    WorkspaceTemplateOut,
 )
 from ..schemas import EventOut
 
@@ -211,6 +214,64 @@ async def create_workspace(body: WorkspaceIn, request: Request) -> WorkspaceOut:
             out = _workspace_out(session, workspace)
             rows = list(stored)
             return out, rows, workspace.project_id
+        finally:
+            session.close()
+
+    out, stored, project_id = await run_in_threadpool(_create)
+    await _broadcast(request, project_id, stored)
+    return out
+
+
+# ---- workspace templates (v3.3): one-click REAL workspace setup ----
+# Instantiates a real workspace + a team of agents + a goal (not the canned
+# demo). The agents build for real when the user runs a build afterward.
+
+
+@router.get("/runtime/workspace-templates", response_model=list[WorkspaceTemplateOut])
+def list_workspace_templates() -> list[WorkspaceTemplateOut]:
+    return [
+        WorkspaceTemplateOut(
+            template_id=t.template_id,
+            name=t.name,
+            description=t.description,
+            goal=t.goal,
+            agent_roles=workspace_templates.agent_roles(t),
+            agent_count=len(t.agent_template_ids),
+            tags=list(t.tags),
+        )
+        for t in workspace_templates.WORKSPACE_TEMPLATES
+    ]
+
+
+@router.post(
+    "/runtime/workspace-templates/{template_id}/create",
+    response_model=WorkspaceOut,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
+async def create_workspace_from_template(
+    template_id: str, body: WorkspaceFromTemplateIn, request: Request
+) -> WorkspaceOut:
+    template = workspace_templates.get_workspace_template(template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="workspace template not found")
+    root = _workspaces_root(request)
+    session_factory = request.app.state.session_factory
+
+    def _create():
+        session = session_factory()
+        try:
+            workspace, _agents, stored = workspace_templates.instantiate(
+                session,
+                template,
+                root,
+                project_id=body.project_id,
+                name=body.name,
+                goal=body.goal,
+            )
+            session.commit()
+            out = _workspace_out(session, workspace)
+            return out, list(stored), workspace.project_id
         finally:
             session.close()
 

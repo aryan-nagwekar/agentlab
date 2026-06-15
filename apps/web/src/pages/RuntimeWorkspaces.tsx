@@ -22,6 +22,22 @@ export function RuntimeWorkspacesPage() {
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
 
+  const { data: templates } = useFetch(() => api.workspaceTemplates(), []);
+  const [templateBusy, setTemplateBusy] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
+  const createFromTemplate = async (templateId: string) => {
+    setTemplateBusy(templateId);
+    setTemplateError(null);
+    try {
+      const workspace = await api.createWorkspaceFromTemplate(templateId);
+      navigate(`/runtime/workspaces/${workspace.workspace_id}`);
+    } catch (e) {
+      setTemplateError(e instanceof Error ? e.message : String(e));
+      setTemplateBusy(null);
+    }
+  };
+
   const create = async () => {
     setCreating(true);
     setCreateError(null);
@@ -118,6 +134,51 @@ export function RuntimeWorkspacesPage() {
             </button>
           </div>
           {createError ? <div className="mt-2"><ErrorNote message={createError} /></div> : null}
+        </Card>
+      ) : null}
+
+      {/* Start from a template (v3.3) — one-click REAL workspace + agent team */}
+      {templates && templates.length > 0 ? (
+        <Card className="mb-4 px-4 py-4">
+          <SectionLabel>Start from a template</SectionLabel>
+          <p className="mt-1 text-[12px] leading-5 text-zinc-500">
+            Spin up a real workspace with a goal and a team of agents, ready to build.
+            Not a demo — the agents build for real when you run a build.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {templates.map((t) => (
+              <div
+                key={t.template_id}
+                data-testid="workspace-template-card"
+                className="flex flex-col rounded-lg border border-edge bg-surface-0 px-3 py-3"
+              >
+                <div className="text-[13.5px] font-semibold text-zinc-100">{t.name}</div>
+                <p className="mt-1 line-clamp-3 flex-1 text-[12px] leading-5 text-zinc-500">
+                  {t.description}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {t.agent_roles.map((role) => (
+                    <span
+                      key={role}
+                      className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => createFromTemplate(t.template_id)}
+                  disabled={chatMode || templateBusy !== null}
+                  title={chatMode ? "Switch to Agent Mode to perform this action." : undefined}
+                  className="mt-3 rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
+                >
+                  {templateBusy === t.template_id ? "Creating…" : "Use this template"}
+                </button>
+              </div>
+            ))}
+          </div>
+          {templateError ? <div className="mt-2"><ErrorNote message={templateError} /></div> : null}
         </Card>
       ) : null}
 

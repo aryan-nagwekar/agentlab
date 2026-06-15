@@ -34,6 +34,7 @@ import type {
   RuntimeWorkflow,
   RuntimeWorkflowPlan,
   RuntimeWorkspace,
+  WorkspaceTemplate,
   SandboxCommandResult,
   SandboxFileEntry,
   SandboxFileRead,
@@ -204,6 +205,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  workspaceTemplates: () =>
+    request<WorkspaceTemplate[]>("/api/runtime/workspace-templates"),
+  createWorkspaceFromTemplate: (
+    templateId: string,
+    body: { name?: string; goal?: string; project_id?: string } = {},
+  ) =>
+    request<RuntimeWorkspace>(
+      `/api/runtime/workspace-templates/${templateId}/create`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
   patchRuntimeWorkspace: (
     workspaceId: string,
     body: {

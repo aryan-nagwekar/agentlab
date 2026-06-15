@@ -63,6 +63,7 @@ const patchRuntimeWorkspace = vi.fn();
 const archiveRuntimeWorkspace = vi.fn();
 const registerRuntimeArtifact = vi.fn();
 const createBottleShopDemo = vi.fn();
+const createWorkspaceFromTemplate = vi.fn();
 vi.mock("../lib/api", () => ({
   API_BASE: "",
   api: {
@@ -72,6 +73,19 @@ vi.mock("../lib/api", () => ({
     runtimeWorkspaceArtifacts: () => Promise.resolve(artifacts),
     createRuntimeWorkspace: (...args: unknown[]) => createRuntimeWorkspace(...args),
     createBottleShopDemo: (...args: unknown[]) => createBottleShopDemo(...args),
+    workspaceTemplates: () =>
+      Promise.resolve([
+        {
+          template_id: "storefront-team",
+          name: "Storefront Team",
+          description: "An e-commerce storefront.",
+          goal: "Build a store.",
+          agent_roles: ["Planner Agent", "UI Agent"],
+          agent_count: 2,
+          tags: ["web"],
+        },
+      ]),
+    createWorkspaceFromTemplate: (...args: unknown[]) => createWorkspaceFromTemplate(...args),
     patchRuntimeWorkspace: (...args: unknown[]) => patchRuntimeWorkspace(...args),
     archiveRuntimeWorkspace: (...args: unknown[]) => archiveRuntimeWorkspace(...args),
     registerRuntimeArtifact: (...args: unknown[]) => registerRuntimeArtifact(...args),
@@ -179,6 +193,25 @@ describe("RuntimeWorkspacesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
     await waitFor(() => expect(screen.getByTestId("detail")).toBeTruthy());
     expect(createRuntimeWorkspace).toHaveBeenCalledWith({ name: "Fresh Workspace", goal: null });
+  });
+
+  it("creates a real workspace from a template", async () => {
+    createWorkspaceFromTemplate.mockResolvedValue({ ...workspace, workspace_id: "ws-tpl" });
+    render(
+      <MemoryRouter initialEntries={["/runtime"]}>
+        <Routes>
+          <Route path="/runtime" element={<RuntimeWorkspacesPage />} />
+          <Route
+            path="/runtime/workspaces/:workspaceId"
+            element={<div data-testid="detail">detail</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("Storefront Team")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Use this template" }));
+    await waitFor(() => expect(screen.getByTestId("detail")).toBeTruthy());
+    expect(createWorkspaceFromTemplate).toHaveBeenCalledWith("storefront-team");
   });
 
   it("blocks creation in Chat Mode", async () => {
