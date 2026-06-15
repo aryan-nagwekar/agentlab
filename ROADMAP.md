@@ -767,6 +767,33 @@ multi-step builds lost a step to the cap (empty product grid).
   storefront completed in ~141s (6 product cards, CSS-gradient thumbnails, no
   external images). Version 3.2.2.
 
+## v3.3.0 — Workspace Templates ✅
+
+One-click setup of a **real** workspace (not the canned demo). Instantiating a
+workspace template materializes a project area + a goal + an initialized sandbox
++ a team of agents (from the v1.1 agent templates, on the local default model) —
+then the user runs a real governed build and every action flows through the
+enforcement gateway as usual.
+
+- `app/runtime/workspace_templates.py`: a static registry (Storefront Team,
+  Landing Page Team, Web App Team) + `instantiate`, which only orchestrates
+  existing services (`create_workspace` → `init_sandbox` →
+  `create_agent_from_template`). **It writes no files** — unlike
+  `demo_bottle_shop.seed`, nothing is canned; the agents build for real when you
+  run a build.
+- Routes: `GET /runtime/workspace-templates`,
+  `POST /runtime/workspace-templates/{id}/create` (gated; optional name/goal
+  override). Emits the normal `workspace.created` / `sandbox.initialized` /
+  `workspace_agent.template_instantiated` events.
+- UI: a "Start from a template" section on the Runtime page — cards with the
+  goal + the agent team, one click creates the real workspace and opens it.
+- 5 backend pytest (incl. a proof the sandbox stays empty — no canned files) +
+  1 vitest. Reuses every existing service, adds no engine. Version 3.3.0.
+
+> This is the *setup* half of "Goal → Team": it stands up a real team in one
+> click. Driving the whole team to build collaboratively from one prompt
+> (vs. today's single-agent builds) remains future work.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP

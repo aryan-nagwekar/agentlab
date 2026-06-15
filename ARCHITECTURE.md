@@ -1189,6 +1189,24 @@ provider registry is rebuilt (most recent explicit user action wins;
 `/clear` falls back to the env). The key never touches the database, logs,
 events, or any response — only `redact_key`'s hint comes back.
 
+## Workspace Templates (v3.3 — shipped, one-click real setup)
+
+`app/runtime/workspace_templates.py` is a static registry of workspace
+blueprints (Storefront / Landing Page / Web App Team). `instantiate` is *data,
+not an engine*: it only orchestrates existing services — `create_workspace` →
+`init_sandbox` → `create_agent_from_template` for each agent in the blueprint —
+to stand up a **real** workspace + a goal + a team of agents (on the v3.2.1
+local default model). The critical contrast with `demo_bottle_shop.seed`: a
+workspace template **writes no files and runs nothing**. It is pure setup; the
+agents build for real, governed by the v1.5 gateway, only when the user runs a
+build (agent-build / agent-run) afterward — a test asserts the sandbox stays
+empty after instantiation. Routes: `GET /runtime/workspace-templates`,
+`POST /runtime/workspace-templates/{id}/create` (gated, optional name/goal
+override); the normal `workspace.created` / `sandbox.initialized` /
+`workspace_agent.template_instantiated` events make the setup ordinary workspace
+history. This is the *setup* half of "Goal → Team"; autonomous multi-agent
+collaborative building (vs. today's single-agent builds) remains future work.
+
 ## Testing
 
 - **SDK (22 tests):** transport against a real in-process HTTP server —
