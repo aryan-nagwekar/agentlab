@@ -10,6 +10,13 @@ import { Badge, CopyButton, SectionLabel } from "../ui";
 
 function ModelCallDetail({ event }: { event: AgentLabEvent }) {
   const call = normalizeModelEvent(event);
+  const payload = event.payload as Record<string, unknown>;
+  const output =
+    typeof payload.output_text === "string"
+      ? payload.output_text
+      : typeof payload.output_preview === "string"
+        ? payload.output_preview
+        : undefined;
   return (
     <div>
       <SectionLabel>Model call</SectionLabel>
@@ -35,6 +42,14 @@ function ModelCallDetail({ event }: { event: AgentLabEvent }) {
       {call.errorMessage ? (
         <div className="mt-2 rounded-md border border-red-400/30 bg-red-400/5 px-2.5 py-1.5 text-[11px] text-red-300">
           {call.errorMessage}
+        </div>
+      ) : null}
+      {output ? (
+        <div className="mt-3">
+          <SectionLabel>Output</SectionLabel>
+          <div className="mt-1 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-edge bg-surface-0 p-3 text-[12px] leading-5 text-zinc-300">
+            {output}
+          </div>
         </div>
       ) : null}
     </div>

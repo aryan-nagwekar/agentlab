@@ -3,7 +3,9 @@
 Emits model.called + model.completed/model.failed through the normal collector
 pipeline, so gateway calls show up in the graph, replay, inspector, metrics, and
 the v0.6 Cost & Tokens system for free. Payloads never contain the API key or
-the raw prompt text beyond a short preview.
+the raw prompt text beyond a short preview. Callers that want the full model
+output persisted (e.g. Studio, where the output *is* the deliverable) pass
+``full_output=True``; the default keeps a short preview for compact traces.
 """
 from __future__ import annotations
 
@@ -12,8 +14,13 @@ import uuid
 from ..schemas import EventIn
 from .base import ModelRequest, ModelResponse
 
+# Bound the persisted full output so a runaway response can't bloat the event log.
+FULL_OUTPUT_CHARS = 20_000
 
-def build_model_events(request: ModelRequest, response: ModelResponse) -> list[EventIn]:
+
+def build_model_events(
+    request: ModelRequest, response: ModelResponse, *, full_output: bool = False
+) -> list[EventIn]:
     model_call_id = f"model-{uuid.uuid4().hex[:12]}"
     meta = {"model_call_id": model_call_id, "via": "model-gateway"}
     base_payload = {
@@ -54,12 +61,17 @@ def build_model_events(request: ModelRequest, response: ModelResponse) -> list[E
             metadata=meta,
         )
     else:
+        output_payload = {"output_preview": response.output_text[:200]}
+        if full_output:
+            # Persist the complete answer (bounded) so the inspector can show it,
+            # not just a 200-char teaser.
+            output_payload["output_text"] = response.output_text[:FULL_OUTPUT_CHARS]
         result = EventIn(
             event_type="model.completed",
             project_id=request.project_id or "default",
             run_id=request.run_id or "gateway",
             source_agent_id=request.agent_id,
-            payload={**result_payload, "output_preview": response.output_text[:200]},
+            payload={**result_payload, **output_payload},
             metadata=meta,
         )
     return [called, result]

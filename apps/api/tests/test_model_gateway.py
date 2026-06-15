@@ -20,6 +20,26 @@ def test_redact_key():
     assert redact_key(None) is None
 
 
+def test_build_model_events_full_output_opt_in():
+    from app.model_gateway import build_model_events
+    from app.model_gateway.base import ModelRequest, ModelResponse
+
+    long_answer = "A" * 5000
+    req = ModelRequest(provider="mock", model_name="mock:x", prompt="hi", run_id="r1")
+    resp = ModelResponse(provider="mock", model_name="mock:x", output_text=long_answer,
+                         latency_ms=1, status="completed")
+
+    # Default (runtime/test-call): short preview only — the full answer is NOT persisted.
+    _called, done = build_model_events(req, resp)
+    assert done.payload["output_preview"] == long_answer[:200]
+    assert "output_text" not in done.payload
+
+    # Studio opts in: the complete answer is persisted (bounded).
+    _called, done_full = build_model_events(req, resp, full_output=True)
+    assert done_full.payload["output_text"] == long_answer
+    assert done_full.payload["output_preview"] == long_answer[:200]
+
+
 # ----------------------------------------------------------------- providers
 
 

@@ -238,6 +238,10 @@ def test_run_creates_normal_agentlab_run_with_full_telemetry(client):
     assert model_done["metadata"]["workflow_id"] == workflow_id
     assert model_done["metadata"]["workflow_name"] == "Test Team"
     assert model_done["metadata"]["agent_definition_id"] in ("writer", "reviewer")
+    # Studio persists the FULL model output (not just a 200-char preview) so the
+    # inspector can show the complete answer.
+    assert isinstance(model_done["payload"]["output_text"], str)
+    assert model_done["payload"]["output_text"]
     started = next(e for e in events if e["event_type"] == "agent.started"
                    and e["source_agent_id"] == "reviewer")
     assert started["metadata"]["upstream_agents"] == ["writer"]

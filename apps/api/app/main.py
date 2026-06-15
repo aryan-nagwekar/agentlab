@@ -30,7 +30,7 @@ from .ws import ConnectionManager
 
 logger = logging.getLogger("agentlab.api")
 
-API_VERSION = "3.2.2"
+API_VERSION = "3.2.3"
 
 
 def _init_db(engine, attempts: int = 12, delay: float = 1.5) -> None:

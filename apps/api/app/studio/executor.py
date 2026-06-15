@@ -185,7 +185,9 @@ async def execute_workflow(
         )
         response = await provider.complete(request)
 
-        called_event, result_event = build_model_events(request, response)
+        # Studio output is the deliverable, so persist the full answer (not just
+        # a 200-char preview) — the inspector surfaces it.
+        called_event, result_event = build_model_events(request, response, full_output=True)
         called_event.timestamp = tick()
         result_event.timestamp = tick(max(response.latency_ms, 1))
         for model_event in (called_event, result_event):
