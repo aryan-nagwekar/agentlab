@@ -736,6 +736,22 @@ template-created agent can do a real governed build (v3.0+) out of the box —
 - 1 added assertion (from-template agents default to ollama/qwen2.5-coder).
   Version 3.2.1.
 
+## v3.2.3 — Studio shows the full answer ✅
+
+A small observability patch. Studio runs are reasoning/text workflows where the
+model **output is the deliverable**, but only a 200-char preview was persisted —
+so a run ended on a truncated "…interceptio" and the inspector never rendered
+the output at all (only buried in raw JSON).
+
+- `build_model_events(..., full_output=True)` (new keyword-only flag, default
+  off) persists the complete answer as `output_text` (bounded to 20k chars)
+  alongside the short `output_preview`. **Studio opts in; the Runtime keeps its
+  short, safe previews unchanged.**
+- The inspector's model-call view now renders a readable **Output** block
+  (full `output_text`, falling back to `output_preview`).
+- +2 backend tests (full-output opt-in; default stays a preview — guards the
+  Runtime), +2 vitest (output renders / preview fallback). Version 3.2.3.
+
 ## v3.2.2 — configurable Ollama timeout ✅
 
 Follow-on to v3.2.1: with `qwen2.5-coder` now the default, the **hardcoded 300s**

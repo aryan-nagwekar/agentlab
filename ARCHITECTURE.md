@@ -427,6 +427,9 @@ dashboard renders the hint amber on unavailable/not-configured cards.
 normal `process_events` pipeline. So gateway calls land in storage, the WS
 stream, graph, replay, inspector, metrics, and Cost & Tokens with zero
 special-casing. Payloads carry a short prompt/output preview, never the key.
+Callers whose output is the deliverable (Studio, v3.2.3) pass `full_output=True`
+to also persist the complete answer (`output_text`, bounded); the Runtime keeps
+short previews. The inspector renders the output as a readable block.
 
 **Endpoints.** `GET /model-gateway/providers`, `/providers/{p}/health`,
 `POST /model-gateway/test-call`, `POST /runs/{id}/model-call`. The SDK's
