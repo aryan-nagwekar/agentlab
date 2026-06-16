@@ -294,3 +294,22 @@ def test_agent_writes_require_api_key_when_configured(tmp_path):
         # reads stay open in local mode
         assert client.get(f"/api/runtime/workspaces/{wid}/agents").status_code == 200
         assert client.get("/api/runtime/agent-templates").status_code == 200
+
+
+def test_set_team_model_switches_all_agents(client):
+    # v3.4.1: flip every agent in the workspace to one provider/model at once.
+    wid = _workspace(client)["workspace_id"]
+    _agent(client, wid, name="Planner")
+    _agent(client, wid, name="UI", role="frontend")
+    updated = client.post(
+        f"/api/runtime/workspaces/{wid}/agents/model",
+        json={"model_provider": "anthropic", "model_name": "claude-sonnet-4-6"},
+    )
+    assert updated.status_code == 200, updated.text
+    agents = updated.json()
+    assert len(agents) == 2
+    assert all(a["model_provider"] == "anthropic" for a in agents)
+    assert all(a["model_name"] == "claude-sonnet-4-6" for a in agents)
+    # persisted
+    listed = client.get(f"/api/runtime/workspaces/{wid}/agents").json()
+    assert all(a["model_provider"] == "anthropic" for a in listed)

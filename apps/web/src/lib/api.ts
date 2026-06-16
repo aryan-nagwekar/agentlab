@@ -402,6 +402,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  setTeamModel: (
+    workspaceId: string,
+    body: { model_provider: string; model_name: string },
+  ) =>
+    request<WorkspaceAgent[]>(`/api/runtime/workspaces/${workspaceId}/agents/model`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   teamBuild: (workspaceId: string, body: { goal?: string } = {}) =>
     request<TeamBuildResult>(`/api/runtime/workspaces/${workspaceId}/team-build`, {
       method: "POST",

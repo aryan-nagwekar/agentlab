@@ -86,6 +86,8 @@ const patchWorkspaceAgent = vi.fn();
 const deleteWorkspaceAgent = vi.fn();
 const quarantineAgent = vi.fn();
 const unquarantineAgent = vi.fn();
+const setTeamModel = vi.fn();
+const providers = vi.fn();
 vi.mock("../../lib/api", () => ({
   api: {
     workspaceAgents: (...a: unknown[]) => workspaceAgents(...a),
@@ -96,6 +98,8 @@ vi.mock("../../lib/api", () => ({
     deleteWorkspaceAgent: (...a: unknown[]) => deleteWorkspaceAgent(...a),
     quarantineAgent: (...a: unknown[]) => quarantineAgent(...a),
     unquarantineAgent: (...a: unknown[]) => unquarantineAgent(...a),
+    setTeamModel: (...a: unknown[]) => setTeamModel(...a),
+    providers: (...a: unknown[]) => providers(...a),
   },
 }));
 
@@ -133,6 +137,16 @@ function renderPanel(props: Partial<{ readOnly: boolean; chatMode: boolean }> = 
 beforeEach(() => {
   workspaceAgents.mockResolvedValue([]);
   workspaceAgentTemplates.mockResolvedValue([template]);
+  providers.mockResolvedValue({
+    providers: [
+      { name: "ollama", configured: true, status: "available", requires_key: false,
+        models: ["qwen2.5-coder"], key_redacted: null },
+      { name: "anthropic", configured: true, status: "available", requires_key: true,
+        models: ["claude-sonnet-4-6"], key_redacted: "sk-...abcd" },
+      { name: "openai", configured: false, status: "not_configured", requires_key: true,
+        models: ["gpt-4.1"], key_redacted: null },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -184,6 +198,27 @@ describe("WorkspaceAgentsPanel", () => {
     expect(agentId).toBe("wsagent-1");
     expect((body as { name: string }).name).toBe("Lead Backend");
     expect((body as { permissions: unknown }).permissions).toBeTruthy();
+  });
+
+  it("switches the whole team to a connected model", async () => {
+    workspaceAgents.mockResolvedValue([agent]);
+    setTeamModel.mockResolvedValue([agent]);
+    renderPanel();
+    const switcher = await screen.findByTestId("team-model-switcher");
+    const select = switcher.querySelector("select")!;
+    // only configured + available providers are offered (openai is not_configured)
+    const opts = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    expect(opts).toContain("ollama/qwen2.5-coder");
+    expect(opts).toContain("anthropic/claude-sonnet-4-6");
+    expect(opts).not.toContain("openai/gpt-4.1");
+    fireEvent.change(select, { target: { value: "anthropic/claude-sonnet-4-6" } });
+    fireEvent.click(screen.getByText("Apply to all agents"));
+    await waitFor(() =>
+      expect(setTeamModel).toHaveBeenCalledWith("ws-abc123", {
+        model_provider: "anthropic",
+        model_name: "claude-sonnet-4-6",
+      }),
+    );
   });
 
   it("disables mutating actions in Chat Mode", async () => {

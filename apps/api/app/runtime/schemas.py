@@ -49,6 +49,12 @@ class WorkspaceIn(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class SetTeamModelIn(BaseModel):
+    # Switch every agent in the workspace to one provider/model in one action.
+    model_provider: str = Field(min_length=1, max_length=64)
+    model_name: str = Field(min_length=1, max_length=128)
+
+
 class WorkspaceTemplateOut(BaseModel):
     template_id: str
     name: str

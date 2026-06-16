@@ -96,6 +96,7 @@ from ..runtime.schemas import (
     WorkflowIn,
     WorkflowOut,
     WorkflowPlanOut,
+    SetTeamModelIn,
     TeamBuildIn,
     TeamBuildOut,
     WorkspaceFromTemplateIn,
@@ -1904,6 +1905,39 @@ def list_workspace_agents(
 ) -> list[AgentDefinitionOut]:
     _require_workspace(session, workspace_id)
     return [_agent_out(a) for a in service.list_agents(session, workspace_id)]
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/agents/model",
+    response_model=list[AgentDefinitionOut],
+    dependencies=[Depends(require_api_key)],
+)
+async def set_team_model(
+    workspace_id: str, body: SetTeamModelIn, request: Request
+) -> list[AgentDefinitionOut]:
+    """Switch every agent in the workspace to one provider/model in one action,
+    so you can flip the whole team between Ollama / Gemini / Claude / mock."""
+    session_factory = request.app.state.session_factory
+
+    def _set():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            stored: list = []
+            for agent in service.list_agents(session, workspace_id):
+                stored += service.update_agent(
+                    session, workspace, agent,
+                    {"model_provider": body.model_provider, "model_name": body.model_name},
+                )
+            session.commit()
+            out = [_agent_out(a) for a in service.list_agents(session, workspace_id)]
+            return out, list(stored), workspace.project_id
+        finally:
+            session.close()
+
+    out, stored, project_id = await run_in_threadpool(_set)
+    await _broadcast(request, project_id, stored)
+    return out
 
 
 @router.post(

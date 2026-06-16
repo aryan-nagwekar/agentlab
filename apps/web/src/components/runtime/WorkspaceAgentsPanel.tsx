@@ -44,10 +44,18 @@ export function WorkspaceAgentsPanel({
   const agentsState = useFetch(() => api.workspaceAgents(workspaceId), [workspaceId]);
   const templatesState = useFetch(() => api.workspaceAgentTemplates(), []);
 
+  const providersState = useFetch(() => api.providers(), []);
   const [showTemplates, setShowTemplates] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [teamModel, setTeamModel] = useState("");
+
+  // Usable (provider, model) options — only providers that are configured and
+  // reachable, so you can flip the whole team onto whatever key you connected.
+  const modelOptions = (providersState.data?.providers ?? [])
+    .filter((p) => p.configured && p.status === "available")
+    .flatMap((p) => p.models.map((m) => `${p.name}/${m}`));
 
   const disabled = chatMode || readOnly;
   const hintTitle = chatMode ? CHAT_HINT : undefined;
@@ -135,6 +143,55 @@ export function WorkspaceAgentsPanel({
               );
             })}
           </div>
+        </div>
+      ) : null}
+
+      {/* Team model switcher — flip every agent onto one provider/model at once */}
+      {!readOnly && agents.length > 0 ? (
+        <div
+          data-testid="team-model-switcher"
+          className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-edge bg-surface-0 px-3 py-2.5"
+        >
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-500">
+              Team model — apply to all agents
+            </span>
+            <select
+              value={teamModel}
+              onChange={(e) => setTeamModel(e.target.value)}
+              disabled={disabled || modelOptions.length === 0}
+              className="rounded-lg border border-edge bg-surface-2 px-2 py-1.5 text-[12px] text-zinc-200 disabled:opacity-60"
+            >
+              <option value="">
+                {modelOptions.length === 0 ? "Connect a provider in Settings…" : "Pick a model…"}
+              </option>
+              {modelOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={disabled || !teamModel || busy !== null}
+            title={hintTitle}
+            onClick={() => {
+              const [provider, ...rest] = teamModel.split("/");
+              act("team-model", () =>
+                api.setTeamModel(workspaceId, {
+                  model_provider: provider,
+                  model_name: rest.join("/"),
+                }),
+              );
+            }}
+            className="rounded-lg border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-[12px] font-medium text-indigo-200 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
+          >
+            {busy === "team-model" ? "Switching…" : "Apply to all agents"}
+          </button>
+          <span className="text-[10.5px] text-zinc-600">
+            Connect a key with <span className="font-mono">/connect</span> in Settings to add more.
+          </span>
         </div>
       ) : null}
 

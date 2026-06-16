@@ -92,6 +92,8 @@ vi.mock("../lib/api", () => ({
     // v1.1 agents panel — detail page renders it; default to no agents here.
     workspaceAgents: () => Promise.resolve([]),
     workspaceAgentTemplates: () => Promise.resolve([]),
+    providers: () => Promise.resolve({ providers: [] }),
+    setTeamModel: () => Promise.resolve([]),
     // v1.2 files panel — default to an uninitialized sandbox here.
     sandboxStatus: () =>
       Promise.resolve({
