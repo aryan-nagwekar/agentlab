@@ -780,6 +780,37 @@ class AgentRunOut(BaseModel):
     commands_run: int = 0
 
 
+class TeamBuildIn(BaseModel):
+    # Defaults to the workspace goal when omitted.
+    goal: str | None = Field(default=None, max_length=4000)
+
+
+class TeamBuildStepOut(BaseModel):
+    agent_id: str
+    agent_name: str
+    role: str
+    task_id: str
+    task_title: str
+    kind: str  # build | contribute
+    status: str  # ok | failed
+    summary: str | None = None
+    note: str | None = None
+    files: list[AgentBuildFileOut] = Field(default_factory=list)
+    validations: list[AgentRunValidationOut] = Field(default_factory=list)
+
+
+class TeamBuildOut(BaseModel):
+    status: str  # completed | failed
+    goal: str
+    workflow_id: str
+    stop_reason: str  # completed | halted_for_approval
+    steps: list[TeamBuildStepOut] = Field(default_factory=list)
+    step_count: int = 0
+    total_written: int = 0
+    total_held: int = 0
+    total_blocked: int = 0
+
+
 class AgentTemplateOut(BaseModel):
     template_id: str
     name: str

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { ModeSwitcher } from "../components/assistant/ModeSwitcher";
 import { AgentBuildPanel } from "../components/runtime/AgentBuildPanel";
 import { AgentRunPanel } from "../components/runtime/AgentRunPanel";
+import { TeamBuildPanel } from "../components/runtime/TeamBuildPanel";
 import { ApprovalsPanel } from "../components/runtime/ApprovalsPanel";
 import { ProjectDebugPanel } from "../components/runtime/ProjectDebugPanel";
 import { ValidatorsPanel } from "../components/runtime/ValidatorsPanel";
@@ -235,6 +236,14 @@ export function RuntimeWorkspacePage() {
           <ProjectDebugPanel
             workspaceId={workspace.workspace_id}
             activityRunId={workspace.activity_run_id}
+          />
+
+          {/* Team build — orchestrator plans, each agent builds its part, governed (v3.4) */}
+          <TeamBuildPanel
+            workspaceId={workspace.workspace_id}
+            goal={workspace.goal}
+            readOnly={workspace.status === "archived"}
+            chatMode={chatMode}
           />
 
           {/* Live agent build — model proposes files, enforcement governs (v3.0) */}

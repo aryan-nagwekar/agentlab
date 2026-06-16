@@ -193,6 +193,11 @@ AGENT_RUN_FAILED = "runtime.agent_run.failed"
 # Pause/resume the bounded loop on approval (v3.2).
 AGENT_RUN_PAUSED = "runtime.agent_run.paused"
 AGENT_RUN_RESUMED = "runtime.agent_run.resumed"
+# Team build (v3.4) — orchestrator plans + assigns, each agent builds its part.
+TEAM_BUILD_STARTED = "runtime.team_build.started"
+TEAM_BUILD_STEP = "runtime.team_build.step"
+TEAM_BUILD_COMPLETED = "runtime.team_build.completed"
+TEAM_BUILD_FAILED = "runtime.team_build.failed"
 
 EVENT_TYPES: frozenset[str] = frozenset(
     {
@@ -317,6 +322,10 @@ EVENT_TYPES: frozenset[str] = frozenset(
         AGENT_RUN_FAILED,
         AGENT_RUN_PAUSED,
         AGENT_RUN_RESUMED,
+        TEAM_BUILD_STARTED,
+        TEAM_BUILD_STEP,
+        TEAM_BUILD_COMPLETED,
+        TEAM_BUILD_FAILED,
     }
 )
 

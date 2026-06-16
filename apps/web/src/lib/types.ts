@@ -1044,6 +1044,33 @@ export interface AgentRunResult {
   commands_run: number;
 }
 
+// Team build (v3.4) — Goal → Team: orchestrator plans, each agent builds its part.
+export interface TeamBuildStep {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  task_id: string;
+  task_title: string;
+  kind: "build" | "contribute";
+  status: "ok" | "failed";
+  summary?: string | null;
+  note?: string | null;
+  files: AgentBuildFile[];
+  validations: AgentRunValidation[];
+}
+
+export interface TeamBuildResult {
+  status: "completed" | "failed";
+  goal: string;
+  workflow_id: string;
+  stop_reason: string;
+  steps: TeamBuildStep[];
+  step_count: number;
+  total_written: number;
+  total_held: number;
+  total_blocked: number;
+}
+
 export interface WorkspaceAgentTemplate {
   template_id: string;
   name: string;

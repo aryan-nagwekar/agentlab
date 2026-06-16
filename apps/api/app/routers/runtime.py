@@ -31,6 +31,7 @@ from ..runtime import (
     quarantine,
     sandbox,
     service,
+    team_build,
     validators,
     workspace_templates,
 )
@@ -95,6 +96,8 @@ from ..runtime.schemas import (
     WorkflowIn,
     WorkflowOut,
     WorkflowPlanOut,
+    TeamBuildIn,
+    TeamBuildOut,
     WorkspaceFromTemplateIn,
     WorkspaceIn,
     WorkspaceOut,
@@ -771,6 +774,128 @@ async def run_agent_build(
     result, stored, project_id = await run_in_threadpool(_apply)
     await _broadcast(request, project_id, stored)
     return AgentBuildOut(**result)
+
+
+# ------------------------------------------------ team build (v3.4 — Goal → Team)
+# One click: the v1.4 orchestrator plans + assigns the goal, then each assigned
+# agent builds its part through the SAME governed pipeline, sharing one sandbox.
+# A bridge over existing services — no new engine; every file write is governed.
+
+
+@router.post(
+    "/runtime/workspaces/{workspace_id}/team-build",
+    response_model=TeamBuildOut,
+    dependencies=[Depends(require_api_key)],
+)
+async def run_team_build(
+    workspace_id: str, body: TeamBuildIn, request: Request
+) -> TeamBuildOut:
+    root = _workspaces_root(request)
+    registry = request.app.state.provider_registry
+    session_factory = request.app.state.session_factory
+
+    # Prep (sync): validate + plan the team (orchestrator assigns tasks to agents).
+    def _plan():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            goal = (body.goal or workspace.goal or "").strip()
+            if not goal:
+                raise HTTPException(status_code=400, detail="a goal is required")
+            workflow, tasks, events = team_build.plan_team(session, workspace, root, goal)
+            specs = team_build.assignable_task_specs(tasks)
+            session.commit()
+            return workspace.project_id, goal, workflow.id, specs, list(events)
+        finally:
+            session.close()
+
+    project_id, goal, workflow_id, task_specs, started = await run_in_threadpool(_plan)
+    await _broadcast(request, project_id, started)
+
+    if not task_specs:
+        # No agent matched any plan step — finalize as a clean failure.
+        def _empty():
+            session = session_factory()
+            try:
+                workspace = _require_workspace(session, workspace_id)
+                out, events = team_build.finalize(
+                    session, workspace, workflow_id, goal, [], "no_assignable_agents"
+                )
+                session.commit()
+                return out, list(events), workspace.project_id
+            finally:
+                session.close()
+
+        out, events, project_id = await run_in_threadpool(_empty)
+        await _broadcast(request, project_id, events)
+        return TeamBuildOut(**out)
+
+    steps_out: list[dict] = []
+    stop_reason = "completed"
+    for task_id, _agent_id in task_specs:
+        def _prep(tid=task_id):
+            session = session_factory()
+            try:
+                workspace = _require_workspace(session, workspace_id)
+                req, writer, provider_name = team_build.prep_task_request(
+                    session, workspace, root, tid
+                )
+                return req, writer, provider_name
+            finally:
+                session.close()
+
+        model_request, writer, provider_name = await run_in_threadpool(_prep)
+        if model_request is None or provider_name is None:
+            continue
+        provider = registry.get(provider_name)
+        if provider is None:
+            continue
+        try:
+            response = await provider.complete(model_request)
+        except Exception as exc:  # noqa: BLE001 — surface as a clean failed step
+            response = ModelResponse(
+                provider=provider_name,
+                model_name=model_request.model_name,
+                output_text="",
+                latency_ms=0,
+                status="failed",
+                error_message=str(exc)[:300],
+            )
+
+        def _apply(resp=response, tid=task_id, is_writer=writer):
+            session = session_factory()
+            try:
+                workspace = _require_workspace(session, workspace_id)
+                step, events, halted = team_build.apply_task(
+                    session, workspace, root, workflow_id, tid, resp, is_writer
+                )
+                session.commit()
+                return step, list(events), halted, workspace.project_id
+            finally:
+                session.close()
+
+        step, events, halted, project_id = await run_in_threadpool(_apply)
+        await _broadcast(request, project_id, events)
+        steps_out.append(step)
+        if halted:
+            stop_reason = "halted_for_approval"
+            break
+
+    def _finalize():
+        session = session_factory()
+        try:
+            workspace = _require_workspace(session, workspace_id)
+            out, events = team_build.finalize(
+                session, workspace, workflow_id, goal, steps_out, stop_reason
+            )
+            session.commit()
+            return out, list(events), workspace.project_id
+        finally:
+            session.close()
+
+    out, events, project_id = await run_in_threadpool(_finalize)
+    await _broadcast(request, project_id, events)
+    return TeamBuildOut(**out)
 
 
 # ------------------------------------- bounded agent loop (v3.1 + v3.2)

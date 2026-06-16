@@ -159,6 +159,12 @@ EVENT_TYPES: frozenset[str] = frozenset(
         # once the human resolves it.
         "runtime.agent_run.paused",
         "runtime.agent_run.resumed",
+        # Team build (v3.4): the orchestrator plans + assigns, then each agent
+        # builds its part through the governed pipeline, sharing one sandbox.
+        "runtime.team_build.started",
+        "runtime.team_build.step",
+        "runtime.team_build.completed",
+        "runtime.team_build.failed",
     }
 )
 

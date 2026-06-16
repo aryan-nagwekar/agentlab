@@ -35,6 +35,7 @@ import type {
   RuntimeWorkflowPlan,
   RuntimeWorkspace,
   WorkspaceTemplate,
+  TeamBuildResult,
   SandboxCommandResult,
   SandboxFileEntry,
   SandboxFileRead,
@@ -398,6 +399,11 @@ export const api = {
     body: { agent_id: string; prompt?: string; max_steps?: number },
   ) =>
     request<AgentRunResult>(`/api/runtime/workspaces/${workspaceId}/agent-run`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  teamBuild: (workspaceId: string, body: { goal?: string } = {}) =>
+    request<TeamBuildResult>(`/api/runtime/workspaces/${workspaceId}/team-build`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
