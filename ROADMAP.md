@@ -826,6 +826,21 @@ through the same governed pipeline, all sharing one sandbox.
 > messier than a single-pass build. The governance, planning, and replay are
 > solid regardless of model.
 
+## v3.4.1 — Team model switcher ✅
+
+Until now there was no UI way to change an agent's model, so a connected BYOK key
+(Gemini / Claude / OpenAI) couldn't actually be *used* — the templates hard-default
+to `ollama/qwen2.5-coder`. This adds a one-click switch.
+
+- `POST /runtime/workspaces/{id}/agents/model` ({model_provider, model_name}) sets
+  **every** agent in the workspace to one model at once (reuses
+  `service.update_agent`; emits the normal `workspace_agent.updated` events).
+- UI: a **"Team model — apply to all agents"** control on the Agents panel,
+  populated only with **connected, reachable** providers (so you see Ollama always,
+  and Gemini/Claude/OpenAI once you `/connect` a key). Pick a model → flip the whole
+  team → run a build to compare output across models.
+- 1 backend pytest + 1 vitest. Version 3.4.1.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP
