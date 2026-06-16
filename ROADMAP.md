@@ -794,6 +794,38 @@ enforcement gateway as usual.
 > click. Driving the whole team to build collaboratively from one prompt
 > (vs. today's single-agent builds) remains future work.
 
+## v3.4.0 — Team Build (Goal → Team) ✅
+
+The feature that makes "define a team of agents and they build the product from
+one prompt" literally true. One click: the v1.4 orchestrator plans the goal and
+assigns each task to the right agent, then **each assigned agent builds its part**
+through the same governed pipeline, all sharing one sandbox.
+
+- `app/runtime/team_build.py`: a **bridge, not a new engine.** It reuses the
+  orchestrator (plan + role assignment + the runtime.workflow/task.* events that
+  make the team visible and replayable), the v3.1 governed helpers
+  (`agent_run._write_files` / `_run_step_validators` / `_model_telemetry`) and
+  `agent_build.parse_manifest`, and therefore the v1.5 enforcement gateway —
+  every file an agent writes goes through `guarded_execute` exactly like a manual
+  write. Writer agents (UI / backend) contribute files; the planner / researcher
+  / verifier / safety reviewer contribute text recorded as their task result.
+  The loop walks the plan in order and stops cleanly if a step is held for
+  approval (resume-as-a-team is future work).
+- Route `POST /runtime/workspaces/{id}/team-build` (gated, optional goal); 4
+  events `runtime.team_build.started/step/completed/failed` plus the reused
+  workflow / model / enforcement / sandbox / validator events — Replay
+  reconstructs the whole multi-agent build.
+- UI: a **"Build with the team"** panel on the workspace — one button, a per-agent
+  step timeline (who built/contributed what, files, validator results,
+  paused-for-approval).
+- 6 backend pytest (plan+assign, each agent governed, validators run, sensitive
+  file halts cleanly, no-agents fails cleanly, gating) + 3 vitest. Version 3.4.0.
+
+> Honest scope: this is *real, governed, observable* multi-agent building. With a
+> strong model it shines; with a small local model the coordinated output can be
+> messier than a single-pass build. The governance, planning, and replay are
+> solid regardless of model.
+
 ## Later (unscheduled)
 
 - Framework integrations: LangGraph / CrewAI / OpenAI Agents SDK / MCP

@@ -1204,8 +1204,38 @@ empty after instantiation. Routes: `GET /runtime/workspace-templates`,
 `POST /runtime/workspace-templates/{id}/create` (gated, optional name/goal
 override); the normal `workspace.created` / `sandbox.initialized` /
 `workspace_agent.template_instantiated` events make the setup ordinary workspace
-history. This is the *setup* half of "Goal → Team"; autonomous multi-agent
-collaborative building (vs. today's single-agent builds) remains future work.
+history. This is the *setup* half of "Goal → Team"; the execution half is v3.4.
+
+## Team Build — Goal → Team (v3.4 — shipped, a bridge not an engine)
+
+`app/runtime/team_build.py` is the execution half of "Goal → Team": one click,
+and a whole team builds the project. It is deliberately a **bridge** over things
+that already exist — it adds no new engine. The v1.4 orchestrator plans the goal
+and assigns each task to the right agent (giving the visible, replayable
+`runtime.workflow.*`/`runtime.task.*` events); then `team_build` drives each
+assigned agent through a governed turn, reusing the v3.1 helpers
+(`agent_run._write_files` / `_run_step_validators` / `_model_telemetry`) and
+`agent_build.parse_manifest`. The single most important property carries over
+from v3.0: every file an agent writes goes through `enforcement.guarded_execute`,
+so v1.2 path safety, the v1.5 policy registry, v1.6 approval halts, and v1.7
+quarantine all apply with no new code.
+
+**Role-aware turns.** Writer agents (role/name matching ui/frontend/design/
+backend/coder/engineer) get a manifest prompt and contribute files to the shared
+sandbox; the planner, researcher, verifier, and safety reviewer get a text
+prompt and contribute a plan / notes / review recorded as their task result
+(respecting that they don't write files). After each writer turn the v3.1
+validators run over what was written. The loop walks the plan in order, records
+each result back through the orchestrator (best-effort, so the Workflows panel
+shows the team progressing), and stops cleanly if a write is held for approval —
+team-wide resume is future work. Route `POST …/team-build`; events
+`runtime.team_build.started/step/completed/failed`.
+
+**Honest scope.** This is real, governed, observable, replayable multi-agent
+building — but the *output quality* is the model's: with a strong model it
+shines, with a small local model the coordinated result can be messier than a
+single clean single-pass build. The governance, planning, attribution, and
+replay are solid regardless of model.
 
 ## Testing
 
